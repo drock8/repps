@@ -1,5 +1,8 @@
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 const {
   assertNonEmptyString,
   parseAgentId,
@@ -8,6 +11,120 @@ const {
 const {
   buildWaveHandoffsDocument,
 } = require("./waves.js");
+const {
+  sessionDir,
+} = require("./paths.js");
+
+const EVIDENCE_MODE = "evidence";
+
+function cleanString(value) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function markerMode(marker) {
+  return cleanString(marker && marker.mode);
+}
+
+function isEvidenceMarker(marker) {
+  return markerMode(marker) === EVIDENCE_MODE;
+}
+
+// Validate the post-report evidence marker shape — distinct from wave-mode
+// markers because evidence runs have no wave/agent context. The orchestrator
+// permits these only after REPORT (or during EXPLORE) when an operator asks
+// the hunter to amplify a single finding's evidence.
+function evidenceMarkerValidationError(marker) {
+  if (!cleanString(marker && marker.target_domain)) {
+    return {
+      block_code: "malformed_marker",
+      reason: "Post-report evidence marker is missing required field: target_domain",
+    };
+  }
+  if (cleanString(marker.wave) || cleanString(marker.agent)) {
+    return {
+      block_code: "malformed_marker",
+      reason: "Post-report evidence marker must not include wave or agent; use the normal wave marker for EXPLORE hunters.",
+    };
+  }
+  return null;
+}
+
+// Read state.phase from disk (not via MCP) because the hook process may not
+// have the MCP server in scope at SubagentStop time. Phase must be REPORT or
+// EXPLORE for evidence runs to be allowed; outside that window we block to
+// prevent accidental evidence collection during HUNT/CHAIN/VERIFY/GRADE.
+function evaluateEvidenceCompletion(marker) {
+  const targetDomain = cleanString(marker && marker.target_domain);
+  if (!targetDomain) {
+    return {
+      ok: false,
+      block_code: "evidence_state_unreadable",
+      reason: "Post-report evidence marker missing target_domain.",
+    };
+  }
+  const home = os.homedir();
+  if (!home) {
+    return {
+      ok: false,
+      block_code: "evidence_state_unreadable",
+      reason: "Post-report evidence marker could not resolve $HOME for session state read.",
+    };
+  }
+  const statePath = path.join(sessionDir(targetDomain), "state.json");
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  } catch (error) {
+    return {
+      ok: false,
+      block_code: "evidence_state_unreadable",
+      reason: `Post-report evidence marker could not read session state: ${error.message || String(error)}`,
+    };
+  }
+  if (!state || (state.phase !== "REPORT" && state.phase !== "EXPLORE")) {
+    return {
+      ok: false,
+      block_code: "evidence_phase_mismatch",
+      reason: `Post-report evidence marker is allowed only in REPORT or EXPLORE phase; current phase is ${state && state.phase ? state.phase : "unknown"}.`,
+    };
+  }
+  return {
+    ok: true,
+    handoff: {
+      present: false,
+      valid: true,
+      provenance: "post_report_evidence",
+      surface_status: "evidence",
+      summary_present: cleanString(marker.summary) !== "",
+      chain_notes_count: 0,
+    },
+  };
+}
+
+function evidenceTelemetryInput({
+  marker,
+  status,
+  block_code = null,
+  handoff = null,
+  transcript_path = null,
+  now = new Date(),
+}) {
+  return {
+    ok: status === "allowed",
+    runType: EVIDENCE_MODE,
+    status,
+    block_code,
+    target_domain: cleanString(marker && marker.target_domain) || null,
+    wave: null,
+    agent: null,
+    surface_id: cleanString(marker && marker.surface_id) || null,
+    transcript_path,
+    handoff,
+    telemetry_source: "hunter-evidence-stop",
+    now,
+  };
+}
 const {
   readCoverageRecordsFromJsonl,
 } = require("./coverage.js");
@@ -220,10 +337,16 @@ function finalizeHunterRun(args) {
 }
 
 module.exports = {
+  EVIDENCE_MODE,
+  evaluateEvidenceCompletion,
   evaluateHunterCompletion,
+  evidenceMarkerValidationError,
+  evidenceTelemetryInput,
   finalizeHunterCompletion,
   finalizeHunterRun,
   handoffTelemetry,
+  isEvidenceMarker,
+  markerMode,
   recordHunterCompletionTelemetry,
   summarizeCoverageForRun,
   summarizeFindingsForRun,
