@@ -14,9 +14,7 @@
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/vmihalis/hacker-bob"><img alt="OpenSSF Scorecard" src="https://api.securityscorecards.dev/projects/github.com/vmihalis/hacker-bob/badge" /></a>
 </p>
 
-Bob is an autonomous bug bounty hunting framework for Claude Code. You point him at a domain. He spawns a small army of agents — recon goblins, hunter gremlins, verifiers with trust issues — and they argue with each other until a report falls out.
-
-You go to bed. Bob does not.
+Bob is an autonomous bug bounty hunting framework for Claude Code. You install it into a Claude Code project, point it at an authorized target, and it coordinates recon, auth capture, hunting, verification, grading, and report writing through local agents and a project-local MCP server.
 
 ## Quickstart
 
@@ -40,6 +38,18 @@ Then run:
 /bob-hunt target.com
 ```
 
+If you are asking another AI coding agent to install Bob from this repository link, give it the target Claude Code project directory and this checklist:
+
+```bash
+git clone https://github.com/vmihalis/hacker-bob.git /tmp/hacker-bob
+cd /tmp/hacker-bob
+./install.sh /absolute/path/to/target-project
+cd /absolute/path/to/target-project
+claude mcp list
+```
+
+`claude mcp list` should show `bountyagent` connected. Then fully restart Claude Code in `/absolute/path/to/target-project` and run `/bob-hunt target.com`.
+
 ## Install
 
 Bob installs into **one Claude Code project directory per command**. The install target is the project you will later run `claude` from; the installer writes that project's `.claude/`, `mcp/`, `.mcp.json`, and related config.
@@ -52,7 +62,7 @@ npx -y hacker-bob-cc@latest install /path/to/your/project
 
 `hacker-bob-cc` is the canonical npm package. The `hacker-bob` package is a small convenience alias that delegates to `hacker-bob-cc`; keep using `hacker-bob-cc` for pinned installs and release provenance.
 
-The installer drops Bob's brain (agents, `/bob-*` commands, skills, rules, hooks, MCP server) into your project's `.claude/` directory. Run it as many times as you like — it's idempotent and keeps your existing config intact. Bob is polite about other people's settings.
+The installer copies Bob's agents, `/bob-*` commands, skills, rules, hooks, MCP server, and supporting runtime files into your project. Run it as many times as you like; it is idempotent and merges Bob-managed config without overwriting unrelated Claude Code settings.
 
 If you prefer a global command, install the CLI once:
 
@@ -78,6 +88,21 @@ cd hacker-bob
 ./install.sh /path/to/your/project
 ```
 
+Do not run `/bob-hunt` from the cloned Hacker Bob source tree unless you intentionally installed Bob into that same directory. The source checkout is normally the installer, while `/path/to/your/project` is the active Claude Code workspace.
+
+### AI Agent Install Notes
+
+When a user pastes only this repository URL into an AI coding agent, the agent should:
+
+1. Ask for or infer the target Claude Code project directory.
+2. Clone this repo to a temporary or tools directory.
+3. Run `./install.sh /absolute/path/to/target-project` from the cloned repo, or use `npx -y hacker-bob-cc@latest install /absolute/path/to/target-project` when npm access is available.
+4. Verify `/absolute/path/to/target-project/.mcp.json` contains an `mcpServers.bountyagent` entry pointing at `/absolute/path/to/target-project/mcp/server.js`.
+5. Run `node -e "require('/absolute/path/to/target-project/mcp/server.js'); console.log('MCP ok')"` to confirm the copied MCP runtime loads.
+6. Start or fully restart Claude Code from `/absolute/path/to/target-project`, then check `claude mcp list`.
+
+The internal MCP server name is still `bountyagent`, so Claude Code tools appear as `mcp__bountyagent__bounty_*`. That is expected. The user-facing commands are `/bob-hunt`, `/bob-status`, `/bob-debug`, `/bob-update`, and `/bob-egress`.
+
 ## Usage
 
 ```bash
@@ -94,8 +119,6 @@ Then in Claude Code, summon Bob:
 /bob-debug                   # review the latest local session
 /bob-update                  # preview and install the latest Bob release
 ```
-
-That's it. Now go make coffee.
 
 For install diagnostics, run:
 
@@ -146,6 +169,21 @@ go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 ```
 
 If those aren't installed, Bob just works with what he's got and doesn't complain.
+
+## MCP Troubleshooting
+
+Bob depends on the project-local MCP server copied into `mcp/server.js`. If Claude Code reports `Cannot find module './tools/index.js'`, the installed MCP runtime is stale or incomplete: `mcp/lib/tool-registry.js` is present, but `mcp/lib/tools/index.js` was not copied into the same target project.
+
+Fix it by reinstalling Bob into the project you run Claude Code from:
+
+```bash
+npx -y hacker-bob-cc@latest install /path/to/your/project
+cd /path/to/your/project
+node -e "require('./mcp/server.js'); console.log('MCP ok')"
+claude mcp list
+```
+
+Then fully restart Claude Code in that project. `claude mcp list` should show `bountyagent` connected. Seeing `bountyagent` is not an old slash command; it is the stable MCP server namespace behind Bob's `bounty_*` tools.
 
 ## Security Model
 
