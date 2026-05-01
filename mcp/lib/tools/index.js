@@ -40,6 +40,9 @@ const TOOL_MODULES = Object.freeze([
   require("./read-hunter-brief.js"),
   require("./read-tool-telemetry.js"),
   require("./read-pipeline-analytics.js"),
+  require("./record-surface-leads.js"),
+  require("./read-surface-leads.js"),
+  require("./promote-surface-leads.js"),
 ]);
 
 module.exports = {

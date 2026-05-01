@@ -18,7 +18,9 @@
 //           bounty_list_auth_profiles, bounty_read_wave_handoffs,
 //           bounty_write_chain_attempt, bounty_read_chain_attempts,
 //           bounty_write_evidence_packs, bounty_read_evidence_packs,
-//           bounty_read_tool_telemetry, bounty_read_pipeline_analytics
+//           bounty_read_tool_telemetry, bounty_read_pipeline_analytics,
+//           bounty_record_surface_leads, bounty_read_surface_leads,
+//           bounty_promote_surface_leads
 
 const { redactUrlSensitiveValues } = require("./redaction.js");
 const {
@@ -65,6 +67,7 @@ const {
   sessionLockPath,
   sessionsRoot,
   statePath,
+  surfaceLeadsPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,
@@ -172,6 +175,11 @@ const {
   readPipelineEvents,
   readSessionArtifactSummary,
 } = require("./lib/pipeline-analytics.js");
+const {
+  promoteSurfaceLeads,
+  readSurfaceLeads,
+  recordSurfaceLeads,
+} = require("./lib/surface-leads.js");
 
 function startServer() {
   startStdioServer({ tools: TOOLS, executeTool });
@@ -230,6 +238,7 @@ module.exports = {
   staticArtifactsJsonlPath,
   staticScan,
   staticScanResultsJsonlPath,
+  surfaceLeadsPath,
   startWave,
   findingsJsonlPath,
   findingsMarkdownPath,
@@ -247,6 +256,7 @@ module.exports = {
   readHunterBrief,
   readPipelineAnalytics,
   readPipelineEvents,
+  readSurfaceLeads,
   readWaveHandoffs,
   rankAttackSurfaces,
   resolveHunterKnowledge,
@@ -258,6 +268,7 @@ module.exports = {
   compactSessionState,
   readVerificationRound,
   recordFinding,
+  recordSurfaceLeads,
   renderEvidencePacksMarkdown,
   renderFindingMarkdownEntry,
   renderGradeVerdictMarkdown,
@@ -265,6 +276,7 @@ module.exports = {
   signupDetect,
   summarizeStaticScanHints,
   summarizeFindings,
+  promoteSurfaceLeads,
   tempEmail,
   transitionPhase,
   verificationRoundPaths,

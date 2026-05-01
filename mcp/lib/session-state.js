@@ -8,6 +8,7 @@ const {
 } = require("./constants.js");
 const {
   assertEnumValue,
+  assertBoolean,
   assertInteger,
   assertNonEmptyString,
   normalizeStringArray,
@@ -35,10 +36,11 @@ const {
   formatTransitionBlockers,
 } = require("./phase-gates.js");
 
-function buildInitialSessionState(domain, targetUrl) {
+function buildInitialSessionState(domain, targetUrl, { deepMode = false } = {}) {
   return {
     target: domain,
     target_url: targetUrl,
+    deep_mode: deepMode,
     phase: "RECON",
     hunt_wave: 0,
     pending_wave: null,
@@ -63,6 +65,7 @@ function publicSessionState(state) {
 function compactSessionState(state) {
   return {
     target: state.target,
+    deep_mode: state.deep_mode === true,
     phase: state.phase,
     hunt_wave: state.hunt_wave,
     pending_wave: state.pending_wave,
@@ -88,6 +91,9 @@ function normalizeSessionStateDocument(document, requestedDomain) {
   return {
     target: requestedDomain,
     target_url: assertNonEmptyString(document.target_url, "target_url"),
+    deep_mode: document.deep_mode == null
+      ? false
+      : assertBoolean(document.deep_mode, "deep_mode"),
     phase: assertEnumValue(document.phase, PHASE_VALUES, "phase"),
     hunt_wave: document.hunt_wave == null
       ? 0
@@ -156,6 +162,7 @@ function writeSessionStateDocument(domain, rawDocument, state) {
 function initSession(args) {
   const domain = assertNonEmptyString(args.target_domain, "target_domain");
   const targetUrl = assertNonEmptyString(args.target_url, "target_url");
+  const deepMode = args.deep_mode == null ? false : assertBoolean(args.deep_mode, "deep_mode");
 
   return withSessionLock(domain, () => {
     const dir = sessionDir(domain);
@@ -168,11 +175,12 @@ function initSession(args) {
       throw new ToolError(ERROR_CODES.STATE_CONFLICT, `Session directory is not empty: ${dir}`);
     }
 
-    const state = buildInitialSessionState(domain, targetUrl);
+    const state = buildInitialSessionState(domain, targetUrl, { deepMode });
     writeFileAtomic(filePath, `${JSON.stringify(state, null, 2)}\n`);
     safeAppendPipelineEventDirect(domain, "session_started", {
       phase: state.phase,
       source: "bounty_init_session",
+      deep_mode: state.deep_mode,
     });
 
     return JSON.stringify({

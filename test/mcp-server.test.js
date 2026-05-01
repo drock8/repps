@@ -103,6 +103,7 @@ const {
   readPipelineAnalytics,
   readPipelineEvents,
   readSessionArtifactSummary,
+  readSurfaceLeads,
   readTrafficRecordsFromJsonl,
   compactSessionState,
   listFindings,
@@ -118,6 +119,7 @@ const {
   readVerificationRound,
   readWaveHandoffs,
   recordFinding,
+  recordSurfaceLeads,
   redactUrlSensitiveValues,
   reportMarkdownPath,
   resolveAuthJsonPath,
@@ -131,6 +133,7 @@ const {
   staticArtifactsJsonlPath,
   staticScan,
   staticScanResultsJsonlPath,
+  surfaceLeadsPath,
   tempEmail,
   transitionPhase,
   trafficJsonlPath,
@@ -148,6 +151,7 @@ const {
   readHunterBrief,
   readStaticArtifactRecordsFromJsonl,
   readStaticScanResultsFromJsonl,
+  promoteSurfaceLeads,
 } = serverModule;
 
 const EXPECTED_TOOL_NAMES = [
@@ -190,6 +194,9 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_read_hunter_brief",
   "bounty_read_tool_telemetry",
   "bounty_read_pipeline_analytics",
+  "bounty_record_surface_leads",
+  "bounty_read_surface_leads",
+  "bounty_promote_surface_leads",
 ];
 
 function withTempHome(fn) {
@@ -295,6 +302,7 @@ function seedSessionState(domain, overrides = {}) {
   const state = {
     target: domain,
     target_url: "https://example.com",
+    deep_mode: false,
     phase: "HUNT",
     hunt_wave: 0,
     pending_wave: null,
@@ -573,6 +581,7 @@ test("mcp server public exports remain stable", () => {
     "normalizeStringArray",
     "normalizeTrafficRecord",
     "pipelineEventsJsonlPath",
+    "promoteSurfaceLeads",
     "publicIntelPath",
     "rankAttackSurfaces",
     "readAuthJson",
@@ -594,10 +603,12 @@ test("mcp server public exports remain stable", () => {
     "readStateSummary",
     "readStaticArtifactRecordsFromJsonl",
     "readStaticScanResultsFromJsonl",
+    "readSurfaceLeads",
     "readTrafficRecordsFromJsonl",
     "readVerificationRound",
     "readWaveHandoffs",
     "recordFinding",
+    "recordSurfaceLeads",
     "redactUrlSensitiveValues",
     "renderEvidencePacksMarkdown",
     "renderFindingMarkdownEntry",
@@ -620,6 +631,7 @@ test("mcp server public exports remain stable", () => {
     "staticScanResultsJsonlPath",
     "summarizeFindings",
     "summarizeStaticScanHints",
+    "surfaceLeadsPath",
     "tempEmail",
     "trafficJsonlPath",
     "transitionPhase",
@@ -710,6 +722,13 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.mutating, false);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.global_preapproval, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_pipeline_analytics.role_bundles, ["orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.global_preapproval, true);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.mutating, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_promote_surface_leads.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.global_preapproval, false);
 });
 
 test("MCP tool registry validation rejects incomplete or inconsistent entries", () => {
@@ -1752,6 +1771,7 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
     const expectedState = {
       target: domain,
       target_url: targetUrl,
+      deep_mode: false,
       phase: "RECON",
       hunt_wave: 0,
       pending_wave: null,
@@ -1779,6 +1799,15 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
       version: 1,
       state: expectedState,
     });
+
+    const deepDomain = "deep.example.com";
+    const deepCreated = JSON.parse(initSession({
+      target_domain: deepDomain,
+      target_url: "https://deep.example.com",
+      deep_mode: true,
+    }));
+    assert.equal(deepCreated.state.deep_mode, true);
+    assert.equal(JSON.parse(readStateSummary({ target_domain: deepDomain })).state.deep_mode, true);
   });
 });
 
@@ -1850,6 +1879,7 @@ test("legacy state normalization is applied while unknown fields remain on disk 
       state: {
         target: domain,
         target_url: "https://example.com",
+        deep_mode: false,
         phase: "RECON",
         hunt_wave: 0,
         pending_wave: null,
@@ -2499,6 +2529,7 @@ test("bounty_start_wave validates inputs, writes assignments, and updates pendin
     seedAttackSurface(domain, ["surface-a", "surface-b"]);
     const expectedState = {
       target: domain,
+      deep_mode: false,
       phase: "HUNT",
       hunt_wave: 1,
       pending_wave: 2,
@@ -2779,6 +2810,106 @@ test("bounty_apply_wave_merge merges state, findings, requeues, and scope exclus
     assert.deepEqual(fullState.waf_blocked_endpoints, ["/old-waf", "/new-waf"]);
     assert.deepEqual(fullState.scope_exclusions, ["oos.example.net", "api.other.example"]);
     assert.deepEqual(readScopeExclusions(domain), ["oos.example.net", "api.other.example"]);
+  });
+});
+
+test("surface leads are compact, promotable, and wave assignable", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", deep_mode: true });
+    seedAttackSurfaces(domain, [
+      {
+        id: "surface-a",
+        hosts: [`https://${domain}`],
+        tech_stack: [],
+        endpoints: [],
+        interesting_params: [],
+        nuclei_hits: [],
+        priority: "LOW",
+      },
+    ]);
+
+    const recorded = JSON.parse(recordSurfaceLeads({
+      target_domain: domain,
+      source: "test",
+      leads: [{
+        title: "Admin API from JS bundle",
+        hosts: [`https://admin.${domain}`],
+        endpoints: ["/api/admin/users?account_id=1"],
+        interesting_params: ["account_id"],
+        tech_stack: ["Next.js"],
+        priority: "HIGH",
+        surface_type: "admin",
+        bug_class_hints: ["idor", "authz"],
+        high_value_flows: ["admin", "exports"],
+        evidence: ["JS bundle references /api/admin/users?account_id="],
+        confidence: "high",
+        score: 86,
+      }],
+    }));
+    assert.equal(recorded.recorded, 1);
+    assert.ok(fs.existsSync(surfaceLeadsPath(domain)));
+
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 5 }));
+    assert.equal(leads.total, 1);
+    assert.equal(leads.high_confidence_unpromoted, 1);
+    assert.equal(leads.leads[0].id, "SL-1");
+
+    const promoted = JSON.parse(promoteSurfaceLeads({ target_domain: domain, limit: 3, min_score: 60 }));
+    assert.deepEqual(promoted.promoted_surface_ids, ["lead-admin-api-from-js-bundle"]);
+    const promotedSurfaceId = promoted.promoted_surface_ids[0];
+    const state = JSON.parse(readStateSummary({ target_domain: domain })).state;
+    assert.deepEqual(state.lead_surface_ids, [promotedSurfaceId]);
+
+    const attackSurface = JSON.parse(fs.readFileSync(attackSurfacePath(domain), "utf8"));
+    assert.ok(attackSurface.surfaces.some((surface) => surface.id === promotedSurfaceId));
+    const started = JSON.parse(startWave({
+      target_domain: domain,
+      wave_number: 1,
+      assignments: [{ agent: "a1", surface_id: promotedSurfaceId }],
+    }));
+    assert.equal(started.assignments[0].surface_id, promotedSurfaceId);
+  });
+});
+
+test("deep wave merge promotes high-confidence handoff surface leads into lead_surface_ids", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", pending_wave: 1, deep_mode: true });
+    seedAttackSurface(domain, ["surface-a"]);
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+
+    writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "complete",
+      summary: "Found sibling GraphQL lead.",
+      content: "# A1",
+      surface_leads: [{
+        title: "Sibling GraphQL API",
+        hosts: [`https://api.${domain}`],
+        endpoints: ["/graphql"],
+        priority: "HIGH",
+        surface_type: "graphql",
+        bug_class_hints: ["graphql", "authz"],
+        evidence: ["Assigned surface links to api.example.com/graphql"],
+        confidence: "high",
+        score: 78,
+      }],
+    });
+
+    const merged = JSON.parse(applyWaveMerge({
+      target_domain: domain,
+      wave_number: 1,
+      force_merge: false,
+    }));
+    assert.deepEqual(merged.merge.deep_promoted_surface_ids, ["lead-sibling-graphql-api"]);
+    assert.deepEqual(merged.state.lead_surface_ids, ["lead-sibling-graphql-api"]);
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 5 }));
+    assert.equal(leads.high_confidence_unpromoted, 0);
+    assert.equal(leads.leads[0].status, "promoted");
   });
 });
 
@@ -4450,6 +4581,7 @@ test("bounty_read_findings, bounty_list_findings, and bounty_wave_status return 
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
       circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, note: null },
+      surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [],
     });
   });
@@ -4544,6 +4676,7 @@ test("bounty_list_findings and bounty_wave_status keep their external shapes whi
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
       circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, note: null },
+      surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [
         {
           id: "F-1",

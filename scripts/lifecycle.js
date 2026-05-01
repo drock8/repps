@@ -403,7 +403,7 @@ function doctorProject(projectDir, options = {}) {
     addCheck(checks, "warn", "mcp_dependency_proxy_agent", "proxy-agent is missing; non-default egress profiles will not work until dependencies are installed");
   }
 
-  for (const tool of ["subfinder", "nuclei"]) {
+  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos"]) {
     if (commandExists(tool)) {
       addCheck(checks, "ok", `optional_tool_${tool}`, `${tool} is available`);
     } else {

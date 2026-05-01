@@ -109,6 +109,8 @@ test("hunter frontmatter excludes Write and still exposes wave handoff MCP tools
   assert.ok(tools.includes("mcp__bountyagent__bounty_read_http_audit"));
   assert.ok(tools.includes("mcp__bountyagent__bounty_import_static_artifact"));
   assert.ok(tools.includes("mcp__bountyagent__bounty_static_scan"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_record_surface_leads"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_read_surface_leads"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_import_http_traffic"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_public_intel"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_auth_manual"));
@@ -152,6 +154,11 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.deepEqual(TOOL_MANIFEST.bounty_read_pipeline_analytics.role_bundles, ["orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.global_preapproval, false);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.mutating, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.global_preapproval, true);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.global_preapproval, true);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.global_preapproval, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.mutating, true);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
   assert.ok(!sourceAllowed.has("bounty_merge_wave_handoffs"));
@@ -160,6 +167,9 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.ok(!generatedAllowed.has("bounty_merge_wave_handoffs"));
   assert.ok(!generatedAllowed.has("bounty_read_tool_telemetry"));
   assert.ok(!generatedAllowed.has("bounty_read_pipeline_analytics"));
+  assert.ok(!sourceAllowed.has("bounty_promote_surface_leads"));
+  assert.ok(sourceAllowed.has("bounty_record_surface_leads"));
+  assert.ok(sourceAllowed.has("bounty_read_surface_leads"));
   assert.ok(sourceAllowed.has("bounty_wave_handoff_status"));
   assert.ok(sourceAllowed.has("bounty_write_evidence_packs"));
   assert.ok(sourceAllowed.has("bounty_read_evidence_packs"));
@@ -661,6 +671,22 @@ test("recon attack_surface schema keeps required fields and adds optional enrich
   assert.match(reconPrompt, /Optional enrichment fields are additive/);
 });
 
+test("deep recon stays script-heavy and writes compact ranked lead artifacts", () => {
+  const reconPrompt = readFile(".claude/agents/recon-agent.md");
+
+  assert.match(reconPrompt, /\[MODE\].*normal.*deep/);
+  assert.match(reconPrompt, /subdomain aggregation/i);
+  assert.match(reconPrompt, /crt\.sh/);
+  assert.match(reconPrompt, /amass/);
+  assert.match(reconPrompt, /assetfinder/);
+  assert.match(reconPrompt, /chaos/);
+  assert.match(reconPrompt, /CDX\/Wayback/);
+  assert.match(reconPrompt, /takeover_candidates\.txt/);
+  assert.match(reconPrompt, /deep-summary\.json/);
+  assert.match(reconPrompt, /surface-leads\.json/);
+  assert.match(reconPrompt, /Do not duplicate every URL/);
+});
+
 test("recon prompt remains enrichment-only without new commands or imported toolsets", () => {
   const reconPrompt = readFile(".claude/agents/recon-agent.md");
 
@@ -759,6 +785,21 @@ test("orchestrator documents --no-auth flag and skips AUTH when set", () => {
     /auth_status.*unauthenticated/,
     "Missing unauthenticated transition when --no-auth is set"
   );
+});
+
+test("orchestrator documents deep mode persistence, recon mode, and lead debt", () => {
+  const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
+
+  assert.match(orchestrator, /argument-hint: .*--deep/);
+  assert.match(orchestrator, /`--deep` enables broader script-heavy recon/);
+  assert.match(orchestrator, /bounty_init_session\(\{ target_domain, target_url, deep_mode \}\)/);
+  assert.match(orchestrator, /persisted `state\.deep_mode` keeps deep behavior/);
+  assert.match(orchestrator, /MODE=\[normal\|deep\]/);
+  assert.match(orchestrator, /bounty_promote_surface_leads\(\{ target_domain, limit: 8, min_score: 60 \}\)/);
+  assert.match(orchestrator, /bounty_read_surface_leads\(\{ target_domain, limit: 20 \}\)/);
+  assert.match(orchestrator, /maximum 8/);
+  assert.match(orchestrator, /high-confidence unpromoted leads/);
+  assert.match(orchestrator, /surface_leads/);
 });
 
 test("orchestrator documents checkpoint modes and MCP-owned traffic/audit/intel/static state", () => {
@@ -862,6 +903,9 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(hunterPrompt, /BOB_HUNTER_DONE/);
   assert.match(orchestratorPrompt, /BOB_HUNTER_DONE/);
   assert.match(hunterPrompt, /Durable hunt state must flow only through MCP tools\./);
+  assert.match(hunterPrompt, /bounty_record_surface_leads/);
+  assert.match(hunterPrompt, /surface_leads/);
+  assert.match(hunterPrompt, /surface-leads\.json/);
   assert.match(hunterPrompt, /bounty_log_coverage/);
   assert.match(hunterPrompt, /never write `coverage\.jsonl` through Bash/);
   assert.match(hunterPrompt, /Never create or backfill[\s\S]*http-audit\.jsonl[\s\S]*traffic\.jsonl[\s\S]*public-intel\.json[\s\S]*static-artifacts\.jsonl[\s\S]*static-scan-results\.jsonl/);

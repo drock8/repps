@@ -351,7 +351,7 @@ function printInstallSummary(summary) {
   }
   console.log("");
   console.log("Optional recon tools (hunting works without these, recon steps are skipped):");
-  for (const tool of ["subfinder", "nuclei"]) {
+  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos"]) {
     console.log(`  ${commandExists(tool) ? "OK" : "MISSING"}: ${tool}`);
   }
   console.log(`  ${commandExists("httpx") || fs.existsSync(path.join(os.homedir(), "go", "bin", "httpx")) ? "OK" : "MISSING"}: httpx`);
@@ -360,6 +360,9 @@ function printInstallSummary(summary) {
   console.log("  go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest");
   console.log("  go install github.com/projectdiscovery/httpx/cmd/httpx@latest");
   console.log("  go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest");
+  console.log("  go install github.com/owasp-amass/amass/v4/...@latest");
+  console.log("  go install github.com/tomnomnom/assetfinder@latest");
+  console.log("  go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest");
   console.log("");
   console.log(`Done. Restart Claude Code in ${summary.targetAbs}, then run: /bob-hunt target.com`);
 }

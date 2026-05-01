@@ -40,6 +40,7 @@ const SESSION_LOCK_STALE_MS = 300_000;
 const SESSION_PUBLIC_STATE_FIELDS = [
   "target",
   "target_url",
+  "deep_mode",
   "phase",
   "hunt_wave",
   "pending_wave",
