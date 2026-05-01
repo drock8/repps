@@ -1,0 +1,2171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hacker Bob Architecture Slides</title>
+  <style>
+    :root {
+      --ink: #111a16;
+      --muted: #627068;
+      --paper: #fbfcf8;
+      --white: #ffffff;
+      --line: #d9ded4;
+      --charcoal: #223129;
+      --green: #19705b;
+      --green-soft: #dff2ea;
+      --blue: #285f90;
+      --blue-soft: #dcebf8;
+      --amber: #8d5c13;
+      --amber-soft: #f5e6c6;
+      --red: #a43d3d;
+      --red-soft: #f3dddd;
+      --shadow: 0 20px 64px rgba(17, 26, 22, 0.16);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #101713;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: #101713;
+    }
+
+    .slides {
+      height: 100%;
+      display: flex;
+      transition: transform 360ms cubic-bezier(.2, .8, .2, 1);
+      will-change: transform;
+    }
+
+    .slide {
+      flex: 0 0 100vw;
+      height: 100vh;
+      padding: clamp(34px, 5vw, 72px);
+      background: var(--paper);
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: clamp(18px, 3vw, 34px);
+      overflow: hidden;
+    }
+
+    .slide.dark {
+      color: #f6fbf7;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.055) 1px, transparent 1px) 0 0 / 92px 92px,
+        linear-gradient(0deg, rgba(255,255,255,.045) 1px, transparent 1px) 0 0 / 92px 92px,
+        var(--charcoal);
+    }
+
+    .slide.green {
+      background: #eaf6f0;
+    }
+
+    .slide.blue {
+      background: #eef6fc;
+    }
+
+    .slide.amber {
+      background: #fbf2df;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 12% 16%, rgba(25,112,91,.08), transparent 22%),
+        linear-gradient(135deg, rgba(34,49,41,.035), transparent 44%);
+    }
+
+    .slide.dark::before {
+      background:
+        radial-gradient(circle at 78% 22%, rgba(117,208,180,.16), transparent 28%),
+        radial-gradient(circle at 8% 84%, rgba(120,170,220,.12), transparent 24%);
+    }
+
+    .slide > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .topline {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: inherit;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .brand img {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .dark .brand img {
+      border-color: rgba(255,255,255,.26);
+    }
+
+    .slide-count {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 1.12rem;
+    }
+
+    .dark .slide-count,
+    .dark .subtitle,
+    .dark .small,
+    .dark .foot,
+    .dark .kicker {
+      color: #dbe5df;
+    }
+
+    .content {
+      align-self: center;
+      width: min(100%, 1180px);
+      margin: 0 auto;
+    }
+
+    .wide {
+      width: min(100%, 1320px);
+    }
+
+    .narrow {
+      width: min(100%, 940px);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 940px;
+      font-size: clamp(4rem, 9vw, 8.5rem);
+      line-height: .9;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      max-width: 1050px;
+      font-size: clamp(3.1rem, 6.5vw, 6.8rem);
+      line-height: .95;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      font-size: clamp(1.2rem, 1.8vw, 1.7rem);
+      line-height: 1.12;
+    }
+
+    .kicker {
+      margin-bottom: 16px;
+      color: var(--green);
+      font-size: clamp(.96rem, 1.25vw, 1.14rem);
+      font-weight: 950;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: clamp(1.15rem, 2vw, 1.65rem);
+      line-height: 1.34;
+    }
+
+    .big {
+      max-width: 1040px;
+      font-size: clamp(2.8rem, 5.9vw, 6.2rem);
+      line-height: .96;
+      font-weight: 950;
+    }
+
+    .big em,
+    h2 em {
+      font-style: normal;
+      color: var(--green);
+    }
+
+    .dark .big em,
+    .dark h2 em {
+      color: #84dfc1;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: clamp(1.12rem, 1.6vw, 1.32rem);
+      line-height: 1.46;
+    }
+
+    .phase-label {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 999px;
+      margin: 0 0 24px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: clamp(1rem, 1.7vw, 1.38rem);
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .dark .phase-label {
+      background: rgba(255,255,255,.12);
+      color: #84dfc1;
+      border: 1px solid rgba(255,255,255,.18);
+    }
+
+    .phase-break .content {
+      display: grid;
+      grid-template-columns: minmax(260px, .72fr) minmax(0, 1fr);
+      gap: clamp(36px, 6vw, 92px);
+      align-items: center;
+    }
+
+    .phase-number {
+      font-size: clamp(8rem, 19vw, 18rem);
+      line-height: .78;
+      font-weight: 950;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dark .phase-number {
+      color: #84dfc1;
+    }
+
+    .phase-name {
+      font-size: clamp(4rem, 9vw, 9rem);
+      line-height: .88;
+      font-weight: 950;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .phase-caption {
+      max-width: 660px;
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: clamp(1.18rem, 2vw, 1.7rem);
+      line-height: 1.32;
+    }
+
+    .dark .phase-caption {
+      color: #dbe5df;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 400px);
+      align-items: center;
+      gap: clamp(34px, 7vw, 96px);
+    }
+
+    .hero-card {
+      justify-self: center;
+      width: min(100%, 430px);
+      display: grid;
+      place-items: center;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      transform: rotate(2deg);
+    }
+
+    .hero-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter:
+        drop-shadow(0 24px 44px rgba(0, 0, 0, .42))
+        drop-shadow(0 0 22px rgba(117, 255, 195, .16));
+    }
+
+    .qr-card {
+      width: min(100%, 380px);
+      padding: 18px;
+      border-radius: 18px;
+      background: #f7fff9;
+      border: 1px solid rgba(117, 255, 195, .46);
+      box-shadow:
+        0 22px 62px rgba(0, 0, 0, .38),
+        0 0 30px rgba(117, 255, 195, .18);
+    }
+
+    .qr-card.large {
+      width: min(100%, 430px);
+    }
+
+    .qr-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+      border-radius: 8px;
+    }
+
+    .qr-url {
+      margin-top: 14px;
+      color: #02100a;
+      font-size: clamp(1rem, 1.45vw, 1.22rem);
+      font-weight: 900;
+      line-height: 1.24;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+      gap: clamp(28px, 5vw, 76px);
+      align-items: center;
+    }
+
+    .split.reverse {
+      grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr);
+    }
+
+    .center {
+      text-align: center;
+      display: grid;
+      justify-items: center;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .center .pill-row {
+      justify-content: center;
+    }
+
+    .bounty-platforms {
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--charcoal);
+      border: 1px solid var(--line);
+      font-size: 1.04rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .bounty-platforms .pill {
+      min-height: 54px;
+      padding: 0 22px;
+      font-size: clamp(1.08rem, 1.7vw, 1.42rem);
+      font-weight: 950;
+    }
+
+    .dark .pill {
+      color: #fff;
+      background: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.24);
+    }
+
+    .one-two-three {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 34px;
+    }
+
+    .tile {
+      min-height: 260px;
+      padding: 28px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 36px rgba(17,26,22,.08);
+      display: grid;
+      align-content: space-between;
+      gap: 22px;
+    }
+
+    .tile strong {
+      display: block;
+      font-size: clamp(1.65rem, 2.8vw, 2.55rem);
+      line-height: 1.04;
+    }
+
+    .tile p {
+      color: var(--muted);
+      font-size: 1.18rem;
+      line-height: 1.42;
+    }
+
+    .tile .tag,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 25px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 1rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .tag.blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .tag.amber {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .tag.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .role-slices .tag {
+      min-height: 44px;
+      padding: 0 17px;
+      font-size: clamp(.98rem, 1.45vw, 1.24rem);
+      letter-spacing: .055em;
+    }
+
+    .verify-steps .tag {
+      min-height: 42px;
+      padding: 0 16px;
+      font-size: clamp(.9rem, 1.3vw, 1.12rem);
+      letter-spacing: .05em;
+    }
+
+    .large-tags .tag {
+      min-height: 44px;
+      padding: 0 17px;
+      font-size: clamp(.98rem, 1.45vw, 1.24rem);
+      letter-spacing: .055em;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 36px;
+    }
+
+    .flow-step {
+      min-height: 154px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+      display: grid;
+      align-content: space-between;
+      gap: 12px;
+      position: relative;
+      box-shadow: 0 12px 28px rgba(17,26,22,.07);
+    }
+
+    .flow-step::after {
+      content: ">";
+      position: absolute;
+      right: -9px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      transform: translateY(-50%);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 950;
+      z-index: 2;
+    }
+
+    .flow-step:last-child::after {
+      display: none;
+    }
+
+    .flow-step strong {
+      font-size: clamp(1.04rem, 1.35vw, 1.22rem);
+    }
+
+    .flow-step span {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.28;
+    }
+
+    .mini-flow {
+      display: grid;
+      gap: 14px;
+    }
+
+    .mini-step {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--charcoal);
+      color: #fff;
+      font-weight: 950;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mini-step p {
+      color: var(--muted);
+      font-size: clamp(1.18rem, 1.85vw, 1.5rem);
+      line-height: 1.35;
+      padding-top: 3px;
+    }
+
+    .code-card {
+      background: #16201a;
+      color: #eef7f0;
+      border: 1px solid #0f1712;
+      border-radius: 18px;
+      padding: clamp(18px, 2.2vw, 28px);
+      box-shadow: var(--shadow);
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: clamp(.98rem, 1.28vw, 1.2rem);
+      line-height: 1.44;
+    }
+
+    .code-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      color: #cfe4d8;
+      font-size: 1.08rem;
+      font-weight: 850;
+    }
+
+    .json-key {
+      color: #8bd7bd;
+    }
+
+    .json-note {
+      color: #9fb0a6;
+    }
+
+    .diagram {
+      display: grid;
+      gap: 18px;
+    }
+
+    .diagram-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .block {
+      min-height: 190px;
+      padding: 24px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 36px rgba(17,26,22,.08);
+      display: grid;
+      align-content: space-between;
+      gap: 20px;
+    }
+
+    .block.dark-block {
+      background: var(--charcoal);
+      color: #fff;
+      border-color: var(--charcoal);
+    }
+
+    .block.dark-block p {
+      color: #dbe5df;
+    }
+
+    .block p {
+      color: var(--muted);
+      font-size: 1.16rem;
+      line-height: 1.4;
+    }
+
+    .funnel {
+      display: grid;
+      gap: 13px;
+      max-width: 780px;
+    }
+
+    .funnel-row {
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 26px rgba(17,26,22,.07);
+      font-size: clamp(1.18rem, 2vw, 1.72rem);
+      font-weight: 900;
+    }
+
+    .funnel-row:nth-child(1) { width: 100%; }
+    .funnel-row:nth-child(2) { width: 88%; justify-self: center; }
+    .funnel-row:nth-child(3) { width: 76%; justify-self: center; }
+    .funnel-row:nth-child(4) { width: 64%; justify-self: center; }
+    .funnel-row:nth-child(5) { width: 52%; justify-self: center; background: var(--green); color: #fff; border-color: var(--green); }
+
+    .two-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .list-panel {
+      padding: 26px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 36px rgba(17,26,22,.08);
+    }
+
+    .list-panel ul {
+      margin: 14px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: clamp(1.1rem, 1.65vw, 1.32rem);
+      line-height: 1.5;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .decision-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .decision {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 18px;
+      align-items: center;
+      min-height: 112px;
+      padding: 18px 20px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 36px rgba(17,26,22,.08);
+    }
+
+    .decision .tag {
+      min-height: 52px;
+      padding: 0 22px;
+      font-size: clamp(1.08rem, 1.65vw, 1.42rem);
+      letter-spacing: .06em;
+    }
+
+    .decision strong {
+      font-size: clamp(1.28rem, 2.1vw, 1.9rem);
+      line-height: 1.08;
+    }
+
+    .decision p {
+      color: var(--muted);
+      font-size: 1.16rem;
+      line-height: 1.35;
+    }
+
+    .big-number {
+      font-size: clamp(8rem, 18vw, 18rem);
+      line-height: .78;
+      font-weight: 950;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .foot {
+      min-height: 32px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100%;
+      height: 5px;
+      background: rgba(255,255,255,.18);
+      z-index: 20;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: #75d0b4;
+      transition: width 220ms ease;
+    }
+
+    .controls {
+      position: fixed;
+      right: 22px;
+      bottom: 20px;
+      display: flex;
+      gap: 8px;
+      z-index: 30;
+    }
+
+    .controls button {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.28);
+      background: rgba(16,23,19,.76);
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 950;
+      backdrop-filter: blur(10px);
+    }
+
+    .controls button:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .hint {
+      position: fixed;
+      left: 22px;
+      bottom: 20px;
+      z-index: 30;
+      color: rgba(255,255,255,.78);
+      font-size: .85rem;
+      background: rgba(16,23,19,.62);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      padding: 9px 13px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Projector-safe hacker theme. Keep the contrast high and the texture subtle. */
+    body,
+    .deck {
+      background: #020805;
+    }
+
+    .slide,
+    .slide.dark,
+    .slide.green,
+    .slide.blue,
+    .slide.amber {
+      color: #f4fff7;
+      background:
+        linear-gradient(90deg, rgba(116, 255, 196, .085) 1px, transparent 1px) 0 0 / 84px 84px,
+        linear-gradient(0deg, rgba(116, 255, 196, .065) 1px, transparent 1px) 0 0 / 84px 84px,
+        radial-gradient(circle at 78% 18%, rgba(0, 255, 170, .13), transparent 30%),
+        radial-gradient(circle at 8% 84%, rgba(0, 150, 255, .10), transparent 26%),
+        #07120d;
+    }
+
+    .slide::before,
+    .slide.dark::before {
+      background:
+        linear-gradient(180deg, rgba(132, 255, 200, .035), rgba(132, 255, 200, 0) 45%) 0 0 / 100% 7px,
+        linear-gradient(135deg, rgba(132, 255, 200, .08), transparent 48%);
+    }
+
+    .brand,
+    h1,
+    h2,
+    h3,
+    .big,
+    .phase-name,
+    .statement {
+      color: #f4fff7;
+      text-shadow: 0 0 18px rgba(117, 255, 190, .12);
+    }
+
+    .kicker,
+    .phase-label,
+    .tag,
+    .tile .tag,
+    .small-label,
+    .artifact code {
+      color: #8bffd1;
+    }
+
+    .subtitle,
+    .small,
+    .foot,
+    .slide-count,
+    .mini-step p,
+    .tile p,
+    .block p,
+    .list-panel ul,
+    .decision p,
+    .flow-step span,
+    .artifact p,
+    .auth-item p,
+    .agent p,
+    .phase-caption {
+      color: #cfe3d7;
+    }
+
+    .big em,
+    h2 em,
+    .dark .big em,
+    .dark h2 em,
+    .phase-number,
+    .dark .phase-number,
+    .big-number {
+      color: #75ffc3;
+      text-shadow: 0 0 24px rgba(117, 255, 195, .18);
+    }
+
+    .hero-card,
+    .tile,
+    .flow-step,
+    .block,
+    .list-panel,
+    .decision,
+    .artifact,
+    .agent,
+    .phase,
+    .auth-item,
+    .arch-column,
+    .funnel-row {
+      background: rgba(8, 24, 17, .88);
+      border-color: rgba(130, 255, 201, .24);
+      box-shadow:
+        0 18px 50px rgba(0, 0, 0, .34),
+        inset 0 0 0 1px rgba(130, 255, 201, .06);
+    }
+
+    .hero-card {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    .block.dark-block,
+    .code-card {
+      background: #020805;
+      border-color: rgba(117, 255, 195, .36);
+      box-shadow:
+        0 20px 58px rgba(0, 0, 0, .42),
+        inset 0 0 0 1px rgba(117, 255, 195, .08);
+    }
+
+    .code-title,
+    pre {
+      color: #ddffea;
+    }
+
+    pre {
+      text-shadow: 0 0 12px rgba(117, 255, 195, .10);
+    }
+
+    .pill,
+    .dark .pill,
+    .phase-label,
+    .tag,
+    .tile .tag,
+    .small-label {
+      background: rgba(117, 255, 195, .11);
+      border: 1px solid rgba(117, 255, 195, .30);
+      color: #9effd8;
+    }
+
+    .tag.blue,
+    .small-label.blue {
+      background: rgba(93, 190, 255, .13);
+      border-color: rgba(93, 190, 255, .30);
+      color: #9bdcff;
+    }
+
+    .tag.amber,
+    .small-label.amber {
+      background: rgba(255, 196, 92, .14);
+      border-color: rgba(255, 196, 92, .34);
+      color: #ffd98a;
+    }
+
+    .tag.red {
+      background: rgba(255, 112, 112, .13);
+      border-color: rgba(255, 112, 112, .34);
+      color: #ffb0aa;
+    }
+
+    .dot,
+    .num,
+    .talk-row span {
+      background: #75ffc3;
+      color: #02100a;
+      box-shadow: 0 0 22px rgba(117, 255, 195, .22);
+    }
+
+    .funnel-row:nth-child(5) {
+      background: #75ffc3;
+      border-color: #75ffc3;
+      color: #02100a;
+    }
+
+    .flow-step::after,
+    .phase::after {
+      background: #07120d;
+      border-color: rgba(117, 255, 195, .34);
+      color: #9effd8;
+    }
+
+    .brand img {
+      border-color: rgba(117, 255, 195, .42);
+      box-shadow: 0 0 18px rgba(117, 255, 195, .18);
+    }
+
+    .progress {
+      background: rgba(117, 255, 195, .18);
+    }
+
+    .progress span {
+      background: #75ffc3;
+      box-shadow: 0 0 18px rgba(117, 255, 195, .45);
+    }
+
+    .controls button,
+    .hint {
+      background: rgba(2, 8, 5, .82);
+      border-color: rgba(117, 255, 195, .34);
+      color: #eafff1;
+    }
+
+    .split h2 {
+      font-size: clamp(2.75rem, 5.25vw, 5.4rem);
+      line-height: .98;
+      max-width: 920px;
+    }
+
+    .split .subtitle {
+      max-width: 860px;
+      font-size: clamp(1.08rem, 1.65vw, 1.42rem);
+      line-height: 1.34;
+      margin-top: 20px;
+    }
+
+    .split .kicker {
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 1080px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        height: auto;
+        overflow: visible;
+      }
+
+      .slides {
+        display: block;
+        height: auto;
+        transform: none !important;
+      }
+
+      .slide {
+        min-height: 100vh;
+        height: auto;
+      }
+
+      .hero,
+      .split,
+      .split.reverse,
+      .phase-break .content,
+      .one-two-three,
+      .diagram-row,
+      .two-list {
+        grid-template-columns: 1fr;
+      }
+
+      .flow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .flow-step::after {
+        display: none;
+      }
+
+      .controls,
+      .hint,
+      .progress {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .slide {
+        padding: 28px 18px;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .slide-count {
+        display: none;
+      }
+
+      .topline {
+        align-items: flex-start;
+      }
+    }
+
+    @media print {
+      body {
+        overflow: visible;
+        background: #fff;
+      }
+
+      .deck {
+        height: auto;
+        overflow: visible;
+      }
+
+      .slides {
+        display: block;
+        transform: none !important;
+      }
+
+      .slide {
+        width: 100vw;
+        height: 100vh;
+        page-break-after: always;
+        break-after: page;
+        overflow: hidden;
+      }
+
+      .controls,
+      .hint,
+      .progress {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-label="Hacker Bob architecture slide deck">
+    <div class="slides" id="slides">
+      <section class="slide dark" data-title="Cover">
+        <div class="topline">
+          <div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div>
+          <div class="slide-count"></div>
+        </div>
+        <div class="content hero">
+          <div>
+            <p class="kicker">Architecture briefing</p>
+            <h1>How Hacker Bob works</h1>
+            <p class="subtitle">A simple explanation of the agents, pipeline, MCP memory, and evidence flow behind Bob.</p>
+          </div>
+          <div class="hero-card">
+            <img src="hacker-bob.png" alt="Hacker Bob mascot">
+          </div>
+        </div>
+        <div class="foot"><span>Event slide deck</span><span>Arrow keys or space to navigate</span></div>
+      </section>
+
+      <section class="slide dark" data-title="GitHub QR">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div>
+            <p class="kicker">Scan this first</p>
+            <h2>Open Hacker Bob on GitHub.</h2>
+            <p class="subtitle">Repo, install command, release notes, issues, and source code are all here.</p>
+            <div class="pill-row">
+              <span class="pill">github.com/vmihalis/hacker-bob</span>
+            </div>
+          </div>
+          <div class="qr-card large">
+            <img src="hacker-bob-github-qr.png" alt="QR code for https://github.com/vmihalis/hacker-bob">
+            <p class="qr-url">github.com/vmihalis/hacker-bob</p>
+          </div>
+        </div>
+        <div class="foot"><span>Repository</span><span>https://github.com/vmihalis/hacker-bob</span></div>
+      </section>
+
+      <section class="slide" data-title="Ethical hacking">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow center">
+          <p class="kicker">First principle</p>
+          <p class="big">Ethical hacking is hacking with permission.</p>
+          <p class="subtitle">Same technical curiosity. Different contract, boundaries, evidence handling, and disclosure path.</p>
+        </div>
+        <div class="foot"><span>Set the frame</span><span>Authorization changes everything</span></div>
+      </section>
+
+      <section class="slide green" data-title="Ethical rules">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Rules of engagement</p>
+          <div class="one-two-three">
+            <div class="tile"><span class="tag">1</span><strong>Get authorization</strong><p>Only test targets, accounts, and methods that are explicitly allowed.</p></div>
+            <div class="tile"><span class="tag blue">2</span><strong>Stay in scope</strong><p>Respect program limits, rate limits, data rules, and third-party boundaries.</p></div>
+            <div class="tile"><span class="tag amber">3</span><strong>Minimize harm</strong><p>Collect the proof needed, redact sensitive data, and report responsibly.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Why this matters</span><span>Bob should amplify discipline, not risk</span></div>
+      </section>
+
+      <section class="slide blue" data-title="Bug bounties">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide split reverse">
+          <div>
+            <p class="kicker">Bug bounty basics</p>
+            <h2>Permission to hunt, with a rulebook.</h2>
+            <p class="subtitle">A company publishes scope, rules, rewards, and a report form. You test only the allowed assets and submit reproducible evidence.</p>
+            <div class="pill-row bounty-platforms">
+              <span class="pill"><a href="https://www.hackerone.com/bug-bounty-programs">HackerOne</a></span>
+              <span class="pill"><a href="https://www.bugcrowd.com/bug-bounty-list/">Bugcrowd</a></span>
+              <span class="pill"><a href="https://www.intigriti.com/researchers/bug-bounty-programs">Intigriti</a></span>
+              <span class="pill"><a href="https://www.yeswehack.com/edu/">YesWeHack</a></span>
+              <span class="pill"><a href="https://huntr.com/">huntr AI/ML</a></span>
+            </div>
+          </div>
+          <div class="mini-flow">
+            <div class="mini-step"><div class="dot">1</div><p>Read the scope before touching anything.</p></div>
+            <div class="mini-step"><div class="dot">2</div><p>Test carefully and avoid real user harm.</p></div>
+            <div class="mini-step"><div class="dot">3</div><p>Report proof that someone can reproduce.</p></div>
+            <div class="mini-step"><div class="dot">4</div><p>Wait for triage, fix, and reward decisions.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Where to start</span><span>Public programs, beginner-friendly scopes, and company security pages</span></div>
+      </section>
+
+      <section class="slide dark" data-title="Why now">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="kicker">Threat landscape: April 2026</p>
+          <p class="big">The attack surface is moving faster than static playbooks.</p>
+          <p class="subtitle">This month alone: software supply chain compromise, stolen SaaS tokens, OAuth abuse, active zero-days, and critical infrastructure intrusion disclosures.</p>
+        </div>
+        <div class="foot"><span>Research checked Apr 30, 2026</span><span>Selected public incidents, not a complete global census</span></div>
+      </section>
+
+      <section class="slide" data-title="April incidents supply chain">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Recent incidents: supply chain</p>
+          <div class="one-two-three">
+            <div class="tile"><span class="tag">Apr 29</span><strong>SAP npm packages</strong><p>Official SAP-related packages were compromised to steal developer and cloud credentials.</p></div>
+            <div class="tile"><span class="tag blue">Apr 22</span><strong>Bitwarden CLI</strong><p>A malicious npm delivery path briefly distributed a backdoored CLI package.</p></div>
+            <div class="tile"><span class="tag amber">Apr 7</span><strong>Snowflake customers</strong><p>Stolen third-party integration tokens drove data-theft attempts against customer accounts.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Pattern</span><span>Trusted software paths became attack paths</span></div>
+      </section>
+
+      <section class="slide" data-title="April incidents enterprise">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Recent incidents: enterprise and data</p>
+          <div class="one-two-three">
+            <div class="tile"><span class="tag">Apr 20</span><strong>Vercel</strong><p>A third-party AI/OAuth integration became a route into internal systems and customer data exposure.</p></div>
+            <div class="tile"><span class="tag blue">Apr 26</span><strong>Itron</strong><p>The utility technology firm disclosed unauthorized access to internal systems.</p></div>
+            <div class="tile"><span class="tag amber">Apr 13</span><strong>Booking / Basic-Fit</strong><p>Public breach reports included reservation data exposure and a 1M-member fitness breach.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Pattern</span><span>Identity, SaaS, and data access are primary targets</span></div>
+      </section>
+
+      <section class="slide amber" data-title="April incidents exploitation">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Recent incidents: exploitation</p>
+            <h2>Zero-days and exposed admin surfaces are still live fire.</h2>
+            <p class="subtitle">April reporting included active exploitation around Fortinet EMS, Microsoft Defender, Windows Shell, LiteLLM, Qinglong, cPanel/WHM, and WordPress plugin backdoors.</p>
+          </div>
+          <div class="funnel">
+            <div class="funnel-row">Exposed management</div>
+            <div class="funnel-row">Weak auth</div>
+            <div class="funnel-row">Known exploited flaws</div>
+            <div class="funnel-row">Credential theft</div>
+            <div class="funnel-row">Data impact</div>
+          </div>
+        </div>
+        <div class="foot"><span>Pattern</span><span>Attackers combine old gaps with fast exploitation</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="The big shift">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">AI</div>
+          <div>
+            <p class="kicker">The big shift</p>
+            <div class="phase-name">SECURITY IS BECOMING AGENTIC</div>
+            <p class="phase-caption">Attack and defense are moving from fixed scripts to systems that observe, decide, use tools, and adapt.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Transition slide</span><span>This is why Bob's architecture matters</span></div>
+      </section>
+
+      <section class="slide dark" data-title="Agents attacking">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="kicker">Agent-assisted attacks</p>
+          <p class="big">The attacker loop is becoming agent-assisted.</p>
+          <p class="subtitle">Not just static scripts: operators now use AI to research, plan, generate lures, test infrastructure, triage data, and adapt faster.</p>
+        </div>
+        <div class="foot"><span>Precise claim</span><span>Human operators still steer many attacks, but agents compress time and skill</span></div>
+      </section>
+
+      <section class="slide" data-title="Static scripts vs agents">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Why this changes defense</p>
+            <h2>Static scripts execute.</h2>
+            <p class="subtitle">Agents decide what to try next.</p>
+          </div>
+          <div class="mini-flow">
+            <div class="mini-step"><div class="dot">1</div><p>Observe the target.</p></div>
+            <div class="mini-step"><div class="dot">2</div><p>Choose the next test.</p></div>
+            <div class="mini-step"><div class="dot">3</div><p>Call tools.</p></div>
+            <div class="mini-step"><div class="dot">4</div><p>Adapt from results.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Bridge to Bob</span><span>Ethical automation needs memory, scope, evidence, and human control</span></div>
+      </section>
+
+      <section class="slide blue" data-title="Research basis">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Sources checked Apr 30, 2026</p>
+          <div class="two-list">
+            <div class="list-panel"><h3>Incident pulse</h3><ul><li><a href="https://www.bleepingcomputer.com/news/security/">BleepingComputer security feed</a></li><li><a href="https://www.wiz.io/blog/mini-shai-hulud-supply-chain-sap-npm">Wiz: SAP npm compromise</a></li><li><a href="https://community.bitwarden.com/t/bitwarden-statement-on-checkmarx-supply-chain-incident/96127">Bitwarden: CLI incident statement</a></li><li><a href="https://techcrunch.com/2026/04/20/app-host-vercel-confirms-security-incident-says-customer-data-was-stolen-via-breach-at-context-ai/">TechCrunch: Vercel incident</a></li></ul></div>
+            <div class="list-panel"><h3>AI shift</h3><ul><li><a href="https://www.microsoft.com/en-us/security/blog/2026/04/02/threat-actor-abuse-of-ai-accelerates-from-tool-to-cyberattack-surface/">Microsoft: AI abuse accelerates</a></li><li><a href="https://www.microsoft.com/en-us/security/blog/2026/03/06/ai-as-tradecraft-how-threat-actors-operationalize-ai/">Microsoft: agentic tradecraft</a></li><li><a href="https://aws.amazon.com/blogs/security/ai-augmented-threat-actor-accesses-fortigate-devices-at-scale/">AWS: AI-augmented FortiGate attacks</a></li><li><a href="https://www.nsa.gov/Press-Room/Press-Releases-Statements/Press-Release-View/Article/4467839/nsa-and-others-release-joint-guidance-addressing-multiple-china-nexus-threat-ac/">NSA: joint threat advisory</a></li></ul></div>
+          </div>
+        </div>
+        <div class="foot"><span>Use this slide if challenged</span><span>Claims are current as of Apr 30, 2026</span></div>
+      </section>
+
+      <section class="slide" data-title="The problem">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="kicker">The problem</p>
+          <p class="big">Bug bounty hunting is not one task.</p>
+          <p class="subtitle">It is recon, auth, testing, chaining, verifying, collecting evidence, grading, and writing.</p>
+        </div>
+        <div class="foot"><span>Start here</span><span>Bob is built around the workflow</span></div>
+      </section>
+
+      <section class="slide green" data-title="One sentence">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow center">
+          <p class="kicker">One sentence</p>
+          <p class="big">Bob turns the hunt into a <em>state machine with receipts.</em></p>
+          <p class="subtitle">Every phase leaves structured evidence behind.</p>
+        </div>
+        <div class="foot"><span>Simple mental model</span><span>State machine + artifacts</span></div>
+      </section>
+
+      <section class="slide" data-title="Three layers">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Architecture in three layers</p>
+          <div class="one-two-three">
+            <div class="tile"><span class="tag">1</span><strong>Commands</strong><p>The human starts, resumes, checks, and debugs Bob.</p></div>
+            <div class="tile"><span class="tag blue">2</span><strong>Orchestrator</strong><p>The root skill chooses the next phase and starts agents.</p></div>
+            <div class="tile"><span class="tag amber">3</span><strong>MCP memory</strong><p>The local server owns state, findings, evidence, and telemetry.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>What to remember</span><span>Human control, agent work, durable state</span></div>
+      </section>
+
+      <section class="slide blue" data-title="Command layer">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Layer 1</p>
+            <h2>Commands are the control panel.</h2>
+            <p class="subtitle">The operator does not manage every file. They use simple Claude Code commands.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Common commands</span><span>Claude Code</span></div>
+            <pre>/bob-hunt target.com
+/bob-hunt resume target.com
+/bob-status
+/bob-debug
+/bob-egress</pre>
+          </div>
+        </div>
+        <div class="foot"><span>User-facing surface</span><span>Simple commands over a complex workflow</span></div>
+      </section>
+
+      <section class="slide" data-title="Orchestrator">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div class="mini-flow">
+            <div class="mini-step"><div class="dot">1</div><p>Read the current session state.</p></div>
+            <div class="mini-step"><div class="dot">2</div><p>Decide the next phase.</p></div>
+            <div class="mini-step"><div class="dot">3</div><p>Spawn the right specialist agent.</p></div>
+            <div class="mini-step"><div class="dot">4</div><p>Wait for structured output.</p></div>
+          </div>
+          <div>
+            <p class="kicker">Layer 2</p>
+            <h2>The orchestrator coordinates.</h2>
+            <p class="subtitle">It does not do random target testing. It delegates work and keeps the run on rails.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Root skill: bob-hunt</span><span>Coordinates, delegates, resumes</span></div>
+      </section>
+
+      <section class="slide dark" data-title="MCP memory">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="kicker">Layer 3</p>
+          <p class="big">MCP is Bob's memory and rulebook.</p>
+          <p class="subtitle">The local `bountyagent` server validates tools, writes artifacts, enforces phase gates, and records telemetry.</p>
+          <div class="pill-row">
+            <span class="pill">state</span>
+            <span class="pill">findings</span>
+            <span class="pill">coverage</span>
+            <span class="pill">evidence</span>
+            <span class="pill">grade</span>
+            <span class="pill">audit</span>
+          </div>
+        </div>
+        <div class="foot"><span>Source of truth</span><span>JSON and JSONL, not chat memory</span></div>
+      </section>
+
+      <section class="slide" data-title="Context problem">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="kicker">Context strategy</p>
+          <p class="big">Long hunts can drown the model.</p>
+          <p class="subtitle">Recon data, traffic, auth, findings, retries, dead ends, and evidence can quickly become too much for one chat to carry.</p>
+        </div>
+        <div class="foot"><span>The challenge</span><span>Too much context causes drift</span></div>
+      </section>
+
+      <section class="slide green" data-title="Context answer">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content center">
+          <p class="kicker">Context strategy</p>
+          <p class="big">Bob keeps memory outside the chat.</p>
+          <p class="subtitle">The chat coordinates. MCP stores. Agents receive only the slice they need.</p>
+          <div class="pill-row">
+            <span class="pill">compact briefs</span>
+            <span class="pill">surface assignments</span>
+            <span class="pill">artifact reads</span>
+            <span class="pill">structured handoffs</span>
+          </div>
+        </div>
+        <div class="foot"><span>The answer</span><span>Use context like a budget</span></div>
+      </section>
+
+      <section class="slide" data-title="Context slices">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Context strategy</p>
+          <h2>Each agent gets a narrow slice.</h2>
+          <div class="one-two-three role-slices">
+            <div class="tile"><span class="tag">Hunter</span><strong>One surface</strong><p>Enough detail to test one target area well.</p></div>
+            <div class="tile"><span class="tag blue">Verifier</span><strong>One claim set</strong><p>Enough detail to replay and challenge findings.</p></div>
+            <div class="tile"><span class="tag amber">Reporter</span><strong>Only survivors</strong><p>Enough detail to write from verified evidence.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Strategic compression</span><span>Less context per agent, better focus</span></div>
+      </section>
+
+      <section class="slide" data-title="Hunter brief">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Context strategy</p>
+            <h2>The hunter brief is curated.</h2>
+            <p class="subtitle">Bob does not paste the whole session. It builds a compact brief from MCP state.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: hunter brief contents</span><span>high level</span></div>
+            <pre>{
+  "assigned_surface": "API-1",
+  "auth_hint": "attacker + victim",
+  "coverage_summary": "2 tested, 1 promising",
+  "traffic_hints": ["/api/invoices/:id"],
+  "dead_ends": ["/old-login"],
+  "ranking_reason": "auth + object IDs"
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Important idea</span><span>Briefs are generated from durable state</span></div>
+      </section>
+
+      <section class="slide" data-title="State example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div class="code-card">
+            <div class="code-title"><span>Example: state.json</span><span>simplified</span></div>
+            <pre>{
+  "target": "example.com",
+  "phase": "HUNT",
+  "hunt_wave": 2,
+  "pending_wave": null,
+  "auth_status": "attacker_and_victim",
+  "total_findings": 1
+}</pre>
+          </div>
+          <div>
+            <p class="kicker">Context strategy</p>
+            <h2>State makes Bob resumable.</h2>
+            <p class="subtitle">If the chat stops, Bob can read the session state and continue from the right place.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Key idea</span><span>Progress lives on disk, not only in the conversation</span></div>
+      </section>
+
+      <section class="slide" data-title="Pipeline overview">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">The whole run</p>
+          <h2>Seven phases, one direction.</h2>
+          <div class="flow">
+            <div class="flow-step"><strong>RECON</strong><span>Find surfaces</span></div>
+            <div class="flow-step"><strong>AUTH</strong><span>Get profiles</span></div>
+            <div class="flow-step"><strong>HUNT</strong><span>Test surfaces</span></div>
+            <div class="flow-step"><strong>CHAIN</strong><span>Combine impact</span></div>
+            <div class="flow-step"><strong>VERIFY</strong><span>Replay claims</span></div>
+            <div class="flow-step"><strong>GRADE</strong><span>Decide quality</span></div>
+            <div class="flow-step"><strong>REPORT</strong><span>Write result</span></div>
+          </div>
+        </div>
+        <div class="foot"><span>FSM</span><span>RECON -> AUTH -> HUNT -> CHAIN -> VERIFY -> GRADE -> REPORT</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 1">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">01</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">RECON</div>
+            <p class="phase-caption">Bob builds the map before anyone starts testing.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 1 of 7</span><span>Output: attack_surface.json</span></div>
+      </section>
+
+      <section class="slide" data-title="Recon">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="phase-label">Phase 1: RECON</p>
+            <h2>Bob first builds a map.</h2>
+            <p class="subtitle">Recon finds attack surfaces and gives each one a stable ID.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: attack_surface.json</span><span>simplified</span></div>
+            <pre>{
+  "target": "example.com",
+  "surfaces": [
+    {
+      "id": "API-1",
+      "type": "api",
+      "url": "https://api.example.com",
+      "priority": "HIGH",
+      "hints": ["auth", "object_ids"]
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Output</span><span>Surfaces hunters can be assigned to</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 2">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">02</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">AUTH</div>
+            <p class="phase-caption">Bob tries to get useful testing identities.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 2 of 7</span><span>Goal: attacker and victim profiles</span></div>
+      </section>
+
+      <section class="slide amber" data-title="Auth">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="phase-label">Phase 2: AUTH</p>
+          <p class="big">Bob tries to get useful accounts.</p>
+          <p class="subtitle">Attacker and victim profiles let Bob test access control with contrast instead of guessing.</p>
+          <div class="pill-row">
+            <span class="pill">API signup</span>
+            <span class="pill">Browser signup</span>
+            <span class="pill">Manual capture</span>
+            <span class="pill">Auth store</span>
+          </div>
+        </div>
+        <div class="foot"><span>Why it matters</span><span>IDOR and access-control testing need two identities</span></div>
+      </section>
+
+      <section class="slide blue" data-title="HTTP audit">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Network visibility</p>
+            <h2>Bob records how it touches the target.</h2>
+            <p class="subtitle">HTTP scans go through MCP, which writes redacted audit metadata and egress information.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: http-audit.jsonl line</span><span>simplified</span></div>
+            <pre>{
+  "method": "GET",
+  "url": "https://api.example.com/api/...",
+  "status": 200,
+  "auth_profile": "attacker",
+  "egress_profile": "default"
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Important for operators</span><span>Audited requests, redacted URLs, visible egress</span></div>
+      </section>
+
+      <section class="slide" data-title="Egress">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow center">
+          <p class="kicker">Egress control</p>
+          <p class="big">Bob does not silently rotate networks.</p>
+          <p class="subtitle">If reachability looks blocked or geofenced, Bob reports it and the operator chooses an egress profile.</p>
+          <div class="pill-row">
+            <span class="pill">/bob-egress</span>
+            <span class="pill">operator choice</span>
+            <span class="pill">no proxy URLs in audit</span>
+          </div>
+        </div>
+        <div class="foot"><span>Boundary</span><span>Routing is controlled by the human</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 3">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">03</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">HUNT</div>
+            <p class="phase-caption">Specialist agents test assigned surfaces in waves.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 3 of 7</span><span>Output: findings, coverage, handoffs</span></div>
+      </section>
+
+      <section class="slide" data-title="Hunt waves">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="phase-label">Phase 3: HUNT</p>
+            <h2>Hunters work in waves.</h2>
+            <p class="subtitle">One hunter gets one surface. That keeps parallel testing focused.</p>
+          </div>
+          <div class="diagram">
+            <div class="diagram-row">
+              <div class="block"><span class="tag">Start</span><h3>Assign surfaces</h3><p>MCP writes wave assignments.</p></div>
+              <div class="block dark-block"><span class="tag blue">Run</span><h3>Spawn hunters</h3><p>Agents test in background.</p></div>
+              <div class="block"><span class="tag amber">Merge</span><h3>Validate handoffs</h3><p>MCP updates session state.</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="foot"><span>Wave rule</span><span>Launch, wait, merge, then decide</span></div>
+      </section>
+
+      <section class="slide" data-title="Wave handoff example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>A hunter leaves a handoff.</h2>
+            <p class="subtitle">This tells Bob what happened to the assigned surface.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: handoff-w1-a2.json</span><span>simplified</span></div>
+            <pre>{
+  "wave": "w1",
+  "agent": "a2",
+  "surface_id": "API-1",
+  "surface_status": "promising",
+  "findings": ["F-1"],
+  "lead_surface_ids": ["WEB-3"],
+  "dead_ends": ["/old-login"]
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Why it matters</span><span>Parallel agents become structured state</span></div>
+      </section>
+
+      <section class="slide" data-title="Coverage example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div class="code-card">
+            <div class="code-title"><span>Example: coverage.jsonl line</span><span>simplified</span></div>
+            <pre>{
+  "surface_id": "API-1",
+  "endpoint": "/api/invoices/123",
+  "bug_class": "idor",
+  "auth_profile": "attacker",
+  "status": "tested",
+  "notes": "Victim invoice blocked"
+}</pre>
+          </div>
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>Coverage prevents repeated guessing.</h2>
+            <p class="subtitle">Bob records what was tested, blocked, promising, or needs auth.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Coverage is durable</span><span>Hunters log meaningful tests through MCP</span></div>
+      </section>
+
+      <section class="slide" data-title="Finding example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>A finding is a claim with context.</h2>
+            <p class="subtitle">It is not a report yet. It is a candidate that must survive chaining and verification.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: findings.jsonl line</span><span>simplified</span></div>
+            <pre>{
+  "id": "F-1",
+  "title": "Invoice IDOR",
+  "severity": "HIGH",
+  "surface_id": "API-1",
+  "auth": "attacker_vs_victim",
+  "evidence": "Attacker can read victim invoice"
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Important distinction</span><span>Finding does not mean reportable yet</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 4">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">04</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">CHAIN</div>
+            <p class="phase-caption">Bob checks whether separate signals combine into stronger impact.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 4 of 7</span><span>Output: chain-attempts.jsonl</span></div>
+      </section>
+
+      <section class="slide dark" data-title="Chain">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="phase-label">Phase 4: CHAIN</p>
+          <p class="big">Bob asks: can this become worse?</p>
+          <p class="subtitle">The chain-builder tests whether findings, auth context, traffic, and handoff notes combine into stronger impact.</p>
+        </div>
+        <div class="foot"><span>Output</span><span>chain-attempts.jsonl</span></div>
+      </section>
+
+      <section class="slide" data-title="Chain example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div class="code-card">
+            <div class="code-title"><span>Example: chain-attempts.jsonl line</span><span>simplified</span></div>
+            <pre>{
+  "id": "C-1",
+  "finding_ids": ["F-1", "F-2"],
+  "hypothesis": "IDOR exposes billing data",
+  "outcome": "confirmed",
+  "impact": "Victim invoice and plan data readable"
+}</pre>
+          </div>
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>Every chain attempt is recorded.</h2>
+            <p class="subtitle">Confirmed, denied, blocked, and not-applicable outcomes all matter.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Why it matters</span><span>Bob records negative results too</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 5">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">05</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">VERIFY</div>
+            <p class="phase-caption">Bob tries to kill weak bugs before they reach the report.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 5 of 7</span><span>Output: verification rounds</span></div>
+      </section>
+
+      <section class="slide green" data-title="Verification funnel">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="phase-label">Phase 5: VERIFY</p>
+            <h2>Most weak bugs should die here.</h2>
+            <p class="subtitle">Bob argues with itself before it writes anything report-like.</p>
+          </div>
+          <div class="funnel">
+            <div class="funnel-row">Findings</div>
+            <div class="funnel-row">Brutalist review</div>
+            <div class="funnel-row">Balanced review</div>
+            <div class="funnel-row">Final replay</div>
+            <div class="funnel-row">Reportable survivors</div>
+          </div>
+        </div>
+        <div class="foot"><span>Verification flow</span><span>Skeptical first, balanced second, final replay last</span></div>
+      </section>
+
+      <section class="slide" data-title="Three-step verification">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Verification system</p>
+          <h2>Three agents challenge the same findings.</h2>
+          <div class="one-two-three verify-steps">
+            <div class="tile"><span class="tag">1 Brutalist</span><strong>Try to kill it</strong><p>Skeptical replay. Deny weak proof and downgrade loose severity.</p></div>
+            <div class="tile"><span class="tag blue">2 Balanced</span><strong>Catch mistakes</strong><p>Review brutalist decisions for false negatives and over-corrections.</p></div>
+            <div class="tile"><span class="tag amber">3 Final replay</span><strong>Fresh proof only</strong><p>Re-run reportable survivors with fresh requests before evidence collection.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Artifacts</span><span>brutalist.json -> balanced.json -> verified-final.json</span></div>
+      </section>
+
+      <section class="slide" data-title="Verification example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>Final verification decides survivors.</h2>
+            <p class="subtitle">Only final reportable findings move into evidence collection.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: verified-final.json</span><span>simplified</span></div>
+            <pre>{
+  "round": "final",
+  "results": [
+    {
+      "finding_id": "F-1",
+      "status": "confirmed",
+      "reportable": true,
+      "confidence": "high"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Gate</span><span>No final reportable finding, no evidence requirement</span></div>
+      </section>
+
+      <section class="slide" data-title="Evidence">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow center">
+          <p class="kicker">Evidence</p>
+          <p class="big">A report needs receipts.</p>
+          <p class="subtitle">Bob collects bounded, redacted evidence packs for final reportable findings.</p>
+          <div class="pill-row">
+            <span class="pill">redacted</span>
+            <span class="pill">bounded</span>
+            <span class="pill">per finding</span>
+            <span class="pill">required before grade</span>
+          </div>
+        </div>
+        <div class="foot"><span>Output</span><span>evidence-packs.json</span></div>
+      </section>
+
+      <section class="slide" data-title="Evidence example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div class="code-card">
+            <div class="code-title"><span>Example: evidence-packs.json</span><span>simplified</span></div>
+            <pre>{
+  "packs": [
+    {
+      "finding_id": "F-1",
+      "sample_count": 3,
+      "redacted": true,
+      "summary": "3 victim invoices readable"
+    }
+  ]
+}</pre>
+          </div>
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>Evidence is separate from the finding.</h2>
+            <p class="subtitle">That keeps the report grounded in replayable proof, not just agent notes.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Safety</span><span>Secrets and auth material are redacted</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 6">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">06</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">GRADE</div>
+            <p class="phase-caption">Bob decides whether the result is ready, needs more work, or should be skipped.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 6 of 7</span><span>Output: grade.json</span></div>
+      </section>
+
+      <section class="slide amber" data-title="Grade">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="phase-label">Phase 6: GRADE</p>
+            <h2>Bob makes a quality decision.</h2>
+            <p class="subtitle">The verdict is simple: submit, hold, or skip.</p>
+          </div>
+          <div class="decision-list">
+            <div class="decision"><span class="tag">SUBMIT</span><div><strong>Ready</strong><p>Verified, evidenced, and worth reporting.</p></div></div>
+            <div class="decision"><span class="tag amber">HOLD</span><div><strong>Needs more work</strong><p>Return to hunting with feedback.</p></div></div>
+            <div class="decision"><span class="tag red">SKIP</span><div><strong>Not reportable</strong><p>Close out with durable reasoning.</p></div></div>
+          </div>
+        </div>
+        <div class="foot"><span>Output</span><span>grade.json</span></div>
+      </section>
+
+      <section class="slide" data-title="Grade example">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">JSON example</p>
+            <h2>The grade explains the decision.</h2>
+            <p class="subtitle">Bob does not just say yes or no. It records why.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Example: grade.json</span><span>simplified</span></div>
+            <pre>{
+  "verdict": "SUBMIT",
+  "total_score": 82,
+  "finding_ids": ["F-1"],
+  "reason": "Confirmed IDOR with evidence"
+}</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Decision artifact</span><span>Used by the report writer</span></div>
+      </section>
+
+      <section class="slide phase-break dark" data-title="Phase 7">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content">
+          <div class="phase-number">07</div>
+          <div>
+            <p class="kicker">Pipeline step</p>
+            <div class="phase-name">REPORT</div>
+            <p class="phase-caption">Bob writes the final output from verified, evidenced, graded data.</p>
+          </div>
+        </div>
+        <div class="foot"><span>Phase 7 of 7</span><span>Output: report.md</span></div>
+      </section>
+
+      <section class="slide dark" data-title="Report">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow">
+          <p class="phase-label">Phase 7: REPORT</p>
+          <p class="big">The report is the last step, not the first draft.</p>
+          <p class="subtitle">It is built from final verification, evidence packs, chain attempts, and grade verdict.</p>
+        </div>
+        <div class="foot"><span>Output</span><span>report.md</span></div>
+      </section>
+
+      <section class="slide" data-title="Guardrails">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content wide">
+          <p class="kicker">Why Bob stays coherent</p>
+          <h2>Guardrails are built into the workflow.</h2>
+          <div class="one-two-three large-tags">
+            <div class="tile"><span class="tag">Hooks</span><strong>Write guard</strong><p>Agents cannot directly edit MCP-owned state files.</p></div>
+            <div class="tile"><span class="tag blue">Gates</span><strong>Phase rules</strong><p>Bob cannot skip required artifacts and evidence.</p></div>
+            <div class="tile"><span class="tag amber">Telemetry</span><strong>Debug trail</strong><p>Status and debug commands show what got stuck.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Reliability model</span><span>Constraints make autonomy inspectable</span></div>
+      </section>
+
+      <section class="slide" data-title="Observability">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Operational visibility</p>
+            <h2>Bob can explain where it is stuck.</h2>
+            <p class="subtitle">Status and debug commands read telemetry and artifacts instead of guessing from chat history.</p>
+          </div>
+          <div class="one-two-three large-tags" style="grid-template-columns: 1fr; margin-top: 0;">
+            <div class="tile"><span class="tag">/bob-status</span><strong>Where are we?</strong><p>Phase, wave, findings, evidence, grade, and next command.</p></div>
+            <div class="tile"><span class="tag blue">/bob-debug</span><strong>What went wrong?</strong><p>Stale waves, missing handoffs, failed tools, policy stalls, and report trust.</p></div>
+          </div>
+        </div>
+        <div class="foot"><span>Debug model</span><span>Telemetry first, artifacts second</span></div>
+      </section>
+
+      <section class="slide blue" data-title="Operator">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">Important boundary</p>
+            <h2>Bob automates work. The human owns authorization.</h2>
+            <p class="subtitle">Bob can send requests, use accounts, and prepare reports. The operator decides scope and submission.</p>
+          </div>
+          <div class="two-list">
+            <div class="list-panel"><h3>Bob handles</h3><ul><li>Workflow</li><li>Agents</li><li>Evidence</li><li>Reports</li></ul></div>
+            <div class="list-panel"><h3>Operator owns</h3><ul><li>Authorization</li><li>Scope rules</li><li>Data handling</li><li>Submission</li></ul></div>
+          </div>
+        </div>
+        <div class="foot"><span>Event wording</span><span>Authorized testing only</span></div>
+      </section>
+
+      <section class="slide" data-title="Not magic">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content narrow center">
+          <p class="kicker">Set expectations</p>
+          <p class="big">Bob is not magic authorization.</p>
+          <p class="subtitle">It is disciplined automation for targets, accounts, and methods the operator is allowed to test.</p>
+          <div class="pill-row">
+            <span class="pill">not auto-submit</span>
+            <span class="pill">not scope approval</span>
+            <span class="pill">not a replacement for judgment</span>
+          </div>
+        </div>
+        <div class="foot"><span>Clear boundary</span><span>Human judgment stays in the loop</span></div>
+      </section>
+
+      <section class="slide" data-title="Install">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split">
+          <div>
+            <p class="kicker">How it is installed</p>
+            <h2>Bob installs into one Claude Code project.</h2>
+            <p class="subtitle">The package copies commands, agents, hooks, settings, and the local MCP runtime.</p>
+          </div>
+          <div class="code-card">
+            <div class="code-title"><span>Install and run</span><span>high level</span></div>
+            <pre>npx -y hacker-bob-cc@latest install /path/to/project
+hacker-bob doctor /path/to/project
+
+# inside Claude Code
+/bob-hunt target.com</pre>
+          </div>
+        </div>
+        <div class="foot"><span>Canonical package</span><span>hacker-bob-cc</span></div>
+      </section>
+
+      <section class="slide dark" data-title="Recap">
+        <div class="topline"><div class="brand"><img src="hacker-bob.png" alt="Hacker Bob logo"> Hacker Bob</div><div class="slide-count"></div></div>
+        <div class="content split reverse">
+          <div>
+            <p class="kicker">Recap</p>
+            <div class="big-number">6</div>
+            <p class="big" style="max-width: 900px; font-size: clamp(2.25rem, 4.45vw, 4.5rem);">things to remember</p>
+            <div class="pill-row">
+              <span class="pill">Pipeline</span>
+              <span class="pill">Context budget</span>
+              <span class="pill">MCP memory</span>
+              <span class="pill">Agents</span>
+              <span class="pill">Evidence gates</span>
+              <span class="pill">Human control</span>
+            </div>
+          </div>
+          <div class="qr-card">
+            <img src="hacker-bob-github-qr.png" alt="QR code for https://github.com/vmihalis/hacker-bob">
+            <p class="qr-url">github.com/vmihalis/hacker-bob</p>
+          </div>
+        </div>
+        <div class="foot"><span>Closing slide</span><span>Scan for the repo and install notes</span></div>
+      </section>
+    </div>
+
+    <div class="hint">Arrow keys, space, F for fullscreen</div>
+    <div class="controls" aria-label="Slide controls">
+      <button type="button" id="prev" aria-label="Previous slide">&lt;</button>
+      <button type="button" id="next" aria-label="Next slide">&gt;</button>
+      <button type="button" id="full" aria-label="Toggle fullscreen">FS</button>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="progress"></span></div>
+  </main>
+
+  <script>
+    const slidesEl = document.getElementById("slides");
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const prev = document.getElementById("prev");
+    const next = document.getElementById("next");
+    const full = document.getElementById("full");
+    const progress = document.getElementById("progress");
+    let index = 0;
+
+    function update() {
+      slidesEl.style.transform = `translateX(${-index * 100}vw)`;
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+      slides.forEach((slide, i) => {
+        const count = slide.querySelector(".slide-count");
+        if (count) count.textContent = `${String(i + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+      });
+      document.title = `${slides[index].dataset.title || "Slide"} - Hacker Bob Architecture`;
+    }
+
+    function go(delta) {
+      index = Math.max(0, Math.min(slides.length - 1, index + delta));
+      update();
+    }
+
+    function goTo(value) {
+      index = Math.max(0, Math.min(slides.length - 1, value));
+      update();
+    }
+
+    async function toggleFullscreen() {
+      const root = document.documentElement;
+      const request = root.requestFullscreen || root.webkitRequestFullscreen;
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      const active = document.fullscreenElement || document.webkitFullscreenElement;
+
+      if (active) {
+        if (exit) await exit.call(document);
+      } else if (request) {
+        await request.call(root);
+      }
+    }
+
+    prev.addEventListener("click", () => go(-1));
+    next.addEventListener("click", () => go(1));
+    full.addEventListener("click", () => {
+      toggleFullscreen().catch(() => {});
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        go(1);
+      }
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        go(-1);
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        goTo(0);
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        goTo(slides.length - 1);
+      }
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        toggleFullscreen().catch(() => {});
+      }
+    });
+
+    let touchStartX = null;
+    document.addEventListener("touchstart", (event) => {
+      touchStartX = event.changedTouches[0].clientX;
+    }, { passive: true });
+
+    document.addEventListener("touchend", (event) => {
+      if (touchStartX === null) return;
+      const delta = event.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(delta) > 60) go(delta < 0 ? 1 : -1);
+      touchStartX = null;
+    }, { passive: true });
+
+    update();
+  </script>
+</body>
+</html>
