@@ -2872,6 +2872,54 @@ test("surface leads are compact, promotable, and wave assignable", () => {
   });
 });
 
+test("explicit medium surface lead promotion stays MEDIUM while becoming wave assignable", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", deep_mode: true });
+    seedAttackSurfaces(domain, [
+      {
+        id: "surface-a",
+        hosts: [`https://${domain}`],
+        tech_stack: [],
+        endpoints: [],
+        interesting_params: [],
+        nuclei_hits: [],
+        priority: "LOW",
+      },
+    ]);
+
+    const recorded = JSON.parse(recordSurfaceLeads({
+      target_domain: domain,
+      source: "test",
+      leads: [{
+        title: "Brand-linked sibling properties lightly probed",
+        hosts: ["https://brand-example.com"],
+        priority: "MEDIUM",
+        surface_type: "unknown",
+        evidence: ["https://brand-example.com [200] [Cloudflare] Brand login"],
+        confidence: "medium",
+        score: 55,
+        promote: true,
+      }],
+    }));
+    assert.equal(recorded.recorded, 1);
+
+    const promoted = JSON.parse(promoteSurfaceLeads({ target_domain: domain, limit: 3, min_score: 60 }));
+    assert.equal(promoted.promoted, 1);
+    assert.deepEqual(promoted.promoted_surface_ids, ["lead-brand-linked-sibling-properties-lightly-probed"]);
+    const promotedSurfaceId = promoted.promoted_surface_ids[0];
+
+    const state = JSON.parse(readStateSummary({ target_domain: domain })).state;
+    assert.deepEqual(state.lead_surface_ids, [promotedSurfaceId]);
+
+    const attackSurface = JSON.parse(fs.readFileSync(attackSurfacePath(domain), "utf8"));
+    const promotedSurface = attackSurface.surfaces.find((surface) => surface.id === promotedSurfaceId);
+    assert.ok(promotedSurface);
+    assert.equal(promotedSurface.priority, "MEDIUM");
+    assert.equal(promotedSurface.ranking.score, 55);
+  });
+});
+
 test("unassignable high-confidence surface leads are not promoted or counted as deep lead debt", () => {
   withTempHome(() => {
     const domain = "example.com";

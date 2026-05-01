@@ -706,29 +706,52 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /takeover_candidates/);
   assert.match(deepReconPrompt, /tech\/CVE hints/);
   assert.match(deepReconPrompt, /sibling-domain-candidates\.txt/);
-  assert.match(deepReconPrompt, /Sibling domain candidates discovered but not probed/);
+  assert.match(deepReconPrompt, /brand-sibling-probe-candidates\.txt/);
+  assert.match(deepReconPrompt, /Brand-linked sibling properties lightly probed/);
+  assert.match(deepReconPrompt, /Sibling domain candidates recorded for review/);
   assert.match(deepReconPrompt, /deep-summary\.json/);
   assert.match(deepReconPrompt, /surface-leads\.json/);
   assert.match(deepReconPrompt, /Do not duplicate every URL/);
   assert.match(deepReconPrompt, /Do not dump raw URLs, JavaScript bodies, or scanner output into prose/);
 });
 
-test("deep recon family probing stays target-domain bounded", () => {
+test("deep recon target family probing stays bounded and sibling liveness is gated", () => {
   const deepReconPrompt = readFile(".claude/agents/deep-recon-agent.md");
   const familyStart = deepReconPrompt.indexOf("4. First-party family discovery");
   const familyEnd = deepReconPrompt.indexOf("5. Archived URLs with CDX/Wayback");
   const cdxEnd = deepReconPrompt.indexOf("6. JS extraction and endpoint clustering");
+  const step7Start = deepReconPrompt.indexOf("7. Compact summaries, ranked leads, and attack surface");
   assert.ok(familyStart >= 0 && familyEnd > familyStart, "missing deep recon family discovery section");
+  assert.ok(step7Start > cdxEnd, "missing deep recon compact summary section");
   const familySection = deepReconPrompt.slice(familyStart, familyEnd);
   const cdxSection = deepReconPrompt.slice(familyEnd, cdxEnd);
+  const jsSection = deepReconPrompt.slice(cdxEnd, step7Start);
+  const step7Section = deepReconPrompt.slice(step7Start);
+  const liveUrlsEnd = step7Section.indexOf(': > "$SESSION/nuclei_results.txt"');
+  assert.ok(liveUrlsEnd > 0, "missing deep recon live_urls builder");
+  const liveUrlsBuilder = step7Section.slice(0, liveUrlsEnd);
 
-  assert.match(familySection, /target-domain bounded/i);
-  assert.match(familySection, /do not probe them/i);
+  assert.match(familySection, /Target-domain family probing remains bounded/i);
+  assert.match(familySection, /do not probe the broad `sibling-domain-candidates\.txt` set/i);
   assert.match(familySection, /host == domain or host\.endswith\("\." \+ domain\)/);
   assert.match(familySection, /sibling-domain-candidates\.txt/);
+  assert.match(familySection, /brand-sibling-probe-candidates\.txt/);
+  assert.match(familySection, /same-TLD-only repeat evidence stays record-only/i);
+  assert.match(familySection, /label\.startswith\(target_label\)/);
+  assert.match(familySection, /if brand_related:\n\s+brand_siblings\.append\(host\)/);
+  assert.match(familySection, /-l "\$SESSION\/brand-sibling-probe-candidates\.txt"/);
+  assert.match(step7Section, /def add_lead\([\s\S]*promote=None\)/);
+  assert.match(step7Section, /Brand-linked sibling properties lightly probed[\s\S]*\*brand_sibling_live\[:5\][\s\S]*55, promote=True/);
+  assert.doesNotMatch(step7Section, /Brand-linked sibling properties queued for review[\s\S]{0,300}promote=True/);
   assert.doesNotMatch(familySection, /httpx[\s\S]*sibling-domain-candidates\.txt/i);
   assert.doesNotMatch(familySection, /-l "\$SESSION\/sibling-domain-candidates\.txt"/);
   assert.doesNotMatch(cdxSection, /sibling-domain-candidates\.txt/);
+  for (const needle of ["brand-sibling-probe-candidates.txt", "brand_sibling_live.txt"]) {
+    const escapedNeedle = needle.replace(/\./g, "\\.");
+    assert.doesNotMatch(cdxSection, new RegExp(escapedNeedle));
+    assert.doesNotMatch(jsSection, new RegExp(escapedNeedle));
+    assert.doesNotMatch(liveUrlsBuilder, new RegExp(escapedNeedle));
+  }
 });
 
 test("recon prompts remain enrichment-only without new commands or imported toolsets", () => {

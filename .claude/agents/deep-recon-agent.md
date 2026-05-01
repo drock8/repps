@@ -79,7 +79,7 @@ if [ ! -s "$SESSION/live_hosts.txt" ]; then printf "https://%s\nhttps://www.%s\n
 if command -v dig >/dev/null; then awk '{print $1}' "$SESSION/subdomains.txt" | head -n 500 | while read -r h; do timeout 4 dig +short CNAME "$h" 2>/dev/null | sed "s#^#$h #" >> "$SESSION/cname_records.txt" || true; timeout 4 dig +short A "$h" 2>/dev/null | sed "s#^#$h A #" >> "$SESSION/dns_records.txt" || true; done; fi
 ```
 4. First-party family discovery
-Family probing is target-domain bounded: only retain `[DOMAIN]` and hosts ending in `.[DOMAIN]` for active probing. Also record compact sibling-domain candidates from linked hosts, but do not probe them in this deep recon run.
+Target-domain family probing remains bounded to `[DOMAIN]` and hosts ending in `.[DOMAIN]`. Also record compact sibling-domain candidates from linked hosts; do not probe the broad `sibling-domain-candidates.txt` set. Deep mode may run a tiny explicit liveness check only for brand-linked sibling hosts written to `brand-sibling-probe-candidates.txt`; same-TLD-only repeat evidence stays record-only.
 ```bash
 DOMAIN="[DOMAIN]"; SESSION="[SESSION]"
 { printf "https://%s\nhttps://www.%s\n" "$DOMAIN" "$DOMAIN"; awk '{print $1}' "$SESSION/live_hosts.txt" 2>/dev/null | head -n 10; } | sort -u > "$SESSION/family_seeds.txt"
@@ -98,7 +98,7 @@ def root_label(host):
     if len(parts) >= 3 and parts[-2] in {"co","com","net","org","gov","ac"} and len(parts[-1]) == 2:
         return parts[-3]
     return parts[-2] if len(parts) >= 2 else host
-picked, siblings = [], []
+picked, siblings, brand_siblings = [], [], []
 for host, count in counts.most_common():
     if host == domain or host.endswith("." + domain):
         picked.append(host)
@@ -107,14 +107,22 @@ for host, count in counts.most_common():
         continue
     label = re.sub(r'[^a-z0-9]', '', root_label(host))
     same_tld = host.rsplit(".", 1)[-1] == domain.rsplit(".", 1)[-1]
-    brand_related = len(target_label) >= 4 and (target_label in label or label in target_label)
+    brand_related = len(target_label) >= 4 and len(label) >= 4 and (target_label == label or label.startswith(target_label))
     if brand_related or (same_tld and count > 1):
         siblings.append(host)
-(session / "family_candidates.txt").write_text("\n".join(sorted(set(picked[:25]))) + ("\n" if picked else ""))
-(session / "sibling-domain-candidates.txt").write_text("\n".join(sorted(set(siblings[:50]))) + ("\n" if siblings else ""))
+    if brand_related:
+        brand_siblings.append(host)
+family_candidates = sorted(set(picked[:25]))
+sibling_candidates = sorted(set(siblings[:50]))
+brand_candidates = sorted(set(brand_siblings[:5]))
+(session / "family_candidates.txt").write_text("\n".join(family_candidates) + ("\n" if family_candidates else ""))
+(session / "sibling-domain-candidates.txt").write_text("\n".join(sibling_candidates) + ("\n" if sibling_candidates else ""))
+(session / "brand-sibling-probe-candidates.txt").write_text("\n".join(brand_candidates) + ("\n" if brand_candidates else ""))
 PY
 HTTPX="$(command -v httpx 2>/dev/null || true)"; [ -z "$HTTPX" ] && [ -x ~/go/bin/httpx ] && HTTPX="$HOME/go/bin/httpx"
 if [ -s "$SESSION/family_candidates.txt" ] && [ -n "$HTTPX" ]; then timeout 90 "$HTTPX" -l "$SESSION/family_candidates.txt" -silent -follow-redirects -tech-detect -title -status-code -o "$SESSION/family_live.txt" 2>/dev/null || true; else : > "$SESSION/family_live.txt"; fi
+: > "$SESSION/brand_sibling_live.txt"
+if [ -s "$SESSION/brand-sibling-probe-candidates.txt" ] && [ -n "$HTTPX" ]; then timeout 30 "$HTTPX" -l "$SESSION/brand-sibling-probe-candidates.txt" -silent -follow-redirects -tech-detect -title -status-code -o "$SESSION/brand_sibling_live.txt" 2>/dev/null || true; fi
 ```
 5. Archived URLs with CDX/Wayback
 ```bash
@@ -204,6 +212,8 @@ tech_stack = uniq(re.findall(r'\[([A-Za-z0-9., _+-]{2,120})\]', tech_text), 20)
 takeover_patterns = ("github.io","herokuapp.com","azurewebsites.net","cloudapp.net","readme.io","surge.sh","pages.dev","pantheonsite.io","unbouncepages.com")
 takeovers = [line for line in cname if any(p in line.lower() for p in takeover_patterns)]
 sibling_candidates = lines("sibling-domain-candidates.txt", 50)
+brand_sibling_candidates = lines("brand-sibling-probe-candidates.txt", 20)
+brand_sibling_live = lines("brand_sibling_live.txt", 20)
 interesting = uniq([p for p in archive_params if re.search(r'(?i)(id|uuid|user|account|org|team|tenant|redirect|url|file|token|code|plan|amount)', p)], 40)
 endpoint_pool = uniq([p for p in archive_paths if re.search(r'(?i)(api|graphql|admin|auth|oauth|upload|billing|checkout|export|invite|user|account)', p)] + js_endpoints, 160)
 cve_hints = []
@@ -261,7 +271,7 @@ surfaces = [{
 }]
 leads = []
 now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-def add_lead(title, source, hosts, endpoints, params, surface_type, hints, evidence, score):
+def add_lead(title, source, hosts, endpoints, params, surface_type, hints, evidence, score, promote=None):
     if score <= 0:
         return
     if not hosts and not endpoints:
@@ -272,7 +282,7 @@ def add_lead(title, source, hosts, endpoints, params, surface_type, hints, evide
         "title": title[:160],
         "source": source,
         "status": "new",
-        "promote": score >= 75,
+        "promote": score >= 75 if promote is None else promote,
         "created_at": now,
         "hosts": uniq(hosts, 20),
         "endpoints": uniq(endpoints, 120),
@@ -301,13 +311,19 @@ if takeovers:
     add_lead("Dangling CNAME takeover candidates", "deep-recon", [x.split()[0] for x in takeovers], [], [], "unknown", ["takeover"], takeovers[:10], 85)
 if cve_hints:
     add_lead("Technology/CVE review candidates", "deep-recon", base_hosts, endpoint_pool[:40], [], "unknown", ["authz"], cve_hints, 68)
+if brand_sibling_live:
+    add_lead("Brand-linked sibling properties lightly probed", "deep-recon", [row.split()[0] for row in brand_sibling_live], [], [], "unknown", [], [f"{len(brand_sibling_live)} brand-linked sibling hosts checked with httpx; same-TLD-only candidates remain unprobed", *brand_sibling_live[:5]], 55, promote=True)
+elif brand_sibling_candidates:
+    add_lead("Brand-linked sibling properties queued for review", "deep-recon", brand_sibling_candidates[:10], [], [], "unknown", [], [f"{len(brand_sibling_candidates)} brand-linked sibling candidates recorded; liveness check unavailable or produced no live hosts"], 35)
 if sibling_candidates:
-    add_lead("Sibling domain candidates discovered but not probed", "deep-recon", sibling_candidates[:20], [], [], "unknown", [], [f"{len(sibling_candidates)} linked non-target-domain candidates recorded in sibling-domain-candidates.txt; not actively probed"], 35)
+    add_lead("Sibling domain candidates recorded for review", "deep-recon", sibling_candidates[:20], [], [], "unknown", [], [f"{len(sibling_candidates)} linked non-target-domain candidates recorded in sibling-domain-candidates.txt; the broad candidate set is not fed into CDX, nuclei, JS extraction, or active probing"], 35)
 counts = {
     "subdomains": len(lines("subdomains.txt")),
     "live_hosts": len(live),
     "family_live": len(family),
     "sibling_domain_candidates": len(sibling_candidates),
+    "brand_sibling_probe_candidates": len(brand_sibling_candidates),
+    "brand_sibling_live": len(brand_sibling_live),
     "archive_urls": len(urls),
     "js_urls": len(lines("js_urls.txt")),
     "js_endpoints": len(js_endpoints),
