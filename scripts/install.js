@@ -20,6 +20,7 @@ const {
 const HOOK_FILES = Object.freeze([
   "scope-guard.sh",
   "scope-guard-mcp.sh",
+  "session-read-guard.sh",
   "session-write-guard.sh",
   "bounty-statusline.js",
   "hunter-subagent-stop.js",
@@ -33,6 +34,7 @@ const HOOK_FILES = Object.freeze([
 const EXECUTABLE_HOOKS = Object.freeze([
   "scope-guard.sh",
   "scope-guard-mcp.sh",
+  "session-read-guard.sh",
   "session-write-guard.sh",
   "hunter-subagent-stop.js",
   "bob-egress.js",

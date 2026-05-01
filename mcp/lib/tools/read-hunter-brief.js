@@ -19,6 +19,12 @@ module.exports = Object.freeze({
       "agent": {
         "type": "string",
         "pattern": "^a[1-9][0-9]*$"
+      },
+      "egress_profile": {
+        "type": "string"
+      },
+      "block_internal_hosts": {
+        "type": "boolean"
       }
     },
     "required": [

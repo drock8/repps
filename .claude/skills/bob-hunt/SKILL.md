@@ -24,6 +24,9 @@ allowed-tools:
   - mcp__bountyagent__bounty_wave_status
   - mcp__bountyagent__bounty_list_auth_profiles
   - mcp__bountyagent__bounty_read_state_summary
+  - mcp__bountyagent__bounty_read_session_summary
+  - mcp__bountyagent__bounty_set_operator_note
+  - mcp__bountyagent__bounty_clear_operator_note
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
   - mcp__bountyagent__bounty_record_surface_leads
@@ -55,13 +58,7 @@ RECON → AUTH → HUNT → CHAIN → VERIFY → GRADE → REPORT
                                                 EXPLORE → CHAIN → VERIFY → GRADE → REPORT
 ```
 Never skip phases. Never go backwards except `GRADE → HUNT` on `HOLD` and `REPORT → EXPLORE` on user request.
-State is persisted in `~/bounty-agent-sessions/[domain]/state.json`, but access it only through MCP:
-- `bounty_init_session`
-- `bounty_read_session_state`
-- `bounty_read_state_summary`
-- `bounty_transition_phase`
-- `bounty_start_wave`
-- `bounty_apply_wave_merge`
+State is persisted in `~/bounty-agent-sessions/[domain]/state.json`, but access it only through MCP: `bounty_init_session`, `bounty_read_session_state`, `bounty_read_state_summary`, `bounty_read_session_summary`, `bounty_transition_phase`, `bounty_start_wave`, and `bounty_apply_wave_merge`.
 All Bob MCP calls return `{ ok, data, meta }` or `{ ok: false, error, meta }`. For successful reads and writes, use only `.data` for orchestration decisions. On failure, use `.error.code` and `.error.message`; do not infer success from top-level fields outside `.data`.
 MCP-owned session artifacts:
 - `bounty_import_http_traffic` writes imported Burp/HAR history to `traffic.jsonl`.
@@ -75,11 +72,13 @@ MCP-owned session artifacts:
 - `bounty_read_hunter_brief` returns traffic, audit, circuit-breaker, runtime ranking, intel, static scan, assignment, coverage, and scope summaries.
 - `bounty_record_surface_leads`, `bounty_read_surface_leads`, and `bounty_promote_surface_leads` own compact `surface-leads.json` and promotion into `attack_surface.json`.
 - `bounty_read_pipeline_analytics` is the metadata-only dashboard for debugging stuck sessions and recent cross-session pipeline health.
+- `bounty_set_operator_note` stores one bounded non-secret operator instruction in state; `bounty_clear_operator_note` removes it.
 Use `bounty_read_state_summary.data` for routine decisions. Use `bounty_read_session_state.data` only when full arrays are needed.
 
 ## Resume
 - `resume [domain]` accepts one optional non-flag token: `force-merge`.
-- First call `bounty_read_state_summary({ target_domain })`; persisted `state.deep_mode` keeps deep behavior even when resume omits `--deep`.
+- First call `bounty_read_state_summary({ target_domain })` and use `result.data.state` for the resume decision; persisted `state.deep_mode` keeps deep behavior even when resume omits `--deep`.
+- Continue only from MCP state and summaries; do not reconstruct resume state from markdown, `report.md`, handoff markdown, or session artifact text.
 - If `state.pending_wave` is null, continue from `state.phase`.
 - If `state.pending_wave` is non-null, call `bounty_apply_wave_merge({ target_domain, wave_number: state.pending_wave, force_merge, force_merge_reason })` and use `result.data`. When `force_merge` is true, `force_merge_reason` must explain the missing/invalid handoffs and why reconciliation is safe.
 - If status is `"pending"`, report `Wave N pending: X/Y handoffs received. Resume again later, or run /bob-hunt resume [domain] force-merge to reconcile now.` Then stop.
@@ -141,8 +140,8 @@ Domain: [domain]
 Wave: w[wave]
 Agent: a[agent]
 Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]
-First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.
-Use surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.
+First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: false }) and use .data.
+Use run_context, surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.
 Egress profile: [egress_profile]. Pass this exact value as egress_profile on every bounty_http_scan call.
 Prefer traffic_summary endpoints, replay through bounty_http_scan with target_domain and egress_profile, log bounty_log_coverage after meaningful tests, and log before switching away from promising traffic-derived endpoints.
 New token-contract scans must use bounty_import_static_artifact then bounty_static_scan; never scan arbitrary paths.
@@ -185,7 +184,7 @@ Call `bounty_transition_phase({ target_domain, to_phase: "CHAIN" })`.
 
 Spawn:
 ```
-Agent(subagent_type: "chain-builder", name: "chain", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Read findings, wave handoffs, auth profiles, HTTP audit, and prior chain attempts through MCP. Test plausible chains with bounty_http_scan as needed, passing egress_profile on every scan, and write every outcome through bounty_write_chain_attempt. Do not read findings.md, chains.md, or markdown handoffs.")
+Agent(subagent_type: "chain-builder", name: "chain", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Read findings, wave handoffs, auth profiles, HTTP audit, and prior chain attempts through MCP. Test plausible chains with bounty_http_scan as needed, passing egress_profile on every scan, and write every outcome through bounty_write_chain_attempt. Do not read findings.md, chains.md, or markdown handoffs. Final response must be compact and end with BOB_CHAIN_DONE.")
 ```
 After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence.
 
@@ -194,39 +193,39 @@ Verification JSON is the only machine-readable source of truth. Markdown mirrors
 
 Round 1:
 ```
-Agent(subagent_type: "brutalist-verifier", name: "brutalist", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings and bounty_read_chain_attempts for [domain], call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, verify each finding, then write only through bounty_write_verification_round(round='brutalist').")
+Agent(subagent_type: "brutalist-verifier", name: "brutalist", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings and bounty_read_chain_attempts for [domain], call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, verify each finding, then write only through bounty_write_verification_round(round='brutalist'). Final response must be compact and end with BOB_VERIFY_DONE.")
 ```
 After the brutalist agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "brutalist" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
 
 Round 2:
 ```
-Agent(subagent_type: "balanced-verifier", name: "balanced", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings, bounty_read_chain_attempts, and bounty_read_verification_round(round='brutalist'), call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, review brutalist decisions, then write only through bounty_write_verification_round(round='balanced').")
+Agent(subagent_type: "balanced-verifier", name: "balanced", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings, bounty_read_chain_attempts, and bounty_read_verification_round(round='brutalist'), call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, review brutalist decisions, then write only through bounty_write_verification_round(round='balanced'). Final response must be compact and end with BOB_VERIFY_DONE.")
 ```
 After the balanced agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "balanced" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
 
 Round 3:
 ```
-Agent(subagent_type: "final-verifier", name: "final-verify", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings for [domain], call bounty_read_verification_round(round='balanced'), call bounty_list_auth_profiles before authenticated replays, re-run only reportable survivors with fresh requests using egress_profile, then write only through bounty_write_verification_round(round='final').")
+Agent(subagent_type: "final-verifier", name: "final-verify", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings for [domain], call bounty_read_verification_round(round='balanced'), call bounty_list_auth_profiles before authenticated replays, re-run only reportable survivors with fresh requests using egress_profile, then write only through bounty_write_verification_round(round='final'). Final response must be compact and end with BOB_VERIFY_DONE.")
 ```
 Read `bounty_read_verification_round(round='final').data`. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn evidence before GRADE:
 ```
-Agent(subagent_type: "evidence-agent", name: "evidence", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_verification_round(round='final'), bounty_read_http_audit, and bounty_list_auth_profiles; collect bounded redacted samples for every final reportable finding using bounty_http_scan with target_domain and egress_profile; write only through bounty_write_evidence_packs.")
+Agent(subagent_type: "evidence-agent", name: "evidence", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_verification_round(round='final'), bounty_read_http_audit, and bounty_list_auth_profiles; collect bounded redacted samples for every final reportable finding using bounty_http_scan with target_domain and egress_profile; write only through bounty_write_evidence_packs. Final response must be compact and end with BOB_EVIDENCE_DONE.")
 ```
 After the evidence agent completes, validate the artifact with `bounty_read_evidence_packs({ target_domain: "[domain]" })` and inspect `.data`. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
 
 ## PHASE 6: GRADE
 Spawn:
 ```
-Agent(subagent_type: "grader", name: "grader", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), and bounty_read_evidence_packs, score survivors, then write only through bounty_write_grade_verdict.")
+Agent(subagent_type: "grader", name: "grader", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), and bounty_read_evidence_packs, score survivors, then write only through bounty_write_grade_verdict. Final response must be compact and end with BOB_GRADE_DONE.")
 ```
 Read `bounty_read_grade_verdict.data`. On `SUBMIT` or `SKIP`, transition to REPORT. On `HOLD`, transition to HUNT, include feedback in a targeted wave, and re-run CHAIN before VERIFY; escalate if `hold_count >= 2`.
 
 ## PHASE 7: REPORT
 Spawn:
 ```
-Agent(subagent_type: "report-writer", name: "reporter", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), bounty_read_evidence_packs, and bounty_read_grade_verdict, then write report.md. For SUBMIT, include only confirmed chain evidence. For SKIP/no reportables, write a concise no-findings closeout with verification, chain-attempt, and blocker summary.")
+Agent(subagent_type: "report-writer", name: "reporter", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), bounty_read_evidence_packs, and bounty_read_grade_verdict, then write report.md. For SUBMIT, include only confirmed chain evidence. For SKIP/no reportables, write a concise no-findings closeout with verification, chain-attempt, and blocker summary. Final response must be compact and end with BOB_REPORT_DONE.")
 ```
-Present the report. If the user wants more hunting, transition to EXPLORE; otherwise stop.
+After the report writer finishes, call `bounty_read_session_summary({ target_domain: "[domain]" })` and present `result.data.summary` plus the `result.data.summary.report.path`. Do not read `report.md` in the root orchestrator. If the user wants more hunting, transition to EXPLORE; otherwise stop.
 
 Post-REPORT user intent stays flexible:
 - If the user asks to dig more, find more issues, run more hunters, test more surfaces, or continue the bounty workflow, treat that as permission to transition `REPORT -> EXPLORE` and use the normal wave system.

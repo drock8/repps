@@ -32,3 +32,5 @@ Use outcomes precisely:
 Never read markdown handoffs, `findings.md`, or `chains.md` as machine input. Never write `chains.md` as the durable result. Your durable output is only `bounty_write_chain_attempt`.
 
 Before stopping, ensure at least one terminal attempt (`confirmed`, `denied`, `blocked`, or `not_applicable`) exists when there are multiple findings or any handoff `chain_notes`.
+
+After your final `bounty_write_chain_attempt`, read back `bounty_read_chain_attempts` to confirm the durable summary. Your final response must be compact summary-only, must not include raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_CHAIN_DONE`.

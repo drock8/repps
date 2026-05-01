@@ -11,6 +11,7 @@ const {
   assertBoolean,
   assertInteger,
   assertNonEmptyString,
+  normalizeOptionalText,
   normalizeStringArray,
 } = require("./validation.js");
 const {
@@ -30,11 +31,33 @@ const {
   safeAppendPipelineEventDirect,
 } = require("./pipeline-analytics.js");
 const {
+  validateNoSensitiveMaterial,
+} = require("./sensitive-material.js");
+const {
   computeChainToVerifyGate,
   computeHuntToChainGate,
   computeVerifyToGradeGate,
   formatTransitionBlockers,
 } = require("./phase-gates.js");
+
+const OPERATOR_NOTE_MAX_CHARS = 1000;
+
+function validateOperatorNoteText(note, fieldName) {
+  if (note.length > OPERATOR_NOTE_MAX_CHARS) {
+    throw new Error(`${fieldName} must be at most ${OPERATOR_NOTE_MAX_CHARS} characters`);
+  }
+  validateNoSensitiveMaterial(note, fieldName, { maxTextChars: OPERATOR_NOTE_MAX_CHARS + 1 });
+  return note;
+}
+
+function normalizeOperatorNote(value, fieldName = "operator_note") {
+  const note = normalizeOptionalText(value, fieldName);
+  return note == null ? null : validateOperatorNoteText(note, fieldName);
+}
+
+function assertOperatorNote(value, fieldName = "operator_note") {
+  return validateOperatorNoteText(assertNonEmptyString(value, fieldName), fieldName);
+}
 
 function buildInitialSessionState(domain, targetUrl, { deepMode = false } = {}) {
   return {
@@ -52,6 +75,7 @@ function buildInitialSessionState(domain, targetUrl, { deepMode = false } = {}) 
     scope_exclusions: [],
     hold_count: 0,
     auth_status: "pending",
+    operator_note: null,
   };
 }
 
@@ -76,6 +100,7 @@ function compactSessionState(state) {
     lead_surface_ids: state.lead_surface_ids || [],
     hold_count: state.hold_count,
     auth_status: state.auth_status,
+    operator_note: state.operator_note,
   };
 }
 
@@ -115,6 +140,7 @@ function normalizeSessionStateDocument(document, requestedDomain) {
     auth_status: document.auth_status == null
       ? "pending"
       : assertEnumValue(document.auth_status, AUTH_STATUS_VALUES, "auth_status"),
+    operator_note: normalizeOperatorNote(document.operator_note, "operator_note"),
   };
 }
 
@@ -207,6 +233,45 @@ function readStateSummary(args) {
   return JSON.stringify({
     version: 1,
     state: compactSessionState(state),
+  });
+}
+
+function setOperatorNote(args) {
+  const domain = assertNonEmptyString(args.target_domain, "target_domain");
+  const operatorNote = assertOperatorNote(args.operator_note, "operator_note");
+
+  return withSessionLock(domain, () => {
+    const { raw, state } = readSessionStateStrict(domain);
+    const nextState = {
+      ...state,
+      operator_note: operatorNote,
+    };
+    writeSessionStateDocument(domain, raw, nextState);
+    return JSON.stringify({
+      version: 1,
+      updated: true,
+      operator_note: operatorNote,
+      state: compactSessionState(nextState),
+    });
+  });
+}
+
+function clearOperatorNote(args) {
+  const domain = assertNonEmptyString(args.target_domain, "target_domain");
+
+  return withSessionLock(domain, () => {
+    const { raw, state } = readSessionStateStrict(domain);
+    const nextState = {
+      ...state,
+      operator_note: null,
+    };
+    writeSessionStateDocument(domain, raw, nextState);
+    return JSON.stringify({
+      version: 1,
+      cleared: true,
+      operator_note: null,
+      state: compactSessionState(nextState),
+    });
   });
 }
 
@@ -326,10 +391,12 @@ function transitionPhase(args) {
 
 module.exports = {
   buildInitialSessionState,
+  clearOperatorNote,
   compactSessionState,
   composeSessionStateDocument,
   initSession,
   normalizeSessionStateDocument,
+  setOperatorNote,
   publicSessionState,
   readSessionState,
   readSessionStateStrict,

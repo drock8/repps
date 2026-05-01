@@ -34,3 +34,4 @@ Rules:
 - Keep each finding under 600 words.
 - Omit methodology sections — triagers don't need to know how you found it.
 - Use concrete language: "An attacker can [action] by [method]". Never use "could potentially", "may allow", or "might be possible".
+- After writing `report.md`, final response must be compact summary-only, must not include full report text, raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_REPORT_DONE`.

@@ -308,7 +308,7 @@ test("bob-hunt closes no-finding verification through SKIP grade and report", ()
   assert.match(reporter, /no-findings closeout/);
 });
 
-test("settings.json registers session-write-guard for Bash and Write", () => {
+test("settings.json registers session guards for Bash, Read, and Write", () => {
   const settings = JSON.parse(readFile(".claude/settings.json"));
   const preToolUse = settings.hooks.PreToolUse;
 
@@ -317,6 +317,17 @@ test("settings.json registers session-write-guard for Bash and Write", () => {
   assert.ok(
     bashEntry.hooks.some((h) => h.command.includes("session-write-guard.sh")),
     "session-write-guard.sh not registered for Bash"
+  );
+  assert.ok(
+    bashEntry.hooks.some((h) => h.command.includes("session-read-guard.sh")),
+    "session-read-guard.sh not registered for Bash"
+  );
+
+  const readEntry = preToolUse.find((e) => e.matcher === "Read");
+  assert.ok(readEntry, "No Read matcher in PreToolUse");
+  assert.ok(
+    readEntry.hooks.some((h) => h.command.includes("session-read-guard.sh")),
+    "session-read-guard.sh not registered for Read"
   );
 
   const writeEntry = preToolUse.find((e) => e.matcher === "Write");
@@ -379,6 +390,9 @@ test("bob-hunt skill allowed-tools match orchestrator and auth bundles", () => {
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_merge_wave_handoffs"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_tool_telemetry"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_pipeline_analytics"));
+  assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_session_summary"));
+  assert.ok(allowedTools.includes("mcp__bountyagent__bounty_set_operator_note"));
+  assert.ok(allowedTools.includes("mcp__bountyagent__bounty_clear_operator_note"));
   assert.ok(!allowedTools.includes("mcp__bountyagent__bounty_write_wave_handoff"));
 });
 
@@ -448,9 +462,11 @@ test("bob-status skill is compact, read-only, and points to next commands", () =
   assert.match(skill, /not a debug review/i);
   assert.match(skill, /No args or `--last`/);
   assert.match(skill, /bounty_read_pipeline_analytics\(\{ target_domain, include_events: false, limit: 20 \}\)/);
+  assert.match(skill, /bounty_read_session_summary\(\{ target_domain \}\)/);
   assert.match(skill, /bounty_read_state_summary\(\{ target_domain \}\)/);
   assert.match(skill, /bounty_wave_status\(\{ target_domain \}\)/);
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_evidence_packs"));
+  assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_session_summary"));
   assert.match(skill, /evidence status/);
   assert.match(skill, /bounty_read_pipeline_analytics\.data\.sessions\[0\]\.evidence/);
   assert.match(skill, /bounty_read_evidence_packs\(\{ target_domain \}\)/);
@@ -480,6 +496,7 @@ test("bob-debug skill is telemetry-first and supports latest, explicit, and deep
 
   assert.match(skill, /bounty_read_pipeline_analytics\(\{ target_domain, include_events: true, limit: 100 \}\)/);
   assert.match(skill, /bounty_read_tool_telemetry\(\{ target_domain, include_agent_runs: true, limit: 100 \}\)/);
+  assert.match(skill, /bounty_read_session_summary\(\{ target_domain \}\)/);
   assert.match(skill, /No args or `--last`/);
   assert.match(skill, /`<target_domain>`/);
   assert.match(skill, /`--deep`/);
@@ -509,6 +526,7 @@ test("bob-debug skill allowed-tools are read-only and exclude mutators", () => {
   const expectedReadOnlyMcpTools = [
     "mcp__bountyagent__bounty_read_pipeline_analytics",
     "mcp__bountyagent__bounty_read_tool_telemetry",
+    "mcp__bountyagent__bounty_read_session_summary",
     "mcp__bountyagent__bounty_read_state_summary",
     "mcp__bountyagent__bounty_wave_status",
     "mcp__bountyagent__bounty_read_wave_handoffs",
@@ -766,12 +784,14 @@ test("recon prompts remain enrichment-only without new commands or imported tool
   }
 });
 
-test("installer and dev-sync copy and configure session-write-guard", () => {
+test("installer and dev-sync copy and configure session guards", () => {
   const install = readFile("scripts/install.js");
   const devSync = readFile("dev-sync.sh");
 
   assert.match(install, /session-write-guard\.sh/);
+  assert.match(install, /session-read-guard\.sh/);
   assert.match(devSync, /cp "\$SCRIPT_DIR\/\.claude\/hooks\/session-write-guard\.sh"/);
+  assert.match(devSync, /cp "\$SCRIPT_DIR\/\.claude\/hooks\/session-read-guard\.sh"/);
   assert.match(install, /hunter-subagent-stop\.js/);
   assert.match(devSync, /cp "\$SCRIPT_DIR\/\.claude\/hooks\/hunter-subagent-stop\.js"/);
   assert.match(install, /bob-hunt/);
@@ -785,6 +805,8 @@ test("installer and dev-sync copy and configure session-write-guard", () => {
 
   const hookText = JSON.stringify(defaultClaudeSettings().hooks.PreToolUse);
   assert.match(hookText, /"matcher":"Bash"[\s\S]*session-write-guard\.sh/);
+  assert.match(hookText, /"matcher":"Bash"[\s\S]*session-read-guard\.sh/);
+  assert.match(hookText, /"matcher":"Read"[\s\S]*session-read-guard\.sh/);
   assert.match(hookText, /"matcher":"Write"[\s\S]*session-write-guard\.sh/);
   assert.match(JSON.stringify(defaultClaudeSettings().hooks.SubagentStop), /hunter-subagent-stop\.js/);
   assert.match(JSON.stringify(defaultClaudeSettings().hooks.SessionStart), /bob-check-update\.js/);
@@ -834,6 +856,41 @@ test("grader and report-writer consume evidence packs", () => {
     assert.match(frontmatter.tools, /mcp__bountyagent__bounty_read_evidence_packs/, `${agent} missing read evidence tool`);
     assert.match(document, /bounty_read_evidence_packs/, `${agent} missing read evidence instruction`);
     assert.match(document, /evidence packs/i, `${agent} must use evidence packs`);
+  }
+});
+
+test("REPORT phase uses compact session summary instead of root reading report markdown", () => {
+  const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
+
+  assert.match(orchestrator, /After the report writer finishes[\s\S]*bounty_read_session_summary/);
+  assert.match(orchestrator, /result\.data\.summary\.report\.path/);
+  assert.match(orchestrator, /Do not read `report\.md` in the root orchestrator/);
+});
+
+test("resume instructions continue from MCP summaries and do not reconstruct from markdown", () => {
+  const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
+
+  assert.match(orchestrator, /First call `bounty_read_state_summary\(\{ target_domain \}\)`/);
+  assert.match(orchestrator, /do not reconstruct resume state from markdown/i);
+  assert.match(orchestrator, /handoff markdown/);
+});
+
+test("non-hunter agents require compact final markers and forbid raw final payloads", () => {
+  const expectations = {
+    "chain-builder": "BOB_CHAIN_DONE",
+    "brutalist-verifier": "BOB_VERIFY_DONE",
+    "balanced-verifier": "BOB_VERIFY_DONE",
+    "final-verifier": "BOB_VERIFY_DONE",
+    "evidence-agent": "BOB_EVIDENCE_DONE",
+    "grader": "BOB_GRADE_DONE",
+    "report-writer": "BOB_REPORT_DONE",
+  };
+
+  for (const [agent, marker] of Object.entries(expectations)) {
+    const document = readFile(`.claude/agents/${agent}.md`);
+    assert.match(document, new RegExp(marker), `${agent} missing ${marker}`);
+    assert.match(document, /compact summary-only|compact and end/i, `${agent} must require compact final text`);
+    assert.match(document, /raw requests[\s\S]*raw responses[\s\S]*(cookies|tokens|authorization headers)/i, `${agent} must forbid raw final payloads`);
   }
 });
 
@@ -965,6 +1022,8 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(hunterPrompt, /surface_type[\s\S]*bug_class_hints[\s\S]*high_value_flows/);
   assert.match(orchestratorPrompt, /surface_type[\s\S]*bug_class_hints[\s\S]*high_value_flows/);
   assert.match(hunterPrompt, /traffic_summary[\s\S]*audit_summary[\s\S]*circuit_breaker_summary[\s\S]*ranking_summary[\s\S]*intel_hints[\s\S]*static_scan_hints/);
+  assert.match(hunterPrompt, /run_context/);
+  assert.match(orchestratorPrompt, /bounty_read_hunter_brief\(\{ target_domain:[\s\S]*egress_profile:[\s\S]*block_internal_hosts/);
   assert.match(hunterPrompt, /Prefer real observed authenticated endpoints from `traffic_summary`/);
   assert.match(hunterPrompt, /Log coverage before switching away from a promising traffic-derived endpoint|log coverage before switching away from promising traffic-derived endpoints/i);
   assert.match(orchestratorPrompt, /traffic_summary[\s\S]*audit_summary[\s\S]*circuit_breaker_summary[\s\S]*ranking_summary[\s\S]*intel_hints[\s\S]*static_scan_hints/);
