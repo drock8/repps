@@ -1783,6 +1783,95 @@ test("pipeline analytics flags missing evidence only for final reportable findin
   });
 });
 
+test("pipeline analytics splits grade_hold and grade_skip_with_reportables and treats zero-reportable SKIP as healthy", () => {
+  // HOLD always warrants attention (grader asked for more work).
+  // SKIP with reportables > 0 is anomalous (grader rejected confirmed findings).
+  // SKIP with zero reportables is the intended clean exit (verifier confirmed
+  // nothing reportable; grader writes a no-findings closeout). The dashboard
+  // must distinguish these so a clean-exit session does not get flagged.
+  withTempHome(() => {
+    const skipCleanDomain = "skip-clean.example.com";
+    seedSessionState(skipCleanDomain, { phase: "REPORT" });
+    seedVerificationPipeline(skipCleanDomain, []);
+    writeGradeVerdict({
+      target_domain: skipCleanDomain,
+      verdict: "SKIP",
+      total_score: 0,
+      findings: [],
+    });
+
+    const skipClean = JSON.parse(readPipelineAnalytics({ target_domain: skipCleanDomain, include_events: true }));
+    assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_hold"));
+    assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
+    assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_hold_skip"));
+    assert.ok(!skipClean.bottlenecks.some((bottleneck) => bottleneck.code === "grade_hold_skip"));
+
+    const skipWithReportablesDomain = "skip-with-reportables.example.com";
+    seedSessionState(skipWithReportablesDomain, { phase: "REPORT" });
+    seedFinding(skipWithReportablesDomain);
+    seedVerificationPipeline(skipWithReportablesDomain, [{
+      finding_id: "F-1",
+      disposition: "confirmed",
+      severity: "high",
+      reportable: true,
+      reasoning: "Confirmed by replay.",
+    }]);
+    writeEvidencePacks({ target_domain: skipWithReportablesDomain, packs: [evidencePack("F-1")] });
+    writeGradeVerdict({
+      target_domain: skipWithReportablesDomain,
+      verdict: "SKIP",
+      total_score: 5,
+      findings: [{
+        finding_id: "F-1",
+        impact: 1,
+        proof_quality: 1,
+        severity_accuracy: 1,
+        chain_potential: 1,
+        report_quality: 1,
+        total_score: 5,
+        feedback: "Below threshold despite confirmation.",
+      }],
+    });
+
+    const skipAnomalous = JSON.parse(readPipelineAnalytics({ target_domain: skipWithReportablesDomain, include_events: true }));
+    assert.ok(skipAnomalous.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
+    assert.ok(!skipAnomalous.sessions[0].health.reasons.includes("grade_hold"));
+    assert.ok(skipAnomalous.bottlenecks.some((bottleneck) => bottleneck.code === "grade_skip_with_reportables"));
+
+    const holdDomain = "grade-hold.example.com";
+    seedSessionState(holdDomain, { phase: "GRADE" });
+    seedFinding(holdDomain);
+    seedVerificationPipeline(holdDomain, [{
+      finding_id: "F-1",
+      disposition: "confirmed",
+      severity: "high",
+      reportable: true,
+      reasoning: "Confirmed.",
+    }]);
+    writeEvidencePacks({ target_domain: holdDomain, packs: [evidencePack("F-1")] });
+    writeGradeVerdict({
+      target_domain: holdDomain,
+      verdict: "HOLD",
+      total_score: 30,
+      findings: [{
+        finding_id: "F-1",
+        impact: 10,
+        proof_quality: 5,
+        severity_accuracy: 5,
+        chain_potential: 5,
+        report_quality: 5,
+        total_score: 30,
+        feedback: "Promising but needs deeper repro.",
+      }],
+    });
+
+    const hold = JSON.parse(readPipelineAnalytics({ target_domain: holdDomain, include_events: true }));
+    assert.ok(hold.sessions[0].health.reasons.includes("grade_hold"));
+    assert.ok(!hold.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
+    assert.ok(hold.bottlenecks.some((bottleneck) => bottleneck.code === "grade_hold"));
+  });
+});
+
 test("pipeline analytics treats malformed evidence packs as invalid metadata", () => {
   withTempHome(() => {
     const domain = "malformed-evidence.example.com";
