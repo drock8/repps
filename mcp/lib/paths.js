@@ -90,6 +90,10 @@ function publicIntelPath(domain) {
   return path.join(sessionDir(domain), "public-intel.json");
 }
 
+function bobSpecPath(domain) {
+  return path.join(sessionDir(domain), "bob-spec.json");
+}
+
 function assertStaticArtifactId(artifactId) {
   const normalized = assertNonEmptyString(artifactId, "artifact_id");
   if (!STATIC_ARTIFACT_ID_RE.test(normalized)) {
@@ -149,6 +153,7 @@ module.exports = {
   assertSafeDomain,
   assertStaticArtifactId,
   attackSurfacePath,
+  bobSpecPath,
   chainAttemptsJsonlPath,
   coverageJsonlPath,
   evidencePackPaths,
