@@ -1,7 +1,7 @@
 {
-  "name": "hacker-bob-cc",
+  "name": "hacker-bob-codex",
   "version": "1.2.0",
-  "description": "Hacker Bob — Claude Code adapter wrapper. Pins --adapter claude and delegates to the canonical hacker-bob CLI.",
+  "description": "Hacker Bob — Codex adapter wrapper. Pins --adapter codex and delegates to the canonical hacker-bob CLI.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -12,13 +12,13 @@
   },
   "homepage": "https://github.com/vmihalis/hacker-bob#readme",
   "bin": {
-    "hacker-bob-cc": "bin/hacker-bob-cc.js"
+    "hacker-bob-codex": "bin/hacker-bob-codex.js"
   },
   "engines": {
     "node": ">=20"
   },
   "files": [
-    "bin/hacker-bob-cc.js"
+    "bin/hacker-bob-codex.js"
   ],
   "dependencies": {
     "hacker-bob": "1.2.0"

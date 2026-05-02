@@ -6,9 +6,21 @@ const os = require("node:os");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const COMPAT_ROOT = path.join(ROOT, "packages", "hacker-bob-cc");
 const PACKAGE_VERSION = require("../package.json").version;
-const COMPAT_VERSION = require("../packages/hacker-bob-cc/package.json").version;
+const WRAPPER_PACKAGES = Object.freeze([
+  {
+    name: "hacker-bob-cc",
+    root: path.join(ROOT, "packages", "hacker-bob-cc"),
+    bin: "bin/hacker-bob-cc.js",
+    adapter: "claude",
+  },
+  {
+    name: "hacker-bob-codex",
+    root: path.join(ROOT, "packages", "hacker-bob-codex"),
+    bin: "bin/hacker-bob-codex.js",
+    adapter: "codex",
+  },
+]);
 
 function sourceTreeFiles(relativeDir) {
   const root = path.join(ROOT, relativeDir);
@@ -91,28 +103,49 @@ test("npm package contains runtime surfaces and excludes test/cache artifacts", 
   }
 });
 
-test("compatibility package version matches canonical package", () => {
-  assert.equal(COMPAT_VERSION, PACKAGE_VERSION);
-});
+for (const wrapper of WRAPPER_PACKAGES) {
+  test(`${wrapper.name} package version matches canonical package`, () => {
+    const wrapperVersion = require(path.join(wrapper.root, "package.json")).version;
+    assert.equal(wrapperVersion, PACKAGE_VERSION);
+  });
 
-test("compatibility package packs only wrapper and manifest", () => {
-  const npmCache = fs.mkdtempSync(path.join(os.tmpdir(), "bob-compat-npm-cache-"));
-  try {
-    const output = execFileSync("npm", ["pack", "--dry-run", "--json"], {
-      cwd: COMPAT_ROOT,
-      env: { ...process.env, npm_config_cache: npmCache },
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    const [pack] = JSON.parse(output);
-    assert.equal(pack.name, "hacker-bob-cc");
-    assert.equal(pack.version, PACKAGE_VERSION);
-    assert.deepEqual(
-      pack.files.map((file) => file.path).sort(),
-      ["bin/hacker-bob.js", "package.json"],
-    );
-    assert.ok(pack.size < 3000, `compatibility pack size ${pack.size} exceeds 3 KB threshold`);
-  } finally {
-    fs.rmSync(npmCache, { recursive: true, force: true });
-  }
-});
+  test(`${wrapper.name} package declares bin ${wrapper.name} -> ${wrapper.bin}`, () => {
+    const wrapperPackage = require(path.join(wrapper.root, "package.json"));
+    assert.deepEqual(wrapperPackage.bin, { [wrapper.name]: wrapper.bin });
+    assert.deepEqual(wrapperPackage.files, [wrapper.bin]);
+    assert.equal(wrapperPackage.dependencies && wrapperPackage.dependencies["hacker-bob"], PACKAGE_VERSION);
+  });
+
+  test(`${wrapper.name} bin script pins --adapter ${wrapper.adapter} when none is supplied`, () => {
+    const binSource = fs.readFileSync(path.join(wrapper.root, wrapper.bin), "utf8");
+    assert.match(binSource, /process\.argv\.push\(\s*"--adapter"\s*,/);
+    assert.match(binSource, new RegExp(`"${wrapper.adapter}"`));
+    // Explicit --adapter must be respected: the wrapper only injects when
+    // the operator has not already supplied one. Catches a regression that
+    // would force every install through the wrapper's pinned adapter.
+    assert.match(binSource, /arg === "--adapter" \|\| arg\.startsWith\("--adapter="\)/);
+    assert.match(binSource, /require\("hacker-bob\/bin\/hacker-bob\.js"\)/);
+  });
+
+  test(`${wrapper.name} package packs only wrapper and manifest`, () => {
+    const npmCache = fs.mkdtempSync(path.join(os.tmpdir(), `bob-${wrapper.name}-npm-cache-`));
+    try {
+      const output = execFileSync("npm", ["pack", "--dry-run", "--json"], {
+        cwd: wrapper.root,
+        env: { ...process.env, npm_config_cache: npmCache },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const [pack] = JSON.parse(output);
+      assert.equal(pack.name, wrapper.name);
+      assert.equal(pack.version, PACKAGE_VERSION);
+      assert.deepEqual(
+        pack.files.map((file) => file.path).sort(),
+        [wrapper.bin, "package.json"],
+      );
+      assert.ok(pack.size < 3000, `${wrapper.name} pack size ${pack.size} exceeds 3 KB threshold`);
+    } finally {
+      fs.rmSync(npmCache, { recursive: true, force: true });
+    }
+  });
+}
