@@ -1081,9 +1081,19 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
 
 test("bob-hunt routes surfaces after recon and spawns returned hunter agents", () => {
   const orchestratorPrompt = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const reconSection = orchestratorPrompt.match(/## PHASE 1: RECON([\s\S]*?)## PHASE 2: AUTH/)[1];
 
-  assert.match(orchestratorPrompt, /Spawn `surface-router-agent` once, wait for it to call `bounty_route_surfaces`/);
-  assert.match(orchestratorPrompt, /surface-routes\.json/);
+  assert.match(
+    reconSection,
+    /Agent\(subagent_type: "surface-router-agent", name: "surface-router", prompt: "/,
+  );
+  assert.match(reconSection, /Domain: \[domain\]\. Session: ~\/bounty-agent-sessions\/\[domain\]\./);
+  assert.match(reconSection, /bounty_route_surfaces\(\{ target_domain: '\[domain\]' \}\) and use \.data/);
+  assert.match(reconSection, /If routing fails or returns zero surfaces, report the error and stop/);
+  assert.match(
+    reconSection,
+    /only after successful routing call `bounty_transition_phase\(\{ target_domain, to_phase: "AUTH" \}\)`/,
+  );
   assert.match(orchestratorPrompt, /assignments\[\]\.hunter_agent/);
   assert.match(orchestratorPrompt, /subagent_type: "\[assignment\.hunter_agent\]"/);
   assert.match(orchestratorPrompt, /Capability pack: \[assignment\.capability_pack\]\. Brief profile: \[assignment\.brief_profile\]/);

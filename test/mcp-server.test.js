@@ -734,6 +734,11 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.global_preapproval, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_start_wave.session_artifacts_written, [
+    "surface-routes.json",
+    "wave-N-assignments.json",
+    "state.json",
+  ]);
   assert.equal(TOOL_MANIFEST.bounty_http_scan.network_access, true);
   assert.equal(TOOL_MANIFEST.bounty_http_scan.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_http_scan.scope_required, true);
