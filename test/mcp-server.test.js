@@ -1783,12 +1783,13 @@ test("pipeline analytics flags missing evidence only for final reportable findin
   });
 });
 
-test("pipeline analytics splits grade_hold and grade_skip_with_reportables and treats zero-reportable SKIP as healthy", () => {
-  // HOLD always warrants attention (grader asked for more work).
-  // SKIP with reportables > 0 is anomalous (grader rejected confirmed findings).
-  // SKIP with zero reportables is the intended clean exit (verifier confirmed
-  // nothing reportable; grader writes a no-findings closeout). The dashboard
-  // must distinguish these so a clean-exit session does not get flagged.
+test("pipeline analytics flags only HOLD as needs_attention; both SKIP variants are healthy by construction", () => {
+  // writeGradeVerdict rejects any SKIP that does not satisfy
+  // `!hasReportableMedium || total_score < GRADE_HOLD_MIN_SCORE`. SKIP at
+  // read time is therefore either "no reportables" (clean exit) or
+  // "low-score reportables below the HOLD threshold" (grader correctly
+  // applied its scoring rule). Neither is anomalous — only HOLD asks for
+  // operator action.
   withTempHome(() => {
     const skipCleanDomain = "skip-clean.example.com";
     seedSessionState(skipCleanDomain, { phase: "REPORT" });
@@ -1799,26 +1800,24 @@ test("pipeline analytics splits grade_hold and grade_skip_with_reportables and t
       total_score: 0,
       findings: [],
     });
-
     const skipClean = JSON.parse(readPipelineAnalytics({ target_domain: skipCleanDomain, include_events: true }));
     assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_hold"));
-    assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
     assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_hold_skip"));
-    assert.ok(!skipClean.bottlenecks.some((bottleneck) => bottleneck.code === "grade_hold_skip"));
+    assert.ok(!skipClean.bottlenecks.some((bottleneck) => bottleneck.code.startsWith("grade_")));
 
-    const skipWithReportablesDomain = "skip-with-reportables.example.com";
-    seedSessionState(skipWithReportablesDomain, { phase: "REPORT" });
-    seedFinding(skipWithReportablesDomain);
-    seedVerificationPipeline(skipWithReportablesDomain, [{
+    const skipLowScoreDomain = "skip-low-score.example.com";
+    seedSessionState(skipLowScoreDomain, { phase: "REPORT" });
+    seedFinding(skipLowScoreDomain);
+    seedVerificationPipeline(skipLowScoreDomain, [{
       finding_id: "F-1",
       disposition: "confirmed",
       severity: "high",
       reportable: true,
       reasoning: "Confirmed by replay.",
     }]);
-    writeEvidencePacks({ target_domain: skipWithReportablesDomain, packs: [evidencePack("F-1")] });
+    writeEvidencePacks({ target_domain: skipLowScoreDomain, packs: [evidencePack("F-1")] });
     writeGradeVerdict({
-      target_domain: skipWithReportablesDomain,
+      target_domain: skipLowScoreDomain,
       verdict: "SKIP",
       total_score: 5,
       findings: [{
@@ -1829,14 +1828,12 @@ test("pipeline analytics splits grade_hold and grade_skip_with_reportables and t
         chain_potential: 1,
         report_quality: 1,
         total_score: 5,
-        feedback: "Below threshold despite confirmation.",
+        feedback: "Below HOLD_MIN_SCORE despite confirmation; grader contract.",
       }],
     });
-
-    const skipAnomalous = JSON.parse(readPipelineAnalytics({ target_domain: skipWithReportablesDomain, include_events: true }));
-    assert.ok(skipAnomalous.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
-    assert.ok(!skipAnomalous.sessions[0].health.reasons.includes("grade_hold"));
-    assert.ok(skipAnomalous.bottlenecks.some((bottleneck) => bottleneck.code === "grade_skip_with_reportables"));
+    const skipLowScore = JSON.parse(readPipelineAnalytics({ target_domain: skipLowScoreDomain, include_events: true }));
+    assert.ok(!skipLowScore.sessions[0].health.reasons.includes("grade_hold"));
+    assert.ok(!skipLowScore.bottlenecks.some((bottleneck) => bottleneck.code.startsWith("grade_")));
 
     const holdDomain = "grade-hold.example.com";
     seedSessionState(holdDomain, { phase: "GRADE" });
@@ -1864,10 +1861,8 @@ test("pipeline analytics splits grade_hold and grade_skip_with_reportables and t
         feedback: "Promising but needs deeper repro.",
       }],
     });
-
     const hold = JSON.parse(readPipelineAnalytics({ target_domain: holdDomain, include_events: true }));
     assert.ok(hold.sessions[0].health.reasons.includes("grade_hold"));
-    assert.ok(!hold.sessions[0].health.reasons.includes("grade_skip_with_reportables"));
     assert.ok(hold.bottlenecks.some((bottleneck) => bottleneck.code === "grade_hold"));
   });
 });
@@ -3170,6 +3165,57 @@ test("bounty_apply_wave_merge returns pending without mutating state when handof
   });
 });
 
+test("bounty_apply_wave_merge adds surface_status: complete surfaces to state.explored even when coverage rows are unfinished", () => {
+  // The structured handoff is the contract. Coverage rows are advisory
+  // history. A hunter that wrote `surface_status: complete` AND has stale
+  // unfinished coverage rows for the same wave is internally inconsistent,
+  // but the merge layer trusts the handoff — silently downgrading
+  // complete to "still requeued" stranded the surface in HUNT forever
+  // (the veda.tech regression).
+  withTempHome(() => {
+    const domain = "trust-handoff.example.com";
+    seedSessionState(domain, {
+      phase: "HUNT",
+      pending_wave: 1,
+    });
+    seedAttackSurface(domain, ["surface-a"]);
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    logCoverage({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      entries: [{
+        endpoint: "/api/legacy",
+        method: "GET",
+        bug_class: "idor",
+        status: "requeue",
+        evidence_summary: "endpoint-level requeue logged earlier in the wave",
+      }],
+    });
+    writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "complete",
+      summary: "Surface tested; one endpoint marked requeue while triaging others, then closed.",
+      content: "# A1",
+    });
+
+    const result = JSON.parse(applyWaveMerge({
+      target_domain: domain,
+      wave_number: 1,
+      force_merge: false,
+    }));
+    assert.equal(result.status, "merged");
+    assert.equal(result.state.explored_count, 1);
+    // Verify the surface really landed in state.explored (not just counted).
+    const fullState = JSON.parse(readSessionState({ target_domain: domain }));
+    assert.deepEqual(fullState.state.explored, ["surface-a"]);
+  });
+});
+
 test("bounty_apply_wave_merge merges state, findings, requeues, and scope exclusions", () => {
   withTempHome(() => {
     const domain = "example.com";
@@ -3688,10 +3734,17 @@ test("bounty_apply_wave_merge requeues unfinished coverage without treating test
 
     assert.deepEqual(result.merge.completed_surface_ids, ["surface-a", "surface-b", "surface-c", "surface-d", "surface-e"]);
     assert.deepEqual(result.merge.partial_surface_ids, []);
+    // Coverage-derived requeue is the next-wave assignment hint: a, d, e
+    // each have at least one promising/needs_auth/requeue endpoint row, so
+    // the orchestrator may re-queue them for a fresh look.
     assert.deepEqual(result.merge.requeue_surface_ids, ["surface-a", "surface-d", "surface-e"]);
 
+    // state.explored is "surfaces with a complete handoff this run." All
+    // five hunters declared complete, so all five are explored. Re-queueing
+    // a surface in a later wave is independent — the orchestrator can
+    // assign an explored surface to a fresh hunter without contradiction.
     const fullState = JSON.parse(readSessionState({ target_domain: domain })).state;
-    assert.deepEqual(fullState.explored, ["surface-b", "surface-c"]);
+    assert.deepEqual(fullState.explored, ["surface-a", "surface-b", "surface-c", "surface-d", "surface-e"]);
   });
 });
 
@@ -7963,7 +8016,7 @@ test("bounty_read_findings, bounty_list_findings, and bounty_wave_status return 
         recent: [],
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
-      circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, near_threshold_hosts: [], near_threshold_count: 0, note: null },
+      circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, below_threshold_hosts: [], below_threshold_count: 0, note: null },
       surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [],
     });
@@ -8058,7 +8111,7 @@ test("bounty_list_findings and bounty_wave_status keep their external shapes whi
         recent: [],
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
-      circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, near_threshold_hosts: [], near_threshold_count: 0, note: null },
+      circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, below_threshold_hosts: [], below_threshold_count: 0, note: null },
       surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [
         {
@@ -10276,13 +10329,13 @@ test("circuit breaker summary marks repeated failures per host without blocking 
   });
 });
 
-test("buildCircuitBreakerSummary surfaces below-threshold per-host failures in near_threshold_hosts", () => {
+test("buildCircuitBreakerSummary surfaces below-threshold per-host failures in below_threshold_hosts", () => {
   // The veda.tech regression: 2 internal errors + 2 network-unreachable
   // events on the same host produced no tripped breaker (below the
   // ≥3-per-host threshold) and no near-threshold visibility either.
   // Operators looking at a session with errors but no warnings could not
   // tell whether the threshold was reached and suppressed or never crossed.
-  // near_threshold_hosts surfaces that data without false escalation.
+  // below_threshold_hosts surfaces that data without false escalation.
   const records = [
     {
       version: 1,
@@ -10318,7 +10371,7 @@ test("buildCircuitBreakerSummary surfaces below-threshold per-host failures in n
       scope_decision: "request_error",
     },
     // A host with 3 failures — crosses the threshold and should appear in
-    // tripped_hosts, NOT in near_threshold_hosts.
+    // tripped_hosts, NOT in below_threshold_hosts.
     {
       version: 1,
       ts: "2026-05-02T00:00:03.000Z",
@@ -10357,12 +10410,12 @@ test("buildCircuitBreakerSummary surfaces below-threshold per-host failures in n
   const summary = buildCircuitBreakerSummary(records);
   assert.equal(summary.tripped_count, 1);
   assert.equal(summary.tripped_hosts[0].host, "hot.example.com");
-  assert.equal(summary.near_threshold_count, 1);
-  assert.equal(summary.near_threshold_hosts[0].host, "api.example.com");
-  assert.equal(summary.near_threshold_hosts[0].failures, 2);
+  assert.equal(summary.below_threshold_count, 1);
+  assert.equal(summary.below_threshold_hosts[0].host, "api.example.com");
+  assert.equal(summary.below_threshold_hosts[0].failures, 2);
   // No host appears in both lists.
   assert.equal(
-    summary.near_threshold_hosts.some((item) => item.host === "hot.example.com"),
+    summary.below_threshold_hosts.some((item) => item.host === "hot.example.com"),
     false,
   );
 });

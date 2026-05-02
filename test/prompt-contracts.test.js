@@ -1113,13 +1113,13 @@ test("hunter prompt sources do not hand-code handoff field limits", () => {
   // match_test or chain-specific contract_address shapes) are owned by
   // their respective tools, not by bounty_write_wave_handoff, so they stay
   // hand-coded here.
+  // Derive the prompt-source list from HUNTER_ROLES (per-chain hunters)
+  // plus the generic web hunter, so adding a 7th chain pack auto-extends
+  // this guard without an edit here.
+  const { HUNTER_ROLES } = require("../mcp/lib/capability-packs.js");
   const hunterPromptFiles = [
     "prompts/roles/hunter.md",
-    "prompts/roles/hunter-evm.md",
-    "prompts/roles/hunter-svm.md",
-    "prompts/roles/hunter-move.md",
-    "prompts/roles/hunter-substrate.md",
-    "prompts/roles/hunter-cosmwasm.md",
+    ...Object.values(HUNTER_ROLES).map((role) => `prompts/roles/${role.prompt_body_filename}`),
   ];
   const HANDOFF_FIELD_NAMES = [
     "summary",

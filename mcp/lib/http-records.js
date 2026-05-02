@@ -301,10 +301,9 @@ function buildCircuitBreakerSummary(records, { surface = null, threshold = CIRCU
   // Hosts with at least one failure but still below threshold. Operators
   // looking at a session that had errors but no warnings need to see this
   // — otherwise they cannot tell whether the threshold was reached and
-  // suppressed, or never crossed. Sub-threshold accumulation is the data
-  // they need to interpret outcomes; the threshold itself is the action
-  // gate, not the reporting gate.
-  const nearThreshold = sortedItems.filter(
+  // suppressed, or never crossed. Threshold is the action gate; the
+  // reporting gate sits at the first failure.
+  const belowThreshold = sortedItems.filter(
     (item) => item.failures > 0 && item.failures < threshold,
   );
 
@@ -312,8 +311,8 @@ function buildCircuitBreakerSummary(records, { surface = null, threshold = CIRCU
     threshold,
     tripped_hosts: tripped,
     tripped_count: tripped.length,
-    near_threshold_hosts: nearThreshold,
-    near_threshold_count: nearThreshold.length,
+    below_threshold_hosts: belowThreshold,
+    below_threshold_count: belowThreshold.length,
     note: tripped.length
       ? "Repeated 403/429/timeout results on these hosts. Prefer fewer replay variants, authenticated traffic-derived requests, or a different surface."
       : null,

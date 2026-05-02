@@ -1268,26 +1268,17 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
     }));
   }
 
-  // HOLD is always anomalous — the grader is asking for more work. SKIP is
-  // anomalous only when reportable findings existed and the grader rejected
-  // them; SKIP with zero final reportables is the intended clean exit
-  // (verifier confirmed nothing reportable, grader writes a no-findings
-  // closeout). Splitting these into two distinct events keeps the analytics
-  // dashboard self-describing — operators see exactly which case fired
-  // without re-reading code.
+  // HOLD is the only verdict that is operator-actionable on its own — the
+  // grader is asking for another HUNT round. SKIP is internally consistent
+  // by construction: writeGradeVerdict rejects any SKIP that does not
+  // satisfy `!hasReportableMedium || total_score < GRADE_HOLD_MIN_SCORE`,
+  // so a SKIP at read time is either "no reportables" or "low-score
+  // reportables below the HOLD threshold." Both are the grader doing its
+  // job, not anomalies.
   if (artifacts.grade.verdict === "HOLD") {
     issues.push(issue("grade_hold", "needs_attention", "Grade verdict is HOLD; grader requested another round.", {
       verdict: artifacts.grade.verdict,
       total_score: artifacts.grade.total_score,
-    }));
-  } else if (
-    artifacts.grade.verdict === "SKIP" &&
-    artifacts.verification.final_reportable_count > 0
-  ) {
-    issues.push(issue("grade_skip_with_reportables", "needs_attention", "Grade verdict is SKIP despite reportable findings.", {
-      verdict: artifacts.grade.verdict,
-      total_score: artifacts.grade.total_score,
-      final_reportable_count: artifacts.verification.final_reportable_count,
     }));
   }
 
@@ -1455,7 +1446,6 @@ function actionForBottleneck(bottleneck) {
     chain_phase_no_attempts: "Run the chain-builder again so it records terminal chain attempts, or transition with an explicit override reason.",
     verification_dropoff: "Review final verification inputs because recorded findings are not surviving as reportable.",
     grade_hold: "Use grader feedback to launch a targeted HUNT wave, then re-run CHAIN -> VERIFY before grading again.",
-    grade_skip_with_reportables: "Inspect grader rationale for the SKIP — reportable findings should usually graduate to SUBMIT or HOLD, not SKIP.",
     missing_verification: "Write a valid final verification round before grading or reporting.",
     missing_evidence: "Run the evidence agent and validate evidence packs before grading or reporting.",
     missing_grade: "Write a valid grade verdict before report completion.",

@@ -887,10 +887,17 @@ function applyWaveMerge(args) {
       : { promoted_surface_ids: [] };
     const attackSurface = readAttackSurfaceStrict(domain);
 
+    // The structured handoff's `surface_status: complete` is the contract;
+    // coverage rows are endpoint-level advisory history. A hunter that wrote
+    // `complete` and ALSO wrote some unfinished coverage rows during the same
+    // wave is internally inconsistent, but the right place to catch that is
+    // either the hunter prompt or a server-side handoff validator — not a
+    // silent downgrade that strands the surface in HUNT forever. Trust the
+    // handoff and add to explored unconditionally.
     pushUnique(
       explored,
       new Set(explored),
-      merge.completed_surface_ids.filter((surfaceId) => !requeueSurfaceIdSet.has(surfaceId)),
+      merge.completed_surface_ids,
     );
     pushUnique(deadEnds, new Set(deadEnds), merge.dead_ends);
     pushUnique(wafBlockedEndpoints, new Set(wafBlockedEndpoints), merge.waf_blocked_endpoints);
