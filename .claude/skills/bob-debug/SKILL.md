@@ -42,19 +42,21 @@ After resolving `target_domain`, call both telemetry MCPs before drawing conclus
 ```
 bounty_read_pipeline_analytics({ target_domain, include_events: true, limit: 100 })
 bounty_read_tool_telemetry({ target_domain, include_agent_runs: true, limit: 100 })
+bounty_read_session_summary({ target_domain })
 ```
-Use `.data` from successful MCP responses. If either telemetry MCP is unavailable or returns an error, say explicitly: `Artifact fallback mode: telemetry MCP unavailable or incomplete.` Then inspect local session files directly and label conclusions that rely on fallback evidence.
+Use `.data` from successful MCP responses. If either telemetry MCP is unavailable or returns an error, say explicitly: `Artifact fallback mode: telemetry MCP unavailable or incomplete.` Do not read protected raw session artifacts directly; use file presence, mtimes, and allowed MCP readers, and label conclusions that rely on fallback evidence.
 
 ## Read-Only Validation
 Use these only when they help confirm a telemetry finding or fill a gap:
 - `bounty_read_state_summary({ target_domain })`
+- `bounty_read_session_summary({ target_domain })`
 - `bounty_wave_status({ target_domain })`
 - `bounty_read_wave_handoffs({ target_domain })`
 - `bounty_read_findings({ target_domain })`
 - `bounty_read_verification_round({ target_domain, round: "brutalist" | "balanced" | "final" })`
 - `bounty_read_grade_verdict({ target_domain })`
 
-For local artifact fallback, read only session files under `~/bounty-agent-sessions/[target_domain]` and only Claude transcript JSONL files needed for `--deep`.
+For local artifact fallback, inspect only file presence/mtimes under `~/bounty-agent-sessions/[target_domain]` plus Claude transcript JSONL files needed for `--deep`; do not dump protected raw Bob artifacts.
 
 ## What To Check
 - Phase path: whether the session followed RECON -> AUTH -> HUNT -> CHAIN -> VERIFY -> GRADE -> REPORT, or documented EXPLORE after REPORT.

@@ -6,6 +6,11 @@ const CODEX_ROLE_SPECS = Object.freeze({
     agent_type: "worker",
     lifecycle: "wait",
   }),
+  "deep-recon": Object.freeze({
+    bob_role: "deep-recon-agent",
+    agent_type: "worker",
+    lifecycle: "wait",
+  }),
   hunter: Object.freeze({
     bob_role: "hunter-agent",
     agent_type: "worker",

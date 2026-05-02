@@ -64,3 +64,5 @@ bounty_write_grade_verdict({
 ```
 
 If this tool call fails, read the error, fix the parameters, and retry. Never fall back to writing files via Bash or any other method.
+
+Your final response must be compact summary-only, must not include raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_GRADE_DONE`.

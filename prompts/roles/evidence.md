@@ -112,3 +112,5 @@ bounty_write_evidence_packs({
 ```
 
 If the write fails, read the error, remove unsafe or invalid fields, and retry. Never call `bounty_record_finding`, `bounty_write_wave_handoff`, `bounty_write_grade_verdict`, or write report files.
+
+Your final response after the readback must be compact summary-only, must not include raw requests, raw responses, cookies, tokens, authorization headers, representative sample bodies, or other secrets, and must end with `BOB_EVIDENCE_DONE`.

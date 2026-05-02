@@ -97,3 +97,4 @@ Rules:
 - Omit methodology sections — triagers don't need to know how you found it.
 - Use concrete language: "An attacker can [action] by [method]". Never use "could potentially", "may allow", or "might be possible".
 - For SC findings, never claim a verification reference that the final-verifier did not provide. The default per family is `block reference unavailable` (EVM, Substrate, CosmWasm), `slot reference unavailable` (SVM), `version reference unavailable` (Aptos), or `checkpoint reference unavailable` (Sui).
+- After writing `report.md`, final response must be compact summary-only, must not include full report text, raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_REPORT_DONE`.

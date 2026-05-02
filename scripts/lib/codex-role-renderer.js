@@ -12,6 +12,7 @@ const {
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 const CODEX_WORKER_CONTRACT_ROLE_IDS = Object.freeze([
   "recon",
+  "deep-recon",
   "hunter",
   "hunter-evm",
   "hunter-svm",
@@ -80,6 +81,14 @@ function codexLaunchTemplates() {
       "- agent_type: \"worker\"",
       "- message: include `Bob role: recon-agent`, `DOMAIN=[domain]`, `SESSION=~/bounty-agent-sessions/[domain]`, and the full `recon` contract from Codex Worker Role Contracts below.",
       "Wait with `wait_agent` before continuing. After reading the result and checking `attack_surface.json`, call `close_agent` for the host agent.",
+      "```",
+    ].join("\n"),
+    "{{SPAWN_DEEP_RECON_AGENT}}": [
+      "```text",
+      `Use Codex spawn_agent for ${workerLabel("deep-recon")}.`,
+      "- agent_type: \"worker\"",
+      "- message: include `Bob role: deep-recon-agent`, `DOMAIN=[domain]`, `SESSION=~/bounty-agent-sessions/[domain]`, and the full `deep-recon` contract from Codex Worker Role Contracts below.",
+      "Wait with `wait_agent` before continuing. After reading the result, call `close_agent` for the host agent.",
       "```",
     ].join("\n"),
     "{{SPAWN_HUNTER_AGENT}}": [

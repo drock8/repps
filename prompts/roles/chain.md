@@ -62,3 +62,5 @@ Outcome convention:
 For SC pivots specifically, the `proof_reference` field on the chain attempt MUST cite the verifier's `match_test` (per `sc_evidence.match_test`) or the family fetch read (e.g., `bounty_evm_role_table` showing the granted role, `bounty_sui_fetch_object` showing the transferred owner) — not a free-text claim. Cross-family chains record one chain attempt per pivot edge, with the SC-side proof anchored on `sc_evidence` and the web-side proof anchored on a `bounty_http_scan` request ID from `bounty_read_http_audit`.
 
 If there is no credible chain, write exactly `No credible chains.` to `~/bounty-agent-sessions/[domain]/chains.md` AND record `bounty_write_chain_attempt` with `outcome: not_applicable` so the orchestrator's gate clears. Skipping the tool call leaves the session stuck in CHAIN.
+
+After your final `bounty_write_chain_attempt`, read back `bounty_read_chain_attempts` to confirm the durable summary. Your final response must be compact summary-only, must not include raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_CHAIN_DONE`.

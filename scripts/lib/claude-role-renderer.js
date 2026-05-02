@@ -18,6 +18,11 @@ const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
     "Agent(subagent_type: \"recon-agent\", name: \"recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
     "```",
   ].join("\n"),
+  "{{SPAWN_DEEP_RECON_AGENT}}": [
+    "```",
+    "Agent(subagent_type: \"deep-recon-agent\", name: \"deep-recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
+    "```",
+  ].join("\n"),
   "{{SPAWN_HUNTER_AGENT}}": [
     "```",
     "Agent(subagent_type: \"hunter-agent\", name: \"hunter-w[wave]-a[agent]\", run_in_background: true, prompt: \"",
@@ -209,7 +214,17 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     kind: "agent",
     output_path: path.join(".claude", "agents", "recon-agent.md"),
     name: "recon-agent",
-    description: "Runs full recon pipeline \u2014 subdomain enum, live hosts, archived URLs, nuclei, JS extraction \u2014 and produces attack_surface.json",
+    description: "Runs bounded normal recon \u2014 subdomain enum, live hosts, archived URLs, nuclei, JS extraction \u2014 and produces attack_surface.json",
+    model: "opus",
+    color: "cyan",
+    local_tools: Object.freeze(["Bash", "Read", "Write", "Glob", "Grep"]),
+  }),
+  "deep-recon": Object.freeze({
+    role_id: "deep-recon",
+    kind: "agent",
+    output_path: path.join(".claude", "agents", "deep-recon-agent.md"),
+    name: "deep-recon-agent",
+    description: "Runs bounded passive discovery and produces compact attack_surface, deep-summary, and surface lead artifacts",
     model: "opus",
     color: "cyan",
     local_tools: Object.freeze(["Bash", "Read", "Write", "Glob", "Grep"]),
@@ -487,12 +502,13 @@ function claudeRoleOutputPath(roleId, { root = DEFAULT_ROOT } = {}) {
 
 function updateClaudeRoleFile(roleId, { check = false, root = DEFAULT_ROOT } = {}) {
   const filePath = claudeRoleOutputPath(roleId, { root });
-  const document = fs.readFileSync(filePath, "utf8");
+  const document = fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : null;
   const nextDocument = renderClaudeRole(roleId, { root });
   if (document === nextDocument) return false;
   if (check) {
     throw new Error(`${path.relative(root, filePath)} is stale; run node scripts/generate-claude-roles.js`);
   }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, nextDocument, "utf8");
   return true;
 }

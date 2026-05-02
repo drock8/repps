@@ -25,6 +25,7 @@ This command must only read the local update cache. Do not run network update ch
 After resolving `target_domain`, call:
 ```
 bounty_read_pipeline_analytics({ target_domain, include_events: false, limit: 20 })
+bounty_read_session_summary({ target_domain })
 bounty_read_state_summary({ target_domain })
 bounty_wave_status({ target_domain })
 ```
@@ -35,7 +36,7 @@ Then use the following only if needed for concise status fields:
 - `bounty_read_verification_round({ target_domain, round: "final" })` for reportable survivor count.
 - `bounty_read_grade_verdict({ target_domain })` for grade verdict and report readiness.
 
-If MCP reads are unavailable, say `Status fallback mode: MCP reads unavailable or incomplete.` Then read only local session artifacts under `~/bounty-agent-sessions/[target_domain]` and label any uncertain fields as unknown.
+If MCP reads are unavailable, say `Status fallback mode: MCP reads unavailable or incomplete.` Do not read protected raw session artifacts directly; use file presence and mtimes only for locator fields and label uncertain fields as unknown.
 
 ## Final Answer Shape
 Always include:
