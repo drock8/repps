@@ -104,7 +104,10 @@ deep_mode false: Agent(subagent_type: "recon-agent", name: "recon", prompt: "DOM
 deep_mode true: Agent(subagent_type: "deep-recon-agent", name: "deep-recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
 ```
 
-After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Otherwise call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
+After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Spawn and wait; only after successful routing call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`:
+```text
+Agent(subagent_type: "surface-router-agent", name: "surface-router", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Confirm attack_surface.json exists and has surfaces, then call bounty_route_surfaces({ target_domain: '[domain]' }) and use .data. If routing fails or returns zero surfaces, report the error and stop. Otherwise return route count, capability-pack counts, and surface_routes_path.")
+```
 
 ## PHASE 2: AUTH
 If `--no-auth` is set: skip all signup logic, call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status: "unauthenticated" })`, and proceed to HUNT.

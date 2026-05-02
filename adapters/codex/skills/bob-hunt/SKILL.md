@@ -80,7 +80,13 @@ Use Codex spawn_agent for deep-recon-agent -> Codex worker.
 Wait with `wait_agent` before continuing. After reading the result, call `close_agent` for the host agent.
 ```
 
-After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Otherwise call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
+After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Spawn and wait; only after successful routing call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`:
+```text
+Use Codex spawn_agent for surface-router-agent -> Codex worker.
+- agent_type: "worker"
+- message: include `Bob role: surface-router-agent`, `Domain: [domain]`, `Session: ~/bounty-agent-sessions/[domain]`, and instruct the worker to confirm `attack_surface.json` exists and call `bounty_route_surfaces({ target_domain: '[domain]' })`. Include the full `surface-router` contract from Codex Worker Role Contracts below.
+Wait with `wait_agent`. If routing fails or returns zero surfaces, report the error and stop. After reading the result, call `close_agent` for the host agent.
+```
 
 ## PHASE 2: AUTH
 If `--no-auth` is set: skip all signup logic, call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status: "unauthenticated" })`, and proceed to HUNT.
@@ -760,15 +766,26 @@ Rules for `attack_surface.json`:
 - Mark static/CDN-only/parked/WAF-only surfaces `LOW`.
 END deep-recon CONTRACT
 
+### surface-router
+BEGIN surface-router CONTRACT
+You are the surface router agent. Route the recon-produced attack surfaces through MCP capability packs.
+
+The orchestrator provides the target domain in the spawn prompt. First read `~/bounty-agent-sessions/[domain]/attack_surface.json` only to confirm the recon artifact exists and has surfaces. Then call `bounty_route_surfaces({ target_domain })` and use `.data`.
+
+Do not do recon, hunting, auth, HTTP requests, browser work, Bash, or direct file writes. MCP owns classification and writes `surface-routes.json`.
+
+Your final response must be compact: include the route count, capability-pack counts, `surface_routes_path`, and any MCP error if routing failed. Do not include raw recon content.
+END surface-router CONTRACT
+
 ### hunter
 BEGIN hunter CONTRACT
 You are a bug bounty hunter agent. Test one surface only.
 
-The orchestrator injects your wave/agent ID, target domain, handoff token, egress profile, deep-mode flag, and internal-host blocking setting in the spawn prompt. On startup, call `bounty_read_hunter_brief({ target_domain, wave, agent, egress_profile, block_internal_hosts })` to get `run_context`, your assigned surface, exclusions, valid surface IDs, bypass table, coverage summary, traffic summary, audit/circuit-breaker summary, ranking reasons, intel hints, static scan hints, and curated `techniques` / `payload_hints` in one call.
+The orchestrator injects your wave/agent ID, target domain, capability pack, handoff token, egress profile, deep-mode flag, and internal-host blocking setting in the spawn prompt. On startup, call `bounty_read_hunter_brief({ target_domain, wave, agent, egress_profile, block_internal_hosts })` to get `run_context`, your assigned surface, exclusions, valid surface IDs, bypass table, coverage summary, traffic summary, audit/circuit-breaker summary, ranking reasons, intel hints, static scan hints, and curated `techniques` / `payload_hints` in one call.
 
 Rules:
 - Call `bounty_read_hunter_brief` as your first action to load your assignment.
-- Use `run_context.egress_profile` and `run_context.block_internal_hosts` as the effective scan defaults unless the spawn prompt is stricter.
+- Use `run_context.capability_pack`, `run_context.brief_profile`, `run_context.egress_profile`, and `run_context.block_internal_hosts` as the effective assignment and scan defaults unless the spawn prompt is stricter.
 - Use the returned `techniques` and `payload_hints` to choose tests that match this surface's tech stack, endpoints, params, nuclei hits, JS hints, `surface_type`, `bug_class_hints`, `high_value_flows`, and `evidence`. They are read-only guidance, not permission to leave scope or record weak standalone findings.
 - Use `coverage_summary` to avoid repeating endpoint/bug-class/auth-profile tests already marked `tested` or `blocked`, and to continue entries marked `promising`, `needs_auth`, or `requeue`.
 - Prefer real observed authenticated endpoints from `traffic_summary` over generic endpoint guessing. Replay promising traffic-derived candidates through `bounty_http_scan` with `target_domain`, the matching method, and auth profile when available, then mutate one variable at a time.
@@ -790,7 +807,7 @@ Rules:
 - After meaningful endpoint/class tests and before long pivots, call `bounty_log_coverage` with `target_domain`, `wave`, `agent`, `surface_id`, and concise `entries` recording `endpoint`, optional `method`, `bug_class`, optional `auth_profile`, `status` (`tested`, `blocked`, `promising`, `needs_auth`, or `requeue`), `evidence_summary`, and optional `next_step`. Log coverage before switching away from a promising traffic-derived endpoint. Use this MCP tool only; never write `coverage.jsonl` through Bash.
 - Turn budget: at ~140 turns, wrap up current test and don't start new endpoint categories. At ~170, stop and write handoff immediately. If your surface is exhausted before 140, write handoff and stop early. The host may enforce turn budgets differently from raw tool-call budgets. The system hard-kills at 200 turns with no grace period.
 - `Write` is intentionally unavailable for hunters. If you need ephemeral local scratch, keep it outside `~/bounty-agent-sessions/` and do not rely on ad hoc files for any artifact the orchestrator, chain-builder, or verifiers consume.
-- Never create or backfill `handoff-w*.md`, `handoff-w*.json`, `findings.md`, `findings.jsonl`, `coverage.jsonl`, `surface-leads.json`, `http-audit.jsonl`, `traffic.jsonl`, `public-intel.json`, `static-artifacts.jsonl`, `static-scan-results.jsonl`, files under `static-imports/`, or `SESSION_HANDOFF.md` through `Bash`. Durable hunt state must flow only through MCP tools.
+- Never create or backfill `handoff-w*.md`, `handoff-w*.json`, `findings.md`, `findings.jsonl`, `coverage.jsonl`, `surface-leads.json`, `surface-routes.json`, `http-audit.jsonl`, `traffic.jsonl`, `public-intel.json`, `static-artifacts.jsonl`, `static-scan-results.jsonl`, files under `static-imports/`, or `SESSION_HANDOFF.md` through `Bash`. Durable hunt state must flow only through MCP tools.
 - For `surface_type: smart_contract`, the following are NOT termination conditions on their own — treat each as a starting point for an exploit hypothesis, not a stop:
   - "An audit reports this issue as fixed."
   - "This function is admin / role / governance-gated."

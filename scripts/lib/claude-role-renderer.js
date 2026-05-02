@@ -23,6 +23,11 @@ const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
     "deep_mode true: Agent(subagent_type: \"deep-recon-agent\", name: \"deep-recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
     "```",
   ].join("\n"),
+  "{{SPAWN_SURFACE_ROUTER_AGENT}}": [
+    "```text",
+    "Agent(subagent_type: \"surface-router-agent\", name: \"surface-router\", prompt: \"Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Confirm attack_surface.json exists and has surfaces, then call bounty_route_surfaces({ target_domain: '[domain]' }) and use .data. If routing fails or returns zero surfaces, report the error and stop. Otherwise return route count, capability-pack counts, and surface_routes_path.\")",
+    "```",
+  ].join("\n"),
   "{{SPAWN_HUNTER_AGENT}}": [
     "```",
     "Agent(subagent_type: \"hunter-agent\", name: \"hunter-w[wave]-a[agent]\", run_in_background: true, prompt: \"",
@@ -228,6 +233,17 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     model: "opus",
     color: "cyan",
     local_tools: Object.freeze(["Bash", "Read", "Write", "Glob", "Grep"]),
+  }),
+  "surface-router": Object.freeze({
+    role_id: "surface-router",
+    kind: "agent",
+    output_path: path.join(".claude", "agents", "surface-router-agent.md"),
+    name: "surface-router-agent",
+    description: "Calls the MCP surface router after recon and reports the capability-pack summary",
+    model: "sonnet",
+    color: "blue",
+    mcp_server: true,
+    local_tools: Object.freeze(["Read"]),
   }),
   hunter: Object.freeze({
     role_id: "hunter",

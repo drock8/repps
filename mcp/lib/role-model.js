@@ -49,6 +49,11 @@ const ROLE_DEFINITIONS = Object.freeze({
     prompt_body: path.join(ROLE_PROMPT_DIR, "deep-recon.md"),
     mcp_role_bundles: Object.freeze([]),
   }),
+  "surface-router": Object.freeze({
+    id: "surface-router",
+    prompt_body: path.join(ROLE_PROMPT_DIR, "surface-router.md"),
+    mcp_role_bundles: Object.freeze(["router"]),
+  }),
   hunter: Object.freeze({
     id: "hunter",
     prompt_body: path.join(ROLE_PROMPT_DIR, "hunter.md"),

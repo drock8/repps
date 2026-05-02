@@ -11,6 +11,11 @@ const CODEX_ROLE_SPECS = Object.freeze({
     agent_type: "worker",
     lifecycle: "wait",
   }),
+  "surface-router": Object.freeze({
+    bob_role: "surface-router-agent",
+    agent_type: "worker",
+    lifecycle: "wait",
+  }),
   hunter: Object.freeze({
     bob_role: "hunter-agent",
     agent_type: "worker",
