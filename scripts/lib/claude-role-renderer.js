@@ -14,13 +14,13 @@ const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
 const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
   "{{SPAWN_RECON_AGENT}}": [
-    "```",
-    "Agent(subagent_type: \"recon-agent\", name: \"recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
+    "```text",
+    "deep_mode false: Agent(subagent_type: \"recon-agent\", name: \"recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
     "```",
   ].join("\n"),
   "{{SPAWN_DEEP_RECON_AGENT}}": [
-    "```",
-    "Agent(subagent_type: \"deep-recon-agent\", name: \"deep-recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
+    "```text",
+    "deep_mode true: Agent(subagent_type: \"deep-recon-agent\", name: \"deep-recon\", prompt: \"DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]\")",
     "```",
   ].join("\n"),
   "{{SPAWN_HUNTER_AGENT}}": [
@@ -30,7 +30,7 @@ const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
     "Wave: w[wave]",
     "Agent: a[agent]",
     "Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]",
-    "First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.",
+    "First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: false }) and use .data, including run_context.",
     "Use surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.",
     "Egress profile: [egress_profile]. Pass this exact value as egress_profile on every bounty_http_scan call.",
     "Prefer traffic_summary endpoints, replay through bounty_http_scan with target_domain and egress_profile, log bounty_log_coverage after meaningful tests, and log before switching away from promising traffic-derived endpoints.",
@@ -172,7 +172,7 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     output_path: path.join(".claude", "skills", "bob-hunt", "SKILL.md"),
     name: "bob-hunt",
     disable_model_invocation: true,
-    argument_hint: "[target-url | resume <domain> [force-merge]]",
+    argument_hint: "[target-url | resume <domain> [force-merge]] [--deep] [--egress <profile>]",
     local_tools: Object.freeze(["Task", "Read"]),
   }),
   status: Object.freeze({

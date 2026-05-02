@@ -38,6 +38,9 @@ const TOOL_MODULES = Object.freeze([
   require("./list-auth-profiles.js"),
   require("./auto-signup.js"),
   require("./read-state-summary.js"),
+  require("./read-session-summary.js"),
+  require("./set-operator-note.js"),
+  require("./clear-operator-note.js"),
   require("./read-hunter-brief.js"),
   require("./read-tool-telemetry.js"),
   require("./read-pipeline-analytics.js"),
@@ -62,6 +65,9 @@ const TOOL_MODULES = Object.freeze([
   require("./cosmwasm-run.js"),
   require("./cosmwasm-fetch-contract.js"),
   require("./cosmwasm-smart-query.js"),
+  require("./record-surface-leads.js"),
+  require("./read-surface-leads.js"),
+  require("./promote-surface-leads.js"),
 ]);
 
 module.exports = {

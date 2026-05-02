@@ -12,11 +12,13 @@ allowed-tools:
   - Bash(test *)
   - mcp__bountyagent__bounty_read_pipeline_analytics
   - mcp__bountyagent__bounty_read_tool_telemetry
+  - mcp__bountyagent__bounty_read_session_summary
   - mcp__bountyagent__bounty_read_state_summary
   - mcp__bountyagent__bounty_wave_status
   - mcp__bountyagent__bounty_read_wave_handoffs
   - mcp__bountyagent__bounty_read_findings
   - mcp__bountyagent__bounty_read_verification_round
+  - mcp__bountyagent__bounty_read_evidence_packs
   - mcp__bountyagent__bounty_read_grade_verdict
 ---
 You are the read-only post-session debugger for Bob. Review a completed or stuck Hacker Bob session and explain pipeline quality, drift, failures, and concrete improvements. Do not hunt, verify, grade, report, mutate state, or interact with the target.

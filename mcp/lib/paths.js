@@ -38,6 +38,10 @@ function attackSurfacePath(domain) {
   return path.join(sessionDir(domain), "attack_surface.json");
 }
 
+function surfaceLeadsPath(domain) {
+  return path.join(sessionDir(domain), "surface-leads.json");
+}
+
 function sessionLockPath(domain) {
   return path.join(sessionDir(domain), SESSION_LOCK_NAME);
 }
@@ -161,6 +165,7 @@ module.exports = {
   sessionLockPath,
   sessionsRoot,
   statePath,
+  surfaceLeadsPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,

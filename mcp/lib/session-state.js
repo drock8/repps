@@ -8,8 +8,10 @@ const {
 } = require("./constants.js");
 const {
   assertEnumValue,
+  assertBoolean,
   assertInteger,
   assertNonEmptyString,
+  normalizeOptionalText,
   normalizeStringArray,
 } = require("./validation.js");
 const {
@@ -29,16 +31,39 @@ const {
   safeAppendPipelineEventDirect,
 } = require("./pipeline-analytics.js");
 const {
+  validateNoSensitiveMaterial,
+} = require("./sensitive-material.js");
+const {
   computeChainToVerifyGate,
   computeHuntToChainGate,
   computeVerifyToGradeGate,
   formatTransitionBlockers,
 } = require("./phase-gates.js");
 
-function buildInitialSessionState(domain, targetUrl) {
+const OPERATOR_NOTE_MAX_CHARS = 1000;
+
+function validateOperatorNoteText(note, fieldName) {
+  if (note.length > OPERATOR_NOTE_MAX_CHARS) {
+    throw new Error(`${fieldName} must be at most ${OPERATOR_NOTE_MAX_CHARS} characters`);
+  }
+  validateNoSensitiveMaterial(note, fieldName, { maxTextChars: OPERATOR_NOTE_MAX_CHARS + 1 });
+  return note;
+}
+
+function normalizeOperatorNote(value, fieldName = "operator_note") {
+  const note = normalizeOptionalText(value, fieldName);
+  return note == null ? null : validateOperatorNoteText(note, fieldName);
+}
+
+function assertOperatorNote(value, fieldName = "operator_note") {
+  return validateOperatorNoteText(assertNonEmptyString(value, fieldName), fieldName);
+}
+
+function buildInitialSessionState(domain, targetUrl, { deepMode = false } = {}) {
   return {
     target: domain,
     target_url: targetUrl,
+    deep_mode: deepMode,
     phase: "RECON",
     hunt_wave: 0,
     pending_wave: null,
@@ -50,6 +75,7 @@ function buildInitialSessionState(domain, targetUrl) {
     scope_exclusions: [],
     hold_count: 0,
     auth_status: "pending",
+    operator_note: null,
   };
 }
 
@@ -63,6 +89,7 @@ function publicSessionState(state) {
 function compactSessionState(state) {
   return {
     target: state.target,
+    deep_mode: state.deep_mode === true,
     phase: state.phase,
     hunt_wave: state.hunt_wave,
     pending_wave: state.pending_wave,
@@ -73,6 +100,7 @@ function compactSessionState(state) {
     lead_surface_ids: state.lead_surface_ids || [],
     hold_count: state.hold_count,
     auth_status: state.auth_status,
+    operator_note: state.operator_note,
   };
 }
 
@@ -88,6 +116,9 @@ function normalizeSessionStateDocument(document, requestedDomain) {
   return {
     target: requestedDomain,
     target_url: assertNonEmptyString(document.target_url, "target_url"),
+    deep_mode: document.deep_mode == null
+      ? false
+      : assertBoolean(document.deep_mode, "deep_mode"),
     phase: assertEnumValue(document.phase, PHASE_VALUES, "phase"),
     hunt_wave: document.hunt_wave == null
       ? 0
@@ -109,6 +140,7 @@ function normalizeSessionStateDocument(document, requestedDomain) {
     auth_status: document.auth_status == null
       ? "pending"
       : assertEnumValue(document.auth_status, AUTH_STATUS_VALUES, "auth_status"),
+    operator_note: normalizeOperatorNote(document.operator_note, "operator_note"),
   };
 }
 
@@ -156,6 +188,7 @@ function writeSessionStateDocument(domain, rawDocument, state) {
 function initSession(args) {
   const domain = assertNonEmptyString(args.target_domain, "target_domain");
   const targetUrl = assertNonEmptyString(args.target_url, "target_url");
+  const deepMode = args.deep_mode == null ? false : assertBoolean(args.deep_mode, "deep_mode");
 
   return withSessionLock(domain, () => {
     const dir = sessionDir(domain);
@@ -168,11 +201,12 @@ function initSession(args) {
       throw new ToolError(ERROR_CODES.STATE_CONFLICT, `Session directory is not empty: ${dir}`);
     }
 
-    const state = buildInitialSessionState(domain, targetUrl);
+    const state = buildInitialSessionState(domain, targetUrl, { deepMode });
     writeFileAtomic(filePath, `${JSON.stringify(state, null, 2)}\n`);
     safeAppendPipelineEventDirect(domain, "session_started", {
       phase: state.phase,
       source: "bounty_init_session",
+      deep_mode: state.deep_mode,
     });
 
     return JSON.stringify({
@@ -199,6 +233,45 @@ function readStateSummary(args) {
   return JSON.stringify({
     version: 1,
     state: compactSessionState(state),
+  });
+}
+
+function setOperatorNote(args) {
+  const domain = assertNonEmptyString(args.target_domain, "target_domain");
+  const operatorNote = assertOperatorNote(args.operator_note, "operator_note");
+
+  return withSessionLock(domain, () => {
+    const { raw, state } = readSessionStateStrict(domain);
+    const nextState = {
+      ...state,
+      operator_note: operatorNote,
+    };
+    writeSessionStateDocument(domain, raw, nextState);
+    return JSON.stringify({
+      version: 1,
+      updated: true,
+      operator_note: operatorNote,
+      state: compactSessionState(nextState),
+    });
+  });
+}
+
+function clearOperatorNote(args) {
+  const domain = assertNonEmptyString(args.target_domain, "target_domain");
+
+  return withSessionLock(domain, () => {
+    const { raw, state } = readSessionStateStrict(domain);
+    const nextState = {
+      ...state,
+      operator_note: null,
+    };
+    writeSessionStateDocument(domain, raw, nextState);
+    return JSON.stringify({
+      version: 1,
+      cleared: true,
+      operator_note: null,
+      state: compactSessionState(nextState),
+    });
   });
 }
 
@@ -318,10 +391,12 @@ function transitionPhase(args) {
 
 module.exports = {
   buildInitialSessionState,
+  clearOperatorNote,
   compactSessionState,
   composeSessionStateDocument,
   initSession,
   normalizeSessionStateDocument,
+  setOperatorNote,
   publicSessionState,
   readSessionState,
   readSessionStateStrict,

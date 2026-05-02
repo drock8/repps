@@ -45,6 +45,8 @@
       "mcp__bountyagent__bounty_substrate_fetch_runtime",
       "mcp__bountyagent__bounty_cosmwasm_fetch_contract",
       "mcp__bountyagent__bounty_cosmwasm_smart_query",
+      "mcp__bountyagent__bounty_record_surface_leads",
+      "mcp__bountyagent__bounty_read_surface_leads",
       "Bash(mkdir *)",
       "Bash(test *)",
       "Bash(cat *)",
@@ -58,7 +60,8 @@
       "Bash(echo *)",
       "Read",
       "Glob",
-      "Grep"
+      "Grep",
+      "mcp__bountyagent__bounty_read_session_summary"
     ]
   },
   "hooks": {
@@ -74,6 +77,11 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-write-guard.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-read-guard.sh\"",
             "timeout": 5
           }
         ]
@@ -114,6 +122,16 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/scope-guard-mcp.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-read-guard.sh\"",
             "timeout": 5
           }
         ]

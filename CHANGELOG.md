@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-05-01
+## [1.2.0] - 2026-05-02
+
+### Deep recon mode (merged from main)
+
+- Added a `--deep` flag to `/bob-hunt` and `$bob-hunt` that swaps the normal recon agent for a new `deep-recon-agent` running broader passive discovery (subfinder, amass, assetfinder, chaos, crt.sh, archived URL collection, JS endpoint extraction, takeover candidates).
+- Added compact `surface-leads.json` with three new MCP tools — `bounty_record_surface_leads`, `bounty_read_surface_leads`, `bounty_promote_surface_leads` — so hunters can log durable leads in deep mode and the orchestrator can promote ranked leads back into `attack_surface.json` for new waves.
+- `state.deep_mode` persists on resume, so `/bob-hunt resume` keeps deep behavior even when `--deep` is omitted.
+
+### Session summary, read guard, operator notes (merged from main)
+
+- Added `bounty_read_session_summary` MCP tool returning a compact, structured summary (phase, blockers, evidence status, next action) so orchestrator/status/debug avoid bulky raw `state.json` reads.
+- Added `.claude/hooks/session-read-guard.sh` PreToolUse hook that blocks Bash/Read against denylisted session artifacts (`state.json`, `findings.jsonl`, `report.md`, etc.) under `~/bounty-agent-sessions/`. Only `attack_surface.json` is allowed for direct reads.
+- Added `mcp/lib/sensitive-material.js` validation that rejects auth headers, cookies, JWTs, and other secrets at the input boundary of any mutating MCP tool.
+- Added `bounty_set_operator_note` and `bounty_clear_operator_note` for bounded non-secret operator instructions stored in session state.
+- Verifier/grader/reporter/evidence prompts now require compact summary-only final responses with `BOB_VERIFY_DONE` / `BOB_CHAIN_DONE` / `BOB_GRADE_DONE` / `BOB_REPORT_DONE` / `BOB_EVIDENCE_DONE` markers and explicit forbids on raw requests, responses, cookies, tokens, or authorization headers in the final message.
+
+### Offline guide and architecture site (merged from main)
+
+- Added `docs/hacker-bob-offline-guide.md` (operator manual) and `docs/hacker-bob-offline-guide.pdf` (printable form).
+- Added `docs/bob-architecture-event.html` (single-page architecture overview) and `docs/hacker-bob-github-qr.png`.
+- Added `site/` (React + Vite marketing site source).
 
 ### Smart-contract testing pipeline (Phase 0–6)
 

@@ -17,6 +17,14 @@ const ROOT = path.join(__dirname, "..");
 const AGENTS_DIR = path.join(ROOT, ".claude", "agents");
 
 const AGENT_TOOL_SPECS = Object.freeze({
+  "recon-agent.md": {
+    roleBundles: [],
+    extras: ["Bash", "Read", "Write", "Glob", "Grep"],
+  },
+  "deep-recon-agent.md": {
+    roleBundles: [],
+    extras: ["Bash", "Read", "Write", "Glob", "Grep"],
+  },
   "hunter-agent.md": {
     roleId: "hunter",
     roleBundles: ["hunter"],

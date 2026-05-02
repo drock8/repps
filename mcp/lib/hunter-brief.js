@@ -3,7 +3,9 @@
 const fs = require("fs");
 const path = require("path");
 const {
+  assertBoolean,
   assertNonEmptyString,
+  normalizeOptionalText,
   parseAgentId,
   parseWaveId,
 } = require("./validation.js");
@@ -431,6 +433,10 @@ function readHunterBrief(args) {
   const domain = assertNonEmptyString(args.target_domain, "target_domain");
   const wave = parseWaveId(args.wave);
   const agent = parseAgentId(args.agent);
+  const egressProfile = normalizeOptionalText(args.egress_profile, "egress_profile") || "default";
+  const blockInternalHosts = args.block_internal_hosts == null
+    ? false
+    : assertBoolean(args.block_internal_hosts, "block_internal_hosts");
   const waveNumber = Number(wave.slice(1));
 
   // 1. Load and validate assignment
@@ -486,6 +492,13 @@ function readHunterBrief(args) {
   const slimSurface = slimSurfaceForBrief(surfaceObj);
 
   return JSON.stringify({
+    run_context: {
+      target_domain: domain,
+      phase: state.phase,
+      auth_status: state.auth_status,
+      egress_profile: egressProfile,
+      block_internal_hosts: blockInternalHosts,
+    },
     target_url: state.target_url,
     wave,
     agent,

@@ -40,6 +40,12 @@ const {
 } = require("./coverage.js");
 const { readAttackSurfaceStrict } = require("./attack-surface.js");
 const {
+  isAssignableSurfaceLead,
+  promoteSurfaceLeadsInternal,
+  readSurfaceLeadsDocument,
+  recordSurfaceLeadsInternal,
+} = require("./surface-leads.js");
+const {
   readFindingsFromJsonl,
   summarizeFindings,
 } = require("./findings.js");
@@ -384,6 +390,7 @@ function validateWaveHandoffPayload(payload, {
     dead_ends: normalizeStringArray(payload.dead_ends, "dead_ends"),
     waf_blocked_endpoints: normalizeStringArray(payload.waf_blocked_endpoints, "waf_blocked_endpoints"),
     lead_surface_ids: normalizeStringArray(payload.lead_surface_ids, "lead_surface_ids"),
+    surface_lead_ids: normalizeStringArray(payload.surface_lead_ids, "surface_lead_ids"),
     surface_status: surfaceStatus,
   };
 }
@@ -639,6 +646,7 @@ function waveStatus(args) {
   let auditSummary = null;
   let trafficSummary = null;
   let circuitBreakerSummary = null;
+  let surfaceLeadsSummary = null;
   try {
     const auditRecords = readHttpAuditRecordsFromJsonl(domain);
     auditSummary = summarizeHttpAuditRecords(auditRecords, { limit: 0 });
@@ -646,6 +654,16 @@ function waveStatus(args) {
   } catch {}
   try {
     trafficSummary = summarizeTrafficRecords(readTrafficRecordsFromJsonl(domain), { limit: 0 });
+  } catch {}
+  try {
+    const surfaceLeads = readSurfaceLeadsDocument(domain);
+    surfaceLeadsSummary = {
+      total: surfaceLeads.leads.length,
+      high_confidence_unpromoted: surfaceLeads.leads.filter(
+        (lead) => lead.status !== "promoted" && lead.confidence === "high" && isAssignableSurfaceLead(lead),
+      ).length,
+      promoted: surfaceLeads.leads.filter((lead) => lead.status === "promoted").length,
+    };
   } catch {}
 
   return JSON.stringify({
@@ -655,6 +673,7 @@ function waveStatus(args) {
     http_audit: auditSummary,
     traffic: trafficSummary,
     circuit_breaker: circuitBreakerSummary,
+    surface_leads: surfaceLeadsSummary,
     findings_summary: findings.map((finding) => ({
       id: finding.id,
       severity: finding.severity,
@@ -815,7 +834,6 @@ function applyWaveMerge(args) {
       });
     }
 
-    const attackSurface = readAttackSurfaceStrict(domain);
     const { artifacts, merge } = mergeWaveHandoffsInternal(domain, waveNumber);
     const coverageRecords = readCoverageRecordsFromJsonl(domain);
     const requeueSurfaceIds = computeRequeueSurfaceIds(artifacts, merge, coverageRecords);
@@ -828,6 +846,14 @@ function applyWaveMerge(args) {
     const deadEnds = [...state.dead_ends];
     const wafBlockedEndpoints = [...state.waf_blocked_endpoints];
     const leadSurfaceIds = [...state.lead_surface_ids];
+    const deepPromotion = state.deep_mode === true
+      ? promoteSurfaceLeadsInternal(domain, {
+          limit: 8,
+          min_score: 60,
+          update_state: false,
+        })
+      : { promoted_surface_ids: [] };
+    const attackSurface = readAttackSurfaceStrict(domain);
 
     pushUnique(
       explored,
@@ -837,6 +863,7 @@ function applyWaveMerge(args) {
     pushUnique(deadEnds, new Set(deadEnds), merge.dead_ends);
     pushUnique(wafBlockedEndpoints, new Set(wafBlockedEndpoints), merge.waf_blocked_endpoints);
     pushUnique(leadSurfaceIds, new Set(leadSurfaceIds), merge.lead_surface_ids);
+    pushUnique(leadSurfaceIds, new Set(leadSurfaceIds), deepPromotion.promoted_surface_ids || []);
 
     const filteredLeadSurfaceIds = leadSurfaceIds.filter(
       (surfaceId) => attackSurface.surface_id_set.has(surfaceId) && !explored.includes(surfaceId),
@@ -896,6 +923,7 @@ function applyWaveMerge(args) {
         bypass_attempts: merge.bypass_attempts,
         bypass_attempts_grouped: merge.bypass_attempts_grouped,
         suspicion_flags: merge.suspicion_flags,
+        ...(state.deep_mode === true ? { deep_promoted_surface_ids: deepPromotion.promoted_surface_ids || [] } : {}),
         provenance: merge.provenance,
       },
       findings,
@@ -994,56 +1022,68 @@ function writeWaveHandoff(args) {
     throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "content must be a string");
   }
 
-  const assignment = validateAssignedWaveAgentSurface(domain, wave, agent, surfaceId);
-  const provenance = validateHandoffToken(assignment, args.handoff_token);
+  return withSessionLock(domain, () => {
+    const assignment = validateAssignedWaveAgentSurface(domain, wave, agent, surfaceId);
+    const provenance = validateHandoffToken(assignment, args.handoff_token);
+    const surfaceLeadResult = recordSurfaceLeadsInternal(domain, Array.isArray(args.surface_leads) ? args.surface_leads : [], {
+      source: "hunter_handoff",
+      source_wave: wave,
+      source_agent: agent,
+      source_surface_id: surfaceId,
+    });
 
-  // Read surface_type from the immutable, MCP-owned assignment file (captured
-  // at start_wave time). Reading from agent-writable attack_surface.json would
-  // let a hunter disable the smart_contract gate via Bash mutation.
-  const surfaceType = assignment.surface_type || null;
-  const findingsForRun = readFindingsFromJsonl(domain).filter((finding) => (
-    finding.wave === wave &&
-    finding.agent === agent &&
-    finding.surface_id === surfaceId
-  ));
-  const findingIdSet = new Set(findingsForRun.map((finding) => finding.id));
-  const bypassAttempts = normalizeBypassAttempts(args.bypass_attempts, { findingIds: findingIdSet });
-  assertBlockedHarnessConsistency(surfaceStatus, blockedHarnessRuns);
-  assertSmartContractCompletionEvidence({
-    surfaceType,
-    surfaceStatus,
-    bypassAttempts,
-    findingCount: findingsForRun.length,
-  });
+    // Read surface_type from the immutable, MCP-owned assignment file (captured
+    // at start_wave time). Reading from agent-writable attack_surface.json would
+    // let a hunter disable the smart_contract gate via Bash mutation.
+    const surfaceType = assignment.surface_type || null;
+    const findingsForRun = readFindingsFromJsonl(domain).filter((finding) => (
+      finding.wave === wave &&
+      finding.agent === agent &&
+      finding.surface_id === surfaceId
+    ));
+    const findingIdSet = new Set(findingsForRun.map((finding) => finding.id));
+    const bypassAttempts = normalizeBypassAttempts(args.bypass_attempts, { findingIds: findingIdSet });
+    assertBlockedHarnessConsistency(surfaceStatus, blockedHarnessRuns);
+    assertSmartContractCompletionEvidence({
+      surfaceType,
+      surfaceStatus,
+      bypassAttempts,
+      findingCount: findingsForRun.length,
+    });
 
-  const handoff = {
-    target_domain: domain,
-    wave,
-    agent,
-    surface_id: surfaceId,
-    surface_type: surfaceType,
-    surface_status: surfaceStatus,
-    provenance,
-    summary,
-    chain_notes: chainNotes,
-    blocked_harness_runs: blockedHarnessRuns,
-    bypass_attempts: bypassAttempts,
-    dead_ends: normalizeStringArray(args.dead_ends, "dead_ends"),
-    waf_blocked_endpoints: normalizeStringArray(args.waf_blocked_endpoints, "waf_blocked_endpoints"),
-    lead_surface_ids: normalizeStringArray(args.lead_surface_ids, "lead_surface_ids"),
-  };
+    const handoff = {
+      target_domain: domain,
+      wave,
+      agent,
+      surface_id: surfaceId,
+      surface_type: surfaceType,
+      surface_status: surfaceStatus,
+      provenance,
+      summary,
+      chain_notes: chainNotes,
+      blocked_harness_runs: blockedHarnessRuns,
+      bypass_attempts: bypassAttempts,
+      dead_ends: normalizeStringArray(args.dead_ends, "dead_ends"),
+      waf_blocked_endpoints: normalizeStringArray(args.waf_blocked_endpoints, "waf_blocked_endpoints"),
+      lead_surface_ids: normalizeStringArray(args.lead_surface_ids, "lead_surface_ids"),
+    };
+    if (surfaceLeadResult.lead_ids.length > 0) {
+      handoff.surface_lead_ids = surfaceLeadResult.lead_ids;
+    }
 
-  const dir = sessionDir(domain);
-  const markdownPath = path.join(dir, `handoff-${wave}-${agent}.md`);
-  const jsonPath = path.join(dir, `handoff-${wave}-${agent}.json`);
+    const dir = sessionDir(domain);
+    const markdownPath = path.join(dir, `handoff-${wave}-${agent}.md`);
+    const jsonPath = path.join(dir, `handoff-${wave}-${agent}.json`);
 
-  writeFileAtomic(markdownPath, args.content);
-  writeFileAtomic(jsonPath, JSON.stringify(handoff, null, 2) + "\n");
+    writeFileAtomic(markdownPath, args.content);
+    writeFileAtomic(jsonPath, JSON.stringify(handoff, null, 2) + "\n");
 
-  return JSON.stringify({
-    written_md: markdownPath,
-    written_json: jsonPath,
-    provenance,
+    return JSON.stringify({
+      written_md: markdownPath,
+      written_json: jsonPath,
+      provenance,
+      surface_lead_ids: surfaceLeadResult.lead_ids,
+    });
   });
 }
 
@@ -1137,7 +1177,7 @@ function buildWaveHandoffsDocument(domain, waveNumbers) {
           findingsForRun,
         });
         const provenance = validateHandoffProvenance(handoffJson, assignment);
-        handoffs.push({
+        const handoff = {
           wave: artifacts.wave,
           agent: assignment.agent,
           surface_id: assignment.surface_id,
@@ -1151,7 +1191,11 @@ function buildWaveHandoffsDocument(domain, waveNumbers) {
           dead_ends: payload.dead_ends,
           waf_blocked_endpoints: payload.waf_blocked_endpoints,
           lead_surface_ids: payload.lead_surface_ids,
-        });
+        };
+        if (payload.surface_lead_ids.length > 0) {
+          handoff.surface_lead_ids = payload.surface_lead_ids;
+        }
+        handoffs.push(handoff);
       } catch (error) {
         invalidHandoffs.push({
           wave: artifacts.wave,

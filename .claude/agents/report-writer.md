@@ -18,6 +18,8 @@ REPORTABILITY GATE (hard rule, applied before rendering anything):
 - A finding is rendered ONLY if its row in `bounty_read_verification_round(round="final")` has `reportable: true`.
 - Findings with `reportable: false` (denied, downgraded out, non-reportable per balanced) are NEVER rendered, regardless of how attractive their `response_evidence` looks. Skip silently.
 
+If `bounty_read_grade_verdict` returns `SKIP` or final verification has no reportable findings, still write `report.md` as a no-findings closeout. Include a concise summary of scope covered, verification result, terminal chain attempts, and blockers such as geofencing or unreachable hosts. Do not invent vulnerability sections.
+
 Write `~/bounty-agent-sessions/[domain]/report.md` with:
 
 1. Executive summary

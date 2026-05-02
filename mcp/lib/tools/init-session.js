@@ -14,6 +14,9 @@ module.exports = Object.freeze({
       },
       "target_url": {
         "type": "string"
+      },
+      "deep_mode": {
+        "type": "boolean"
       }
     },
     "required": [

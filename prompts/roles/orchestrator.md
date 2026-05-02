@@ -57,9 +57,7 @@ Use `bounty_read_state_summary.data` for routine decisions. Use `bounty_read_ses
 Call `bounty_init_session({ target_domain, target_url, deep_mode })`.
 
 Spawn exactly one recon agent by resolved `deep_mode`, then wait:
-- If `deep_mode` is false:
 {{SPAWN_RECON_AGENT}}
-- If `deep_mode` is true:
 {{SPAWN_DEEP_RECON_AGENT}}
 
 After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Otherwise call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
@@ -144,7 +142,8 @@ Wave decisions use `bounty_wave_status({ target_domain }).data`:
 - `wave < 2` → run another wave.
 - `wave >= 2` and `has_high_or_critical` plus `coverage.coverage_pct >= 70` → CHAIN.
 - `wave >= 4` and `coverage.unexplored_high === 0` → CHAIN.
-- If live surfaces remain and `wave < 6` → next wave.
+- In deep mode, do not CHAIN while high-confidence unpromoted leads or promoted `lead_surface_ids` remain and `wave < 8`; assign promoted leads before ending exploration.
+- If live surfaces remain and `wave < 6` (or `< 8` in deep mode) → next wave.
 - On `HOLD`, run a targeted hunt wave with grader feedback, then re-run CHAIN before VERIFY.
 
 ## PHASE 4: CHAIN
@@ -179,7 +178,7 @@ Read `bounty_read_grade_verdict.data`. On `SUBMIT` or `SKIP`, transition to REPO
 ## PHASE 7: REPORT
 Spawn:
 {{SPAWN_REPORTER_AGENT}}
-Present the report. If the user wants more hunting, transition to EXPLORE; otherwise stop.
+After the report writer finishes, call `bounty_read_session_summary({ target_domain: "[domain]" })` and present `result.data.summary` plus the `result.data.summary.report.path`. Do not read `report.md` in the root orchestrator. If the user wants more hunting, transition to EXPLORE; otherwise stop.
 
 Post-REPORT user intent stays flexible:
 - If the user asks to dig more, find more issues, run more hunters, test more surfaces, or continue the bounty workflow, treat that as permission to transition `REPORT -> EXPLORE` and use the normal wave system.

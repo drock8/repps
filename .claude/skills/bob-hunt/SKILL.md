@@ -1,7 +1,7 @@
 ---
 name: bob-hunt
 disable-model-invocation: true
-argument-hint: "[target-url | resume <domain> [force-merge]]"
+argument-hint: "[target-url | resume <domain> [force-merge]] [--deep] [--egress <profile>]"
 allowed-tools:
   - Task
   - Read
@@ -24,8 +24,14 @@ allowed-tools:
   - mcp__bountyagent__bounty_wave_status
   - mcp__bountyagent__bounty_list_auth_profiles
   - mcp__bountyagent__bounty_read_state_summary
+  - mcp__bountyagent__bounty_read_session_summary
+  - mcp__bountyagent__bounty_set_operator_note
+  - mcp__bountyagent__bounty_clear_operator_note
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
+  - mcp__bountyagent__bounty_record_surface_leads
+  - mcp__bountyagent__bounty_read_surface_leads
+  - mcp__bountyagent__bounty_promote_surface_leads
   - mcp__bountyagent__bounty_http_scan
   - mcp__bountyagent__bounty_temp_email
   - mcp__bountyagent__bounty_signup_detect
@@ -91,13 +97,11 @@ Use `bounty_read_state_summary.data` for routine decisions. Use `bounty_read_ses
 Call `bounty_init_session({ target_domain, target_url, deep_mode })`.
 
 Spawn exactly one recon agent by resolved `deep_mode`, then wait:
-- If `deep_mode` is false:
+```text
+deep_mode false: Agent(subagent_type: "recon-agent", name: "recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
 ```
-Agent(subagent_type: "recon-agent", name: "recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
-```
-- If `deep_mode` is true:
-```
-Agent(subagent_type: "deep-recon-agent", name: "deep-recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
+```text
+deep_mode true: Agent(subagent_type: "deep-recon-agent", name: "deep-recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
 ```
 
 After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })` to inspect remaining leads. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Otherwise call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
@@ -147,7 +151,7 @@ Domain: [domain]
 Wave: w[wave]
 Agent: a[agent]
 Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]
-First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.
+First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: false }) and use .data, including run_context.
 Use surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.
 Egress profile: [egress_profile]. Pass this exact value as egress_profile on every bounty_http_scan call.
 Prefer traffic_summary endpoints, replay through bounty_http_scan with target_domain and egress_profile, log bounty_log_coverage after meaningful tests, and log before switching away from promising traffic-derived endpoints.
@@ -269,7 +273,8 @@ Wave decisions use `bounty_wave_status({ target_domain }).data`:
 - `wave < 2` → run another wave.
 - `wave >= 2` and `has_high_or_critical` plus `coverage.coverage_pct >= 70` → CHAIN.
 - `wave >= 4` and `coverage.unexplored_high === 0` → CHAIN.
-- If live surfaces remain and `wave < 6` → next wave.
+- In deep mode, do not CHAIN while high-confidence unpromoted leads or promoted `lead_surface_ids` remain and `wave < 8`; assign promoted leads before ending exploration.
+- If live surfaces remain and `wave < 6` (or `< 8` in deep mode) → next wave.
 - On `HOLD`, run a targeted hunt wave with grader feedback, then re-run CHAIN before VERIFY.
 
 ## PHASE 4: CHAIN
@@ -318,7 +323,7 @@ Spawn:
 ```
 Agent(subagent_type: "report-writer", name: "reporter", prompt: "Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), bounty_read_evidence_packs, and bounty_read_grade_verdict, then write report.md. For SUBMIT, include only confirmed chain evidence. For SKIP/no reportables, write a concise no-findings closeout with verification, chain-attempt, and blocker summary.")
 ```
-Present the report. If the user wants more hunting, transition to EXPLORE; otherwise stop.
+After the report writer finishes, call `bounty_read_session_summary({ target_domain: "[domain]" })` and present `result.data.summary` plus the `result.data.summary.report.path`. Do not read `report.md` in the root orchestrator. If the user wants more hunting, transition to EXPLORE; otherwise stop.
 
 Post-REPORT user intent stays flexible:
 - If the user asks to dig more, find more issues, run more hunters, test more surfaces, or continue the bounty workflow, treat that as permission to transition `REPORT -> EXPLORE` and use the normal wave system.

@@ -97,6 +97,21 @@ function defaultPreToolUseHooks() {
           command: `bash "${PROJECT_DIR_EXPR}/.claude/hooks/session-write-guard.sh"`,
           timeout: 5,
         },
+        {
+          type: "command",
+          command: `bash "${PROJECT_DIR_EXPR}/.claude/hooks/session-read-guard.sh"`,
+          timeout: 5,
+        },
+      ],
+    },
+    {
+      matcher: "Read",
+      hooks: [
+        {
+          type: "command",
+          command: `bash "${PROJECT_DIR_EXPR}/.claude/hooks/session-read-guard.sh"`,
+          timeout: 5,
+        },
       ],
     },
     {

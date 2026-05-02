@@ -123,6 +123,7 @@ Then in Claude Code, use the Claude slash commands:
 
 ```
 /bob-hunt target.com         # full autonomous run
+/bob-hunt target.com --deep  # broader script-heavy recon and lead promotion
 /bob-hunt resume target.com  # pick up where you left off
 /bob-status                 # quick latest-session status
 /bob-debug                   # review the latest local session
@@ -161,7 +162,7 @@ In Codex, use `$bob-update`. In generic MCP hosts, run `hacker-bob update /path/
 RECON → AUTH → HUNT → CHAIN → VERIFY → GRADE → REPORT
 ```
 
-1. **RECON** — Bob sniffs around. Subdomains, live hosts, archived URLs, nuclei, JS secrets people forgot about.
+1. **RECON** — Bob sniffs around. Subdomains, live hosts, archived URLs, nuclei, JS secrets people forgot about. Add `--deep` for broader passive discovery, JS endpoint clustering, takeover/CVE-style lead hints, and promoted follow-up surfaces.
 2. **AUTH** — Bob tries to sign up. If he can, he keeps a victim and an attacker account in his pocket. If he can't, he shrugs and hunts unauthenticated.
 3. **HUNT** — Parallel hunter agents fan out, one per attack surface. They are not gentle.
 4. **CHAIN** — Bob squints at the findings and asks "wait, can I combine these into something worse?"
@@ -183,6 +184,9 @@ MCP ranking computes runtime priority for status views and hunter briefs. `/bob-
 go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 go install github.com/projectdiscovery/httpx/cmd/httpx@latest
 go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install github.com/owasp-amass/amass/v4/...@latest
+go install github.com/tomnomnom/assetfinder@latest
+go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest
 ```
 
 If those aren't installed, Bob just works with what he's got and doesn't complain.

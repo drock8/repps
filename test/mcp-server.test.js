@@ -101,14 +101,18 @@ const {
   readChainAttemptsFromJsonl,
   readEvidencePacks,
   readScopeExclusions,
+  readSessionSummary,
   readSessionState,
   readStateSummary,
+  setOperatorNote,
+  clearOperatorNote,
   readCoverageRecordsFromJsonl,
   readHttpAudit,
   readHttpAuditRecordsFromJsonl,
   readPipelineAnalytics,
   readPipelineEvents,
   readSessionArtifactSummary,
+  readSurfaceLeads,
   readTrafficRecordsFromJsonl,
   compactSessionState,
   listFindings,
@@ -124,6 +128,7 @@ const {
   readVerificationRound,
   readWaveHandoffs,
   recordFinding,
+  recordSurfaceLeads,
   redactUrlSensitiveValues,
   reportMarkdownPath,
   resolveAuthJsonPath,
@@ -137,6 +142,7 @@ const {
   staticArtifactsJsonlPath,
   staticScan,
   staticScanResultsJsonlPath,
+  surfaceLeadsPath,
   tempEmail,
   transitionPhase,
   trafficJsonlPath,
@@ -154,6 +160,7 @@ const {
   readHunterBrief,
   readStaticArtifactRecordsFromJsonl,
   readStaticScanResultsFromJsonl,
+  promoteSurfaceLeads,
 } = serverModule;
 
 const EXPECTED_TOOL_NAMES = [
@@ -194,6 +201,9 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_list_auth_profiles",
   "bounty_auto_signup",
   "bounty_read_state_summary",
+  "bounty_read_session_summary",
+  "bounty_set_operator_note",
+  "bounty_clear_operator_note",
   "bounty_read_hunter_brief",
   "bounty_read_tool_telemetry",
   "bounty_read_pipeline_analytics",
@@ -218,6 +228,9 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_cosmwasm_run",
   "bounty_cosmwasm_fetch_contract",
   "bounty_cosmwasm_smart_query",
+  "bounty_record_surface_leads",
+  "bounty_read_surface_leads",
+  "bounty_promote_surface_leads",
 ];
 
 function withTempHome(fn) {
@@ -323,6 +336,7 @@ function seedSessionState(domain, overrides = {}) {
   const state = {
     target: domain,
     target_url: "https://example.com",
+    deep_mode: false,
     phase: "HUNT",
     hunt_wave: 0,
     pending_wave: null,
@@ -334,6 +348,7 @@ function seedSessionState(domain, overrides = {}) {
     scope_exclusions: [],
     hold_count: 0,
     auth_status: "pending",
+    operator_note: null,
     ...overrides,
   };
   writeFileAtomic(statePath(domain), `${JSON.stringify(state, null, 2)}\n`);
@@ -597,6 +612,7 @@ test("mcp server public exports remain stable", () => {
     "buildCoverageSummaryForSurface",
     "buildHeaderProfile",
     "chainAttemptsJsonlPath",
+    "clearOperatorNote",
     "compactSessionState",
     "computeCoverageRequeueSurfaceIds",
     "coverageJsonlPath",
@@ -625,6 +641,7 @@ test("mcp server public exports remain stable", () => {
     "normalizeStringArray",
     "normalizeTrafficRecord",
     "pipelineEventsJsonlPath",
+    "promoteSurfaceLeads",
     "publicIntelPath",
     "rankAttackSurfaces",
     "readAuthJson",
@@ -643,13 +660,16 @@ test("mcp server public exports remain stable", () => {
     "readScopeExclusions",
     "readSessionArtifactSummary",
     "readSessionState",
+    "readSessionSummary",
     "readStateSummary",
     "readStaticArtifactRecordsFromJsonl",
     "readStaticScanResultsFromJsonl",
+    "readSurfaceLeads",
     "readTrafficRecordsFromJsonl",
     "readVerificationRound",
     "readWaveHandoffs",
     "recordFinding",
+    "recordSurfaceLeads",
     "redactUrlSensitiveValues",
     "renderEvidencePacksMarkdown",
     "renderFindingMarkdownEntry",
@@ -661,6 +681,7 @@ test("mcp server public exports remain stable", () => {
     "sessionDir",
     "sessionLockPath",
     "sessionsRoot",
+    "setOperatorNote",
     "signupDetect",
     "startServer",
     "startWave",
@@ -672,6 +693,7 @@ test("mcp server public exports remain stable", () => {
     "staticScanResultsJsonlPath",
     "summarizeFindings",
     "summarizeStaticScanHints",
+    "surfaceLeadsPath",
     "tempEmail",
     "trafficJsonlPath",
     "transitionPhase",
@@ -765,6 +787,42 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.equal(TOOL_MANIFEST.bounty_finalize_hunter_run.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_finalize_hunter_run.global_preapproval, true);
   assert.deepEqual(TOOL_MANIFEST.bounty_finalize_hunter_run.role_bundles, ["hunter"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.global_preapproval, true);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.network_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.browser_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.scope_required, false);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.sensitive_output, false);
+  assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.hook_required, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.session_artifacts_written, ["surface-leads.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.mutating, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.global_preapproval, true);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.network_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.browser_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.scope_required, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.sensitive_output, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.hook_required, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_surface_leads.session_artifacts_written, []);
+  assert.deepEqual(TOOL_MANIFEST.bounty_promote_surface_leads.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.global_preapproval, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.network_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.browser_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.scope_required, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.sensitive_output, false);
+  assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.hook_required, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_promote_surface_leads.session_artifacts_written, ["surface-leads.json", "attack_surface.json", "state.json"]);
+  assert.equal(TOOL_MANIFEST.bounty_read_session_summary.mutating, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_session_summary.global_preapproval, true);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_session_summary.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_set_operator_note.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_set_operator_note.global_preapproval, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_set_operator_note.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_clear_operator_note.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_clear_operator_note.global_preapproval, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_clear_operator_note.role_bundles, ["orchestrator"]);
 });
 
 test("MCP tool registry validation rejects incomplete or inconsistent entries", () => {
@@ -1807,6 +1865,7 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
     const expectedState = {
       target: domain,
       target_url: targetUrl,
+      deep_mode: false,
       phase: "RECON",
       hunt_wave: 0,
       pending_wave: null,
@@ -1818,6 +1877,7 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
       scope_exclusions: [],
       hold_count: 0,
       auth_status: "pending",
+      operator_note: null,
     };
 
     const created = JSON.parse(initSession({ target_domain: domain, target_url: targetUrl }));
@@ -1834,6 +1894,15 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
       version: 1,
       state: expectedState,
     });
+
+    const deepDomain = "deep.example.com";
+    const deepCreated = JSON.parse(initSession({
+      target_domain: deepDomain,
+      target_url: "https://deep.example.com",
+      deep_mode: true,
+    }));
+    assert.equal(deepCreated.state.deep_mode, true);
+    assert.equal(JSON.parse(readStateSummary({ target_domain: deepDomain })).state.deep_mode, true);
   });
 });
 
@@ -1905,6 +1974,7 @@ test("legacy state normalization is applied while unknown fields remain on disk 
       state: {
         target: domain,
         target_url: "https://example.com",
+        deep_mode: false,
         phase: "RECON",
         hunt_wave: 0,
         pending_wave: null,
@@ -1916,6 +1986,7 @@ test("legacy state normalization is applied while unknown fields remain on disk 
         scope_exclusions: [],
         hold_count: 0,
         auth_status: "pending",
+        operator_note: null,
       },
     });
 
@@ -1936,6 +2007,105 @@ test("malformed legacy state hard-fails session reads", () => {
     }, null, 2)}\n`);
 
     assert.throws(() => readSessionState({ target_domain: domain }), /Malformed session state:/);
+  });
+});
+
+test("operator note set read and clear works and rejects secret-looking values", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT" });
+
+    const set = JSON.parse(setOperatorNote({
+      target_domain: domain,
+      operator_note: "Use operator-approved EU egress on the next resume.",
+    }));
+    assert.equal(set.updated, true);
+    assert.equal(set.state.operator_note, "Use operator-approved EU egress on the next resume.");
+    assert.equal(
+      JSON.parse(readStateSummary({ target_domain: domain })).state.operator_note,
+      "Use operator-approved EU egress on the next resume.",
+    );
+
+    assert.throws(
+      () => setOperatorNote({
+        target_domain: domain,
+        operator_note: "Authorization: Bearer abcdefghijklmnop",
+      }),
+      /secrets, auth headers, cookies, or tokens/,
+    );
+
+    const cleared = JSON.parse(clearOperatorNote({ target_domain: domain }));
+    assert.equal(cleared.cleared, true);
+    assert.equal(JSON.parse(readStateSummary({ target_domain: domain })).state.operator_note, null);
+  });
+});
+
+test("bounty_read_session_summary derives compact status without raw proof evidence or report text", () => {
+  withTempHome(() => {
+    const domain = "summary.example.com";
+    const rawPoc = "raw-poc-text-that-must-not-escape";
+    const rawEvidence = "raw-evidence-text-that-must-not-escape";
+    const fullReport = "full report text that the summary must not include";
+    seedSessionState(domain, {
+      phase: "REPORT",
+      hunt_wave: 2,
+      auth_status: "authenticated",
+      operator_note: "Summarize only.",
+    });
+    seedFinding(domain, {
+      proof_of_concept: rawPoc,
+      response_evidence: rawEvidence,
+    });
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "confirmed",
+      severity: "high",
+      reportable: true,
+      reasoning: "Confirmed.",
+    }]);
+    JSON.parse(writeEvidencePacks({
+      target_domain: domain,
+      packs: [evidencePack("F-1", {
+        replay_summary: "Bounded replay returned private metadata.",
+        report_snippet: "Private metadata exposure.",
+      })],
+    }));
+    JSON.parse(writeGradeVerdict({
+      target_domain: domain,
+      verdict: "SUBMIT",
+      total_score: 40,
+      findings: [{
+        finding_id: "F-1",
+        impact: 20,
+        proof_quality: 10,
+        severity_accuracy: 5,
+        chain_potential: 0,
+        report_quality: 5,
+        total_score: 40,
+        feedback: null,
+      }],
+      feedback: null,
+    }));
+    fs.writeFileSync(reportMarkdownPath(domain), fullReport, "utf8");
+
+    const result = JSON.parse(readSessionSummary({ target_domain: domain }));
+    assert.equal(result.version, 1);
+    assert.equal(result.summary.target, domain);
+    assert.equal(result.summary.phase, "REPORT");
+    assert.equal(result.summary.auth_status, "authenticated");
+    assert.equal(result.summary.waves_run, 2);
+    assert.equal(result.summary.finding_total, 1);
+    assert.equal(result.summary.final_reportable_count, 1);
+    assert.equal(result.summary.evidence_status.status, "valid");
+    assert.equal(result.summary.grade_verdict, "SUBMIT");
+    assert.equal(result.summary.report.present, true);
+    assert.equal(result.summary.report.path, reportMarkdownPath(domain));
+    assert.equal(result.summary.operator_note, "Summarize only.");
+    assert.deepEqual(result.summary.blockers, []);
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(rawPoc));
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(rawEvidence));
+    assert.doesNotMatch(JSON.stringify(result), new RegExp(fullReport));
+    assert.doesNotMatch(JSON.stringify(result), /representative_samples/);
   });
 });
 
@@ -2554,6 +2724,7 @@ test("bounty_start_wave validates inputs, writes assignments, and updates pendin
     seedAttackSurface(domain, ["surface-a", "surface-b"]);
     const expectedState = {
       target: domain,
+      deep_mode: false,
       phase: "HUNT",
       hunt_wave: 1,
       pending_wave: 2,
@@ -2564,6 +2735,7 @@ test("bounty_start_wave validates inputs, writes assignments, and updates pendin
       lead_surface_ids: [],
       hold_count: 0,
       auth_status: "pending",
+      operator_note: null,
     };
 
     const result = JSON.parse(startWave({
@@ -2839,6 +3011,291 @@ test("bounty_apply_wave_merge merges state, findings, requeues, and scope exclus
     assert.deepEqual(fullState.waf_blocked_endpoints, ["/old-waf", "/new-waf"]);
     assert.deepEqual(fullState.scope_exclusions, ["oos.example.net", "api.other.example"]);
     assert.deepEqual(readScopeExclusions(domain), ["oos.example.net", "api.other.example"]);
+  });
+});
+
+test("surface leads are compact, promotable, and wave assignable", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", deep_mode: true });
+    seedAttackSurfaces(domain, [
+      {
+        id: "surface-a",
+        hosts: [`https://${domain}`],
+        tech_stack: [],
+        endpoints: [],
+        interesting_params: [],
+        nuclei_hits: [],
+        priority: "LOW",
+      },
+    ]);
+
+    const recorded = JSON.parse(recordSurfaceLeads({
+      target_domain: domain,
+      source: "test",
+      leads: [{
+        title: "Admin API from JS bundle",
+        hosts: [`https://admin.${domain}`],
+        endpoints: ["/api/admin/users?account_id=1"],
+        interesting_params: ["account_id"],
+        tech_stack: ["Next.js"],
+        priority: "HIGH",
+        surface_type: "admin",
+        bug_class_hints: ["idor", "authz"],
+        high_value_flows: ["admin", "exports"],
+        evidence: ["JS bundle references /api/admin/users?account_id="],
+        confidence: "high",
+        score: 86,
+      }],
+    }));
+    assert.equal(recorded.recorded, 1);
+    assert.ok(fs.existsSync(surfaceLeadsPath(domain)));
+
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 5 }));
+    assert.equal(leads.total, 1);
+    assert.equal(leads.high_confidence_unpromoted, 1);
+    assert.equal(leads.leads[0].id, "SL-1");
+
+    const promoted = JSON.parse(promoteSurfaceLeads({ target_domain: domain, limit: 3, min_score: 60 }));
+    assert.deepEqual(promoted.promoted_surface_ids, ["lead-admin-api-from-js-bundle"]);
+    const promotedSurfaceId = promoted.promoted_surface_ids[0];
+    const state = JSON.parse(readStateSummary({ target_domain: domain })).state;
+    assert.deepEqual(state.lead_surface_ids, [promotedSurfaceId]);
+
+    const attackSurface = JSON.parse(fs.readFileSync(attackSurfacePath(domain), "utf8"));
+    assert.ok(attackSurface.surfaces.some((surface) => surface.id === promotedSurfaceId));
+    const started = JSON.parse(startWave({
+      target_domain: domain,
+      wave_number: 1,
+      assignments: [{ agent: "a1", surface_id: promotedSurfaceId }],
+    }));
+    assert.equal(started.assignments[0].surface_id, promotedSurfaceId);
+  });
+});
+
+test("explicit medium surface lead promotion stays MEDIUM while becoming wave assignable", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", deep_mode: true });
+    seedAttackSurfaces(domain, [
+      {
+        id: "surface-a",
+        hosts: [`https://${domain}`],
+        tech_stack: [],
+        endpoints: [],
+        interesting_params: [],
+        nuclei_hits: [],
+        priority: "LOW",
+      },
+    ]);
+
+    const recorded = JSON.parse(recordSurfaceLeads({
+      target_domain: domain,
+      source: "test",
+      leads: [{
+        title: "Brand-linked sibling properties lightly probed",
+        hosts: ["https://brand-example.com"],
+        priority: "MEDIUM",
+        surface_type: "unknown",
+        evidence: ["https://brand-example.com [200] [Cloudflare] Brand login"],
+        confidence: "medium",
+        score: 55,
+        promote: true,
+      }],
+    }));
+    assert.equal(recorded.recorded, 1);
+
+    const promoted = JSON.parse(promoteSurfaceLeads({ target_domain: domain, limit: 3, min_score: 60 }));
+    assert.equal(promoted.promoted, 1);
+    assert.deepEqual(promoted.promoted_surface_ids, ["lead-brand-linked-sibling-properties-lightly-probed"]);
+    const promotedSurfaceId = promoted.promoted_surface_ids[0];
+
+    const state = JSON.parse(readStateSummary({ target_domain: domain })).state;
+    assert.deepEqual(state.lead_surface_ids, [promotedSurfaceId]);
+
+    const attackSurface = JSON.parse(fs.readFileSync(attackSurfacePath(domain), "utf8"));
+    const promotedSurface = attackSurface.surfaces.find((surface) => surface.id === promotedSurfaceId);
+    assert.ok(promotedSurface);
+    assert.equal(promotedSurface.priority, "MEDIUM");
+    assert.equal(promotedSurface.ranking.score, 55);
+  });
+});
+
+test("unassignable high-confidence surface leads are not promoted or counted as deep lead debt", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", deep_mode: true });
+    seedAttackSurfaces(domain, [
+      {
+        id: "surface-a",
+        hosts: [`https://${domain}`],
+        tech_stack: [],
+        endpoints: [],
+        interesting_params: [],
+        nuclei_hits: [],
+        priority: "LOW",
+      },
+    ]);
+
+    const recorded = JSON.parse(recordSurfaceLeads({
+      target_domain: domain,
+      source: "test",
+      leads: [{
+        title: "Vague external research note",
+        evidence: ["High confidence prose without an assignable host or endpoint."],
+        confidence: "high",
+        score: 95,
+        promote: true,
+      }],
+    }));
+    assert.equal(recorded.recorded, 1);
+
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 5 }));
+    assert.equal(leads.total, 1);
+    assert.equal(leads.high_confidence_unpromoted, 0);
+
+    const promoted = JSON.parse(promoteSurfaceLeads({ target_domain: domain, limit: 3, min_score: 60 }));
+    assert.deepEqual(promoted.promoted_surface_ids, []);
+    assert.equal(promoted.promoted, 0);
+
+    const attackSurface = JSON.parse(fs.readFileSync(attackSurfacePath(domain), "utf8"));
+    assert.deepEqual(attackSurface.surfaces.map((surface) => surface.id), ["surface-a"]);
+
+    const status = JSON.parse(waveStatus({ target_domain: domain }));
+    assert.deepEqual(status.surface_leads, {
+      total: 1,
+      high_confidence_unpromoted: 0,
+      promoted: 0,
+    });
+    assert.deepEqual(status.transition_blockers, []);
+  });
+});
+
+test("bounty_write_wave_handoff persists hunter surface_leads through the session lock", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [
+      { agent: "a1", surface_id: "surface-a" },
+      { agent: "a2", surface_id: "surface-b" },
+    ]);
+
+    const release = acquireSessionLock(domain);
+    try {
+      assert.throws(
+        () => writeWaveHandoff({
+          target_domain: domain,
+          wave: "w1",
+          agent: "a1",
+          surface_id: "surface-a",
+          surface_status: "complete",
+          summary: "a1 complete",
+          content: "# a1",
+          surface_leads: [{
+            title: "Locked lead should not be written",
+            hosts: [`https://locked.${domain}`],
+            confidence: "high",
+            score: 80,
+          }],
+        }),
+        /Session lock busy/,
+      );
+    } finally {
+      release();
+    }
+    assert.ok(!fs.existsSync(path.join(sessionDir(domain), "handoff-w1-a1.json")));
+    assert.equal(fs.existsSync(surfaceLeadsPath(domain)), false);
+
+    const first = JSON.parse(writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "complete",
+      summary: "a1 complete",
+      content: "# a1",
+      surface_leads: [{
+        title: "Admin API from a1",
+        hosts: [`https://admin.${domain}`],
+        endpoints: ["/api/admin/users"],
+        confidence: "high",
+        score: 82,
+      }],
+    }));
+    const second = JSON.parse(writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a2",
+      surface_id: "surface-b",
+      surface_status: "complete",
+      summary: "a2 complete",
+      content: "# a2",
+      surface_leads: [{
+        title: "Billing API from a2",
+        hosts: [`https://billing.${domain}`],
+        endpoints: ["/api/billing/invoices"],
+        confidence: "high",
+        score: 81,
+      }],
+    }));
+
+    assert.deepEqual(first.surface_lead_ids, ["SL-1"]);
+    assert.deepEqual(second.surface_lead_ids, ["SL-2"]);
+
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 10 }));
+    assert.equal(leads.total, 2);
+    assert.deepEqual(
+      leads.leads.map((lead) => lead.title).sort(),
+      ["Admin API from a1", "Billing API from a2"],
+    );
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(path.join(sessionDir(domain), "handoff-w1-a1.json"), "utf8")).surface_lead_ids,
+      ["SL-1"],
+    );
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(path.join(sessionDir(domain), "handoff-w1-a2.json"), "utf8")).surface_lead_ids,
+      ["SL-2"],
+    );
+  });
+});
+
+test("deep wave merge promotes high-confidence handoff surface leads into lead_surface_ids", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "HUNT", pending_wave: 1, deep_mode: true });
+    seedAttackSurface(domain, ["surface-a"]);
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+
+    writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "complete",
+      summary: "Found sibling GraphQL lead.",
+      content: "# A1",
+      surface_leads: [{
+        title: "Sibling GraphQL API",
+        hosts: [`https://api.${domain}`],
+        endpoints: ["/graphql"],
+        priority: "HIGH",
+        surface_type: "graphql",
+        bug_class_hints: ["graphql", "authz"],
+        evidence: ["Assigned surface links to api.example.com/graphql"],
+        confidence: "high",
+        score: 78,
+      }],
+    });
+
+    const merged = JSON.parse(applyWaveMerge({
+      target_domain: domain,
+      wave_number: 1,
+      force_merge: false,
+    }));
+    assert.deepEqual(merged.merge.deep_promoted_surface_ids, ["lead-sibling-graphql-api"]);
+    assert.deepEqual(merged.state.lead_surface_ids, ["lead-sibling-graphql-api"]);
+    const leads = JSON.parse(readSurfaceLeads({ target_domain: domain, limit: 5 }));
+    assert.equal(leads.high_confidence_unpromoted, 0);
+    assert.equal(leads.leads[0].status, "promoted");
   });
 });
 
@@ -6908,6 +7365,7 @@ test("bounty_read_findings, bounty_list_findings, and bounty_wave_status return 
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
       circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, note: null },
+      surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [],
     });
   });
@@ -7002,6 +7460,7 @@ test("bounty_list_findings and bounty_wave_status keep their external shapes whi
       },
       traffic: { total: 0, shown: 0, omitted: 0, cap: 0, authenticated_count: 0, by_status_class: { "2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, other: 0 }, recent: [] },
       circuit_breaker: { threshold: 3, tripped_hosts: [], tripped_count: 0, note: null },
+      surface_leads: { total: 0, high_confidence_unpromoted: 0, promoted: 0 },
       findings_summary: [
         {
           id: "F-1",
@@ -9430,8 +9889,17 @@ test("bounty_read_hunter_brief returns surface, exclusions, and valid IDs", () =
       target_domain: domain,
       wave: "w1",
       agent: "a1",
+      egress_profile: "operator-eu",
+      block_internal_hosts: true,
     }));
 
+    assert.deepEqual(brief.run_context, {
+      target_domain: domain,
+      phase: "HUNT",
+      auth_status: "pending",
+      egress_profile: "operator-eu",
+      block_internal_hosts: true,
+    });
     assert.equal(brief.wave, "w1");
     assert.equal(brief.agent, "a1");
     assert.equal(brief.surface.id, "surface-a");

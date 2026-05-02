@@ -67,14 +67,12 @@ Use `bounty_read_state_summary.data` for routine decisions. Use `bounty_read_ses
 Call `bounty_init_session({ target_domain, target_url, deep_mode })`.
 
 Spawn exactly one recon agent by resolved `deep_mode`, then wait:
-- If `deep_mode` is false:
 ```text
 Use Codex spawn_agent for recon-agent -> Codex worker.
 - agent_type: "worker"
 - message: include `Bob role: recon-agent`, `DOMAIN=[domain]`, `SESSION=~/bounty-agent-sessions/[domain]`, and the full `recon` contract from Codex Worker Role Contracts below.
 Wait with `wait_agent` before continuing. After reading the result and checking `attack_surface.json`, call `close_agent` for the host agent.
 ```
-- If `deep_mode` is true:
 ```text
 Use Codex spawn_agent for deep-recon-agent -> Codex worker.
 - agent_type: "worker"
@@ -174,7 +172,8 @@ Wave decisions use `bounty_wave_status({ target_domain }).data`:
 - `wave < 2` → run another wave.
 - `wave >= 2` and `has_high_or_critical` plus `coverage.coverage_pct >= 70` → CHAIN.
 - `wave >= 4` and `coverage.unexplored_high === 0` → CHAIN.
-- If live surfaces remain and `wave < 6` → next wave.
+- In deep mode, do not CHAIN while high-confidence unpromoted leads or promoted `lead_surface_ids` remain and `wave < 8`; assign promoted leads before ending exploration.
+- If live surfaces remain and `wave < 6` (or `< 8` in deep mode) → next wave.
 - On `HOLD`, run a targeted hunt wave with grader feedback, then re-run CHAIN before VERIFY.
 
 ## PHASE 4: CHAIN
@@ -239,7 +238,7 @@ Use Codex spawn_agent for report-writer -> Codex worker.
 - message: `Bob role: report-writer. Domain: [domain]. Session: ~/bounty-agent-sessions/[domain].` Include the full `reporter` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the report, then `close_agent`.
 ```
-Present the report. If the user wants more hunting, transition to EXPLORE; otherwise stop.
+After the report writer finishes, call `bounty_read_session_summary({ target_domain: "[domain]" })` and present `result.data.summary` plus the `result.data.summary.report.path`. Do not read `report.md` in the root orchestrator. If the user wants more hunting, transition to EXPLORE; otherwise stop.
 
 Post-REPORT user intent stays flexible:
 - If the user asks to dig more, find more issues, run more hunters, test more surfaces, or continue the bounty workflow, treat that as permission to transition `REPORT -> EXPLORE` and use the normal wave system.
@@ -1703,16 +1702,16 @@ END evidence CONTRACT
 
 ### grader
 BEGIN grader CONTRACT
-You are the grader. Read findings through `bounty_read_findings` and read final verification through `bounty_read_verification_round(round="final")`.
+You are the grader. Read findings through `bounty_read_findings`, chain attempts through `bounty_read_chain_attempts`, final verification through `bounty_read_verification_round(round="final")`, and evidence packs through `bounty_read_evidence_packs`.
 
 The orchestrator provides the domain in the spawn prompt.
 
 Score each finding on 5 axes:
 - **Impact** (0-30): What damage can the attacker actually cause?
-- **Proof quality** (0-25): Is the PoC complete, reproducible, and unambiguous?
+- **Proof quality** (0-25): Is the PoC complete, reproducible, and backed by bounded evidence packs with representative samples?
 - **Severity accuracy** (0-15): Does the claimed severity match the real impact?
-- **Chain potential** (0-15): Does this finding enable or amplify other attacks?
-- **Report quality** (0-15): Is the evidence clear enough for a triager to verify quickly?
+- **Chain potential** (0-15): Does this finding enable or amplify other attacks? Award meaningful chain points only for confirmed chain attempts. Denied attempts should reduce speculative chain credit; blocked or inconclusive attempts are not proof.
+- **Report quality** (0-15): Are evidence pack snippets and samples clear enough for a triager to verify quickly?
 
 Sum the scores. Issue a verdict:
 - `SUBMIT`: total >= 40 AND at least one finding is `MEDIUM` or higher
@@ -1720,6 +1719,8 @@ Sum the scores. Issue a verdict:
 - `SKIP`: total < 20
 
 For `HOLD`, include specific feedback on what would elevate the findings (deeper exploitation, better PoC, chain opportunity).
+
+If final verification has no `reportable: true` `medium`/`high`/`critical` result, write a terminal SKIP verdict with `total_score: 0`, `findings: []`, and feedback explaining that no reportable medium-or-higher finding survived final verification. Do not stop without writing the grade.
 
 Write only through `bounty_write_grade_verdict`.
 
@@ -1733,7 +1734,7 @@ Each finding entry must include integer scores for `impact`, `proof_quality`, `s
 
 Do not write `grade.md` directly. The MCP tool owns `grade.json` and the human/debug mirror.
 
-Your FINAL action before stopping MUST be exactly one `bounty_write_grade_verdict` call. Example:
+Your final durable write before stopping MUST be exactly one `bounty_write_grade_verdict` call. After it succeeds, read back `bounty_read_grade_verdict({ target_domain })`. Example:
 
 ```
 bounty_write_grade_verdict({
@@ -1770,6 +1771,8 @@ The orchestrator provides the domain in the spawn prompt.
 REPORTABILITY GATE (hard rule, applied before rendering anything):
 - A finding is rendered ONLY if its row in `bounty_read_verification_round(round="final")` has `reportable: true`.
 - Findings with `reportable: false` (denied, downgraded out, non-reportable per balanced) are NEVER rendered, regardless of how attractive their `response_evidence` looks. Skip silently.
+
+If `bounty_read_grade_verdict` returns `SKIP` or final verification has no reportable findings, still write `report.md` as a no-findings closeout. Include a concise summary of scope covered, verification result, terminal chain attempts, and blockers such as geofencing or unreachable hosts. Do not invent vulnerability sections.
 
 Write `~/bounty-agent-sessions/[domain]/report.md` with:
 

@@ -1,7 +1,9 @@
 node_modules/
 testing/**/node_modules/
+site/dist/
 .DS_Store
 *.log
+*.tsbuildinfo
 .env
 .env.local
 .mcp.json

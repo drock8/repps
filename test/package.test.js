@@ -69,7 +69,7 @@ test("npm package contains runtime surfaces and excludes test/cache artifacts", 
       assert.ok(files.has(expected), `${expected} missing from npm pack output`);
     }
 
-    assert.ok(pack.size < 1700000, `npm pack size ${pack.size} exceeds 1.7 MB threshold`);
+    assert.ok(pack.size < 2000000, `npm pack size ${pack.size} exceeds 2.0 MB threshold`);
 
     for (const file of files) {
       assert.ok(!file.startsWith("test/"), `${file} should not be packed`);

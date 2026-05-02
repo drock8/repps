@@ -104,6 +104,29 @@ module.exports = Object.freeze({
         "items": {
           "type": "string"
         }
+      },
+      "surface_leads": {
+        "type": "array",
+        "maxItems": 15,
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "hosts": { "type": "array", "items": { "type": "string" } },
+            "endpoints": { "type": "array", "items": { "type": "string" } },
+            "interesting_params": { "type": "array", "items": { "type": "string" } },
+            "tech_stack": { "type": "array", "items": { "type": "string" } },
+            "nuclei_hits": { "type": "array", "items": { "type": "string" } },
+            "priority": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+            "surface_type": { "type": "string" },
+            "bug_class_hints": { "type": "array", "items": { "type": "string" } },
+            "high_value_flows": { "type": "array", "items": { "type": "string" } },
+            "evidence": { "type": "array", "items": { "type": "string" } },
+            "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+            "score": { "type": "number", "minimum": 0, "maximum": 100 },
+            "promote": { "type": "boolean" }
+          }
+        }
       }
     },
     "required": [

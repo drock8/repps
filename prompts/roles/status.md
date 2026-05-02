@@ -38,11 +38,24 @@ Then use the following only if needed for concise status fields:
 
 If MCP reads are unavailable, say `Status fallback mode: MCP reads unavailable or incomplete.` Do not read protected raw session artifacts directly; use file presence and mtimes only for locator fields and label uncertain fields as unknown.
 
+Optional: call `bounty_read_evidence_packs({ target_domain })` only when `bounty_read_pipeline_analytics.data.sessions[0].evidence` is missing/incomplete or evidence details need confirmation.
+
+## Evidence Status
+Surface evidence status from `bounty_read_pipeline_analytics.data.sessions[0].evidence` whenever available. Print exactly one of:
+- `valid` when final reportable findings are covered by valid evidence packs.
+- `missing/invalid` when evidence is required but missing, malformed, or incomplete. Include missing finding IDs if analytics provides `missing_finding_ids`.
+- `skipped` when there are no final reportable findings and evidence packs are not required.
+- `unknown` when analytics and optional read-only confirmation cannot determine evidence readiness.
+
+If evidence is `missing/invalid` for final reportable findings, list it as a blocking issue. Use `/bob-hunt resume <target_domain>` as the next command when analytics gives a clear `missing_evidence` blocker or missing finding IDs; otherwise use `/bob-debug <target_domain>` to inspect the unclear state.
+If analytics includes `egress` or `geofence_warnings`, include recent egress profile names and any `network_unreachable_target` warning in the blocking issue line. Recommend `/bob-hunt --egress <profile> resume <target_domain>` only when the operator has chosen the profile.
+
 ## Final Answer Shape
 Always include:
 - Target and phase.
 - Wave state: current wave, pending wave, readiness if known.
-- Findings, verification, grade, and report presence.
+- Findings, verification, evidence status, grade, and report presence.
+- Egress profile summary and geofence warning when visible from analytics.
 - If the update cache says a Bob update is available, include `Update: Hacker Bob <version> available. Run /bob-update.`
 - Any blocking issue visible from status reads.
 - Next command: usually `/bob-hunt resume <target_domain>`, `/bob-debug <target_domain>`, `/bob-debug --deep <target_domain>`, or no action needed.
