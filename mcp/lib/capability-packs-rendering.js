@@ -4,6 +4,7 @@ const {
   CAPABILITY_PACKS,
   smartContractCapabilityPacks,
 } = require("./capability-packs.js");
+const writeWaveHandoffTool = require("./tools/write-wave-handoff.js");
 
 // Render a markdown reference table of every pack's verifier dispatch.
 // Both the Claude and Codex prompt renderers consume this so adding a new
@@ -206,14 +207,59 @@ function substituteCodexHunterPackCatalogue(document, codexWorkerLabelFor) {
   return document.split(HUNTER_PACK_CATALOGUE_PLACEHOLDER).join(renderCodexHunterPackCatalogue(codexWorkerLabelFor));
 }
 
+// ----------------------------------------------------------------------
+// bounty_write_wave_handoff field-limit rendering
+// ----------------------------------------------------------------------
+//
+// Hunter prompts learn handoff field limits before submission, not from
+// rejection messages mid-flight. Limits are read from the live schema in
+// `mcp/lib/tools/write-wave-handoff.js` so a future schema bump propagates
+// to every consumer prompt at next regeneration without hand-edits.
+
+const HANDOFF_FIELD_LIMITS_PLACEHOLDER = "{{HANDOFF_FIELD_LIMITS}}";
+
+function describeStringLimits(propertySchema) {
+  const min = propertySchema && Number.isFinite(propertySchema.minLength) ? propertySchema.minLength : null;
+  const max = propertySchema && Number.isFinite(propertySchema.maxLength) ? propertySchema.maxLength : null;
+  if (min != null && max != null) return `${min}–${max} chars`;
+  if (max != null) return `≤ ${max} chars`;
+  if (min != null) return `≥ ${min} chars`;
+  return "string";
+}
+
+function renderHandoffFieldLimits() {
+  const props = writeWaveHandoffTool.inputSchema.properties;
+  const blockedHarnessProps = props.blocked_harness_runs.items.properties;
+  const bypassAttemptProps = props.bypass_attempts.items.properties;
+  const lines = [
+    "Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):",
+    `- \`summary\`: ${describeStringLimits(props.summary)}`,
+    `- \`chain_notes[]\`: each entry ${describeStringLimits(props.chain_notes.items)} (max ${props.chain_notes.maxItems} entries)`,
+    `- \`blocked_harness_runs[].harness\`: ${describeStringLimits(blockedHarnessProps.harness)}`,
+    `- \`blocked_harness_runs[].reason\`: ${describeStringLimits(blockedHarnessProps.reason)}`,
+    `- \`blocked_harness_runs[].needed_for\`: ${describeStringLimits(blockedHarnessProps.needed_for)} (optional)`,
+    `- \`bypass_attempts[].condition\`: ${describeStringLimits(bypassAttemptProps.condition)}`,
+    `- \`bypass_attempts[].attempt_summary\`: ${describeStringLimits(bypassAttemptProps.attempt_summary)} (max ${props.bypass_attempts.maxItems} entries)`,
+  ];
+  return lines.join("\n");
+}
+
+function substituteHandoffFieldLimits(document) {
+  if (!document.includes(HANDOFF_FIELD_LIMITS_PLACEHOLDER)) return document;
+  return document.split(HANDOFF_FIELD_LIMITS_PLACEHOLDER).join(renderHandoffFieldLimits());
+}
+
 module.exports = {
   BLOCKED_HARNESS_RUN_KINDS,
   CAPABILITY_PACK_VERIFIER_TABLE_PLACEHOLDER,
+  HANDOFF_FIELD_LIMITS_PLACEHOLDER,
   HUNTER_PACK_CATALOGUE_PLACEHOLDER,
   renderCapabilityPackVerifierTable,
   renderClaudeHunterPackCatalogue,
   renderCodexHunterPackCatalogue,
+  renderHandoffFieldLimits,
   substituteCapabilityPackVerifierTable,
   substituteClaudeHunterPackCatalogue,
   substituteCodexHunterPackCatalogue,
+  substituteHandoffFieldLimits,
 };

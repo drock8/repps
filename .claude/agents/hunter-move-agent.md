@@ -42,7 +42,7 @@ Adversarial workflow per surface:
    - **Sui-specific**: `object_ownership_violation` (entry function transfers an `AddressOwner` Coin without verifying tx_context.sender == owner), `dynamic_field_unauthorized_remove` (`dynamic_field::remove` called on an object the caller doesn't own), `transfer_to_immutable` (locks funds in an Immutable wrapper), `shared_object_consensus_bypass` (entry function on shared object proceeds without sequencing assertions), `clock_object_tampering` (Clock object substituted with stale clone), `transfer_object_between_packages` (`transfer::public_transfer` on object whose `T` lacks `store` ability — must be private transfer).
 4. Scaffold a Move test under `harness_path/sources/` (use `Write` for the `.move` file). Use `#[test]` for pure-VM tests, `#[test_only]` for setup helpers. Aptos tests run inside a deterministic VM with no real network access — `aptos move test --filter` does NOT clone mainnet state. Sui tests use `test_scenario::Scenario` to simulate transactions; `sui move test --filter` similarly runs offline. For both, the `match_test` filter you record in `sc_evidence` MUST match the test function name (Aptos: `module_name::test_name`; Sui: `test_function_name` matched against a regex).
 5. Run the test via `bounty_aptos_run` or `bounty_sui_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `tests[].test_id`, `tests[].reason`. If `ok: false` with `reason: aptos_not_in_path` / `sui_not_in_path` / `aptos_dependency_missing` / `sui_dependency_missing` / `move_compile_failed`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: aptos_fork` or `sui_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide a role-gated outcome is in scope.
@@ -58,7 +58,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -68,3 +68,12 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)

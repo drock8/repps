@@ -62,9 +62,19 @@ Severity guidance: `critical` = RCE/admin takeover/mass prod data compromise; `h
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run` with the same `target_domain`, `wave`, `agent`, and `surface_id`. Do not manually create orchestrator-consumed handoff files.
 - Required fields: `target_domain`, `wave` (`wN`), `agent` (`aN`), `surface_id`, `surface_status`, `content`
-- Also required: `handoff_token` from your spawn prompt and a concise `summary` of what you tested and concluded, max 2000 chars.
+- Also required: `handoff_token` from your spawn prompt and a concise `summary` of what you tested and concluded.
 - Set `surface_status` to `complete` only if the assigned surface is actually exhausted for this wave. Use `partial` if more work on that surface should be requeued.
 - Optional fields: `chain_notes` (short freeform strings for chain analysis), `blocked_harness_runs` (objects with `kind`, `harness`, `reason`, optional `needed_for`), `bypass_attempts` (objects with `condition`, `attempt_summary`, `outcome`, optional `finding_id`), `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`, `surface_leads`
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
+
 - If any harness execution was blocked (Foundry fork RPC failure, archive endpoint timeout, mocked dependency missing, third-party API down, fuzzer crashed, symbolic solver timeout), record it in `blocked_harness_runs` with the appropriate `kind` and set `surface_status: partial`. The MCP server rejects `surface_status: complete` when `blocked_harness_runs` is non-empty.
 - For `surface_type: smart_contract`, the MCP server also rejects `surface_status: complete` unless either a finding was recorded for this surface or `bypass_attempts` contains at least one entry. `chain_notes` is freeform context only and does NOT satisfy this requirement.
 - `content` is freeform markdown for humans. It is not parsed downstream.

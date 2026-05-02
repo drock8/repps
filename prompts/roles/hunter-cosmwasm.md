@@ -37,7 +37,7 @@ Adversarial workflow per surface:
    - **cw_multi_test_only_passes**: a hunter test that passes in cw-multi-test (the in-memory App) but fails on real wasmd due to gas-metering differences or actual chain state. Mark partial_evidence and note the gap; do not record as a finding without on-chain reproduction.
 4. Scaffold a cw-multi-test integration test under `harness_path/tests/integration_<bug_class>.rs` (or extend the existing `tests/` module). Use `cw_multi_test::App` to instantiate the target contract and any dependencies, then call `app.execute_contract(sender, contract, msg, funds)` to exercise the bypass. Pure-VM cw-multi-test tests run inside a deterministic in-process App with no real network — `cargo test` does NOT clone mainnet state, but the harness can read `BOB_COSMWASM_FORK_URL` from env if it opts into a chain-state replay tool (cosmwasm-orchestrator, starship). The `match_test` you record in `sc_evidence` MUST exactly match the test function name; `cargo test --exact` does not do partial matching.
 5. Run the test via `bounty_cosmwasm_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `tests[].test_id`, `tests[].reason`. If `ok: false` with `reason: cosmwasm_not_in_path` / `cosmwasm_dependency_missing` / `cargo_compile_failed`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: cosmwasm_fork`. If all `fork_attempts[]` failed with REST errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide an admin-gated outcome is in scope.
@@ -53,7 +53,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -63,3 +63,5 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+{{HANDOFF_FIELD_LIMITS}}

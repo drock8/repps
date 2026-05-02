@@ -1105,6 +1105,69 @@ test("no rendered prompt artifact leaks an unsubstituted {{...}} placeholder (re
   }
 });
 
+test("hunter prompt sources do not hand-code handoff field limits", () => {
+  // Limits for fields written by bounty_write_wave_handoff are owned by its
+  // JSON schema and rendered into hunter prompts via {{HANDOFF_FIELD_LIMITS}}.
+  // Hand-coded character counts on these specific fields would drift
+  // independently of schema bumps. Other character bounds (e.g. on
+  // match_test or chain-specific contract_address shapes) are owned by
+  // their respective tools, not by bounty_write_wave_handoff, so they stay
+  // hand-coded here.
+  const hunterPromptFiles = [
+    "prompts/roles/hunter.md",
+    "prompts/roles/hunter-evm.md",
+    "prompts/roles/hunter-svm.md",
+    "prompts/roles/hunter-move.md",
+    "prompts/roles/hunter-substrate.md",
+    "prompts/roles/hunter-cosmwasm.md",
+  ];
+  const HANDOFF_FIELD_NAMES = [
+    "summary",
+    "chain_notes",
+    "blocked_harness_runs",
+    "bypass_attempts",
+    "attempt_summary",
+    "condition",
+  ];
+  // Trip when a handoff field name and a char-count assertion sit on the
+  // same line or in adjacent text — that's a duplicate of the schema-rendered
+  // table.
+  for (const relativePath of hunterPromptFiles) {
+    const body = readFile(relativePath);
+    for (const line of body.split(/\r?\n/)) {
+      const hasFieldName = HANDOFF_FIELD_NAMES.some((name) => line.includes(`\`${name}\``) || line.includes(name));
+      if (!hasFieldName) continue;
+      const charLimitMatch = line.match(/(?:≥|≤|<=|>=|max(?:imum)?|at most|at least|min(?:imum)?)\s*\d+(?:[\s-]*char)/i)
+        || line.match(/\d+\s*-\s*char\s*\b(?:summary|condition|attempt|chain_notes|blocked_harness)/i);
+      if (charLimitMatch) {
+        assert.fail(
+          `${relativePath} hand-codes a handoff field limit: "${charLimitMatch[0].trim()}" in line: ${line.trim()}; remove the literal — the {{HANDOFF_FIELD_LIMITS}} placeholder is the single source of truth.`,
+        );
+      }
+    }
+  }
+});
+
+test("rendered hunter prompts include the schema-derived handoff field limits", () => {
+  // The renderer reads the live schema in mcp/lib/tools/write-wave-handoff.js
+  // and emits one block per hunter prompt. Any hunter agent must see the
+  // limits before submission, not from rejection messages.
+  const renderedHunterAgents = fs.readdirSync(path.join(ROOT, ".claude/agents"))
+    .filter((name) => name.startsWith("hunter") && name.endsWith(".md"))
+    .map((name) => `.claude/agents/${name}`);
+  for (const relativePath of renderedHunterAgents) {
+    const body = readFile(relativePath);
+    assert.match(
+      body,
+      /Handoff field limits \(enforced by `bounty_write_wave_handoff`/,
+      `${relativePath} is missing the rendered handoff field limits block`,
+    );
+    assert.match(body, /`summary`:/);
+    assert.match(body, /`chain_notes\[\]`:/);
+    assert.match(body, /`blocked_harness_runs\[\]\.harness`:/);
+  }
+});
+
 test("checked-in .claude/settings.json SubagentStop matches every capability-pack hunter agent", () => {
   // The repo-local settings.json is what direct-from-repo Claude usage reads
   // (e.g., when developing the framework itself or running ./dev-sync.sh).

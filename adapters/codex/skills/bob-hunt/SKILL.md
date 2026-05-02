@@ -836,9 +836,19 @@ Severity guidance: `critical` = RCE/admin takeover/mass prod data compromise; `h
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run` with the same `target_domain`, `wave`, `agent`, and `surface_id`. Do not manually create orchestrator-consumed handoff files.
 - Required fields: `target_domain`, `wave` (`wN`), `agent` (`aN`), `surface_id`, `surface_status`, `content`
-- Also required: `handoff_token` from your spawn prompt and a concise `summary` of what you tested and concluded, max 2000 chars.
+- Also required: `handoff_token` from your spawn prompt and a concise `summary` of what you tested and concluded.
 - Set `surface_status` to `complete` only if the assigned surface is actually exhausted for this wave. Use `partial` if more work on that surface should be requeued.
 - Optional fields: `chain_notes` (short freeform strings for chain analysis), `blocked_harness_runs` (objects with `kind`, `harness`, `reason`, optional `needed_for`), `bypass_attempts` (objects with `condition`, `attempt_summary`, `outcome`, optional `finding_id`), `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`, `surface_leads`
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
+
 - If any harness execution was blocked (Foundry fork RPC failure, archive endpoint timeout, mocked dependency missing, third-party API down, fuzzer crashed, symbolic solver timeout), record it in `blocked_harness_runs` with the appropriate `kind` and set `surface_status: partial`. The MCP server rejects `surface_status: complete` when `blocked_harness_runs` is non-empty.
 - For `surface_type: smart_contract`, the MCP server also rejects `surface_status: complete` unless either a finding was recorded for this surface or `bypass_attempts` contains at least one entry. `chain_notes` is freeform context only and does NOT satisfy this requirement.
 - `content` is freeform markdown for humans. It is not parsed downstream.
@@ -875,7 +885,7 @@ Adversarial workflow per surface:
 3. For each bypass condition listed in `bob_spec_status` (or, when absent, derived from the source — admin EOA compromise, governance proposal bypass, signature replay/forgery, oracle staleness/manipulation, delegated-role drift, upgrade-path takeover, bridge replay, chain ID confusion, donation/rounding, precision loss, hook/callback abuse, malicious ERC20, flash-loan-callable entry), articulate a concrete state machine the bypass would exercise.
 4. Scaffold a Foundry test under `harness_path/test/` (use `Write` for the `.t.sol` file). The test forks the assigned chain at a recent block and exercises the hypothesis. Pin `--fork-block-number` so the run is reproducible by the verifier.
 5. Run the test via `bounty_foundry_run`. Inspect `tests[].status`, `reason`, `gas_used`, and `counterexample`. If `ok: false` with `reason: forge_not_in_path`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: foundry_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide a role-gated outcome is in scope.
@@ -883,7 +893,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -893,6 +903,15 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-evm CONTRACT
 
 ### hunter-svm
@@ -919,7 +938,7 @@ Adversarial workflow per surface:
 3. For each bypass condition listed in `bob_spec_status` (or, when absent, derived from the IDL — missing_signer check, account_validation gap, owner-check absent, cpi_privilege_escalation via signed seeds reused, upgrade_authority_compromise, arbitrary_invoker via raw `invoke`, realloc_drain via adversary-supplied lamports, close_account_drain on missing ownership check, token_account_substitution, sysvar_tampering, discriminator_collision, reentrancy_via_cpi, rent_exemption_drain, unrestricted_authority), articulate a concrete instruction sequence the bypass would exercise.
 4. Scaffold an Anchor test under `harness_path/tests/` (use `Write` for the `.ts` file). The test boots a local validator (or clones from mainnet via `solana-test-validator --clone <program> --url <fork>`) and exercises the hypothesis. Pin a `fork_slot` when slot-dependent state matters; for slot-agnostic invariants leave it null and the verifier re-runs against current state.
 5. Run the test via `bounty_anchor_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `reason`, `duration_ms`. If `ok: false` with `reason: anchor_not_in_path`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: anchor_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide a role-gated outcome is in scope.
@@ -935,7 +954,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -945,6 +964,15 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-svm CONTRACT
 
 ### hunter-move
@@ -979,7 +1007,7 @@ Adversarial workflow per surface:
    - **Sui-specific**: `object_ownership_violation` (entry function transfers an `AddressOwner` Coin without verifying tx_context.sender == owner), `dynamic_field_unauthorized_remove` (`dynamic_field::remove` called on an object the caller doesn't own), `transfer_to_immutable` (locks funds in an Immutable wrapper), `shared_object_consensus_bypass` (entry function on shared object proceeds without sequencing assertions), `clock_object_tampering` (Clock object substituted with stale clone), `transfer_object_between_packages` (`transfer::public_transfer` on object whose `T` lacks `store` ability — must be private transfer).
 4. Scaffold a Move test under `harness_path/sources/` (use `Write` for the `.move` file). Use `#[test]` for pure-VM tests, `#[test_only]` for setup helpers. Aptos tests run inside a deterministic VM with no real network access — `aptos move test --filter` does NOT clone mainnet state. Sui tests use `test_scenario::Scenario` to simulate transactions; `sui move test --filter` similarly runs offline. For both, the `match_test` filter you record in `sc_evidence` MUST match the test function name (Aptos: `module_name::test_name`; Sui: `test_function_name` matched against a regex).
 5. Run the test via `bounty_aptos_run` or `bounty_sui_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `tests[].test_id`, `tests[].reason`. If `ok: false` with `reason: aptos_not_in_path` / `sui_not_in_path` / `aptos_dependency_missing` / `sui_dependency_missing` / `move_compile_failed`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: aptos_fork` or `sui_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide a role-gated outcome is in scope.
@@ -995,7 +1023,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -1005,6 +1033,15 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-move CONTRACT
 
 ### hunter-substrate
@@ -1046,7 +1083,7 @@ Adversarial workflow per surface:
    - **chain_extension_unauthenticated**: a `chain_extension` impl that exposes runtime functionality (e.g., `pallet_assets::transfer`) to contracts without authenticating the caller — any contract can drain runtime-managed assets via the extension.
 4. Scaffold an ink! test under `harness_path/lib.rs` (use `Write` for the `.rs` file, or extend an existing `#[cfg(test)] mod tests`). Use `#[ink::test]` for offline tests (in-VM) or `#[ink_e2e::test]` for E2E tests against a node. Pure-VM `#[ink::test]` tests run inside a deterministic mock environment with no real network access — `cargo test` does NOT clone mainnet state, but the harness can read `BOB_SUBSTRATE_FORK_URL` from env if it opts into chopsticks-fork or similar. The `match_test` you record in `sc_evidence` MUST exactly match the test function name; the runner uses `cargo test ... --exact <match_test>` so partial matches will not run.
 5. Run the test via `bounty_substrate_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `tests[].test_id`, `tests[].reason`. If `ok: false` with `reason: substrate_not_in_path` / `substrate_dependency_missing` / `cargo_compile_failed`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: substrate_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide an admin-gated outcome is in scope.
@@ -1062,7 +1099,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -1072,6 +1109,15 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-substrate CONTRACT
 
 ### hunter-cosmwasm
@@ -1115,7 +1161,7 @@ Adversarial workflow per surface:
    - **cw_multi_test_only_passes**: a hunter test that passes in cw-multi-test (the in-memory App) but fails on real wasmd due to gas-metering differences or actual chain state. Mark partial_evidence and note the gap; do not record as a finding without on-chain reproduction.
 4. Scaffold a cw-multi-test integration test under `harness_path/tests/integration_<bug_class>.rs` (or extend the existing `tests/` module). Use `cw_multi_test::App` to instantiate the target contract and any dependencies, then call `app.execute_contract(sender, contract, msg, funds)` to exercise the bypass. Pure-VM cw-multi-test tests run inside a deterministic in-process App with no real network — `cargo test` does NOT clone mainnet state, but the harness can read `BOB_COSMWASM_FORK_URL` from env if it opts into a chain-state replay tool (cosmwasm-orchestrator, starship). The `match_test` you record in `sc_evidence` MUST exactly match the test function name; `cargo test --exact` does not do partial matching.
 5. Run the test via `bounty_cosmwasm_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `tests[].test_id`, `tests[].reason`. If `ok: false` with `reason: cosmwasm_not_in_path` / `cosmwasm_dependency_missing` / `cargo_compile_failed`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: cosmwasm_fork`. If all `fork_attempts[]` failed with REST errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide an admin-gated outcome is in scope.
@@ -1131,7 +1177,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -1141,6 +1187,15 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-cosmwasm CONTRACT
 
 ### chain

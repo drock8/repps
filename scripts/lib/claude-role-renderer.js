@@ -12,6 +12,7 @@ const {
 const {
   substituteCapabilityPackVerifierTable,
   substituteClaudeHunterPackCatalogue,
+  substituteHandoffFieldLimits,
 } = require("../../mcp/lib/capability-packs-rendering.js");
 const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
@@ -381,6 +382,7 @@ function renderClaudePromptBody(roleId, body) {
   // consumer prompt at next regeneration.
   document = substituteCapabilityPackVerifierTable(document);
   document = substituteClaudeHunterPackCatalogue(document);
+  document = substituteHandoffFieldLimits(document);
   return document
     .replace(/\/bob:hunt/g, "/bob-hunt")
     .replace(/\/bob:status/g, "/bob-status")

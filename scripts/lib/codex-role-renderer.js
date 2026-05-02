@@ -11,6 +11,7 @@ const {
 const {
   substituteCapabilityPackVerifierTable,
   substituteCodexHunterPackCatalogue,
+  substituteHandoffFieldLimits,
 } = require("../../mcp/lib/capability-packs-rendering.js");
 const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
@@ -246,10 +247,14 @@ function codexRoleContractAppendix({ root = DEFAULT_ROOT } = {}) {
       "",
       `### ${roleId}`,
       `BEGIN ${roleId} CONTRACT`,
-      // Substitute the capability-pack verifier table inside Codex worker
-      // contracts too — verifier/evidence prompts embed the placeholder
-      // and Codex workers read it from the appendix in bob-hunt SKILL.md.
-      substituteCapabilityPackVerifierTable(applyCodexHostText(roleBody(roleId, { root })).trimEnd()),
+      // Substitute the capability-pack verifier table and the handoff
+      // field-limit table inside Codex worker contracts too — verifier/
+      // evidence prompts embed the verifier-table placeholder and hunter
+      // prompts embed the handoff-limits placeholder; Codex workers read
+      // both from the appendix in bob-hunt SKILL.md.
+      substituteHandoffFieldLimits(
+        substituteCapabilityPackVerifierTable(applyCodexHostText(roleBody(roleId, { root })).trimEnd()),
+      ),
       `END ${roleId} CONTRACT`,
     );
   }
@@ -281,6 +286,7 @@ function renderCodexPromptBody(roleId, body, options = {}) {
   document = replaceLaunchTemplates(document);
   document = substituteCapabilityPackVerifierTable(document);
   document = substituteCodexHunterPackCatalogue(document, codexWorkerLabelForPack);
+  document = substituteHandoffFieldLimits(document);
   if (roleId === "orchestrator") {
     document = document.replace("## Hard Rules\n", `${codexOrchestratorPreamble()}## Hard Rules\n`);
     document += `${codexRoleContractAppendix(options)}\n`;

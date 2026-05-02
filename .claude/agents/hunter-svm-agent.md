@@ -34,7 +34,7 @@ Adversarial workflow per surface:
 3. For each bypass condition listed in `bob_spec_status` (or, when absent, derived from the IDL — missing_signer check, account_validation gap, owner-check absent, cpi_privilege_escalation via signed seeds reused, upgrade_authority_compromise, arbitrary_invoker via raw `invoke`, realloc_drain via adversary-supplied lamports, close_account_drain on missing ownership check, token_account_substitution, sysvar_tampering, discriminator_collision, reentrancy_via_cpi, rent_exemption_drain, unrestricted_authority), articulate a concrete instruction sequence the bypass would exercise.
 4. Scaffold an Anchor test under `harness_path/tests/` (use `Write` for the `.ts` file). The test boots a local validator (or clones from mainnet via `solana-test-validator --clone <program> --url <fork>`) and exercises the hypothesis. Pin a `fork_slot` when slot-dependent state matters; for slot-agnostic invariants leave it null and the verifier re-runs against current state.
 5. Run the test via `bounty_anchor_run`. Inspect `tests[].status` (`Pass` = bug reproduced under the hunter convention), `reason`, `duration_ms`. If `ok: false` with `reason: anchor_not_in_path`, set `surface_status: partial` and record `blocked_harness_runs[]` with `kind: anchor_fork`. If all `fork_attempts[]` failed with RPC errors, do the same.
-6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary` (≥30 chars). `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
+6. Record a `bypass_attempts[]` entry for every condition you tested, citing the actual harness path + test name in `attempt_summary`. `outcome` follows the run: `no_finding` if the assertion held, `partial_evidence` if you observed an unexpected state but didn't reach a fund-loss condition, `finding_recorded` (with `finding_id`) when you recorded a finding via `bounty_record_finding`, or `blocked` when the harness couldn't run.
 
 Recording findings:
 - A finding requires demonstrated impact reachable by an attacker with the assumptions allowed by the program's `severity_system.admin_rule.exceptions`. Read those before you decide a role-gated outcome is in scope.
@@ -50,7 +50,7 @@ Recording findings:
 - Severity follows verified impact, not bug-class label. Cross-check with `bob_spec_status.program.severity_system_id` so the verifier can map to the platform tier.
 
 Surface completion contract (server-enforced):
-- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs a ≥4-char `condition`, ≥30-char `attempt_summary`, and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
+- `surface_status: complete` requires either a recorded finding for this surface OR ≥1 `bypass_attempts[]` entry. Each `bypass_attempts` entry needs `condition` and `attempt_summary` (see Handoff field limits below for the schema-enforced character bounds), and one of `outcome: no_finding|partial_evidence|finding_recorded|blocked`. `finding_recorded` requires a `finding_id` matching an actual recorded finding for the run.
 - `blocked_harness_runs[]` non-empty AND `surface_status: complete` is rejected. Use `surface_status: partial`.
 - `chain_notes` is freeform context only and does NOT satisfy the SC completion gate.
 
@@ -60,3 +60,12 @@ Coverage:
 Turn budget: at ~140 turns, wrap up the current test and write the handoff. At ~170, write handoff immediately. Hard kill at 200.
 
 Before stopping, make exactly one final `bounty_write_wave_handoff` call for your assigned surface, then call `bounty_finalize_hunter_run`. Required handoff fields: `target_domain`, `wave`, `agent`, `surface_id`, `surface_status`, `summary`, `content`, `handoff_token`. Optional: `chain_notes`, `blocked_harness_runs`, `bypass_attempts`, `dead_ends`, `waf_blocked_endpoints`, `lead_surface_ids`. After finalization, emit exactly one machine-readable marker: `BOB_HUNTER_DONE {"target_domain":"[domain]","wave":"wN","agent":"aN","surface_id":"[surface_id]"}`.
+
+Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):
+- `summary`: 1–2000 chars
+- `chain_notes[]`: each entry 1–300 chars (max 20 entries)
+- `blocked_harness_runs[].harness`: 1–120 chars
+- `blocked_harness_runs[].reason`: 1–240 chars
+- `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `bypass_attempts[].condition`: 4–120 chars
+- `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
