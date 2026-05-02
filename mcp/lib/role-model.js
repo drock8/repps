@@ -5,6 +5,7 @@ const {
   TOOL_MANIFEST,
   toolNamesForRoleBundle,
 } = require("./tool-registry.js");
+const { hunterRoleSpecs } = require("./capability-packs.js");
 
 const ROLE_PROMPT_DIR = path.join("prompts", "roles");
 
@@ -59,36 +60,20 @@ const ROLE_DEFINITIONS = Object.freeze({
     prompt_body: path.join(ROLE_PROMPT_DIR, "hunter.md"),
     mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-web"]),
   }),
-  "hunter-evm": Object.freeze({
-    id: "hunter-evm",
-    family: "hunter",
-    prompt_body: path.join(ROLE_PROMPT_DIR, "hunter-evm.md"),
-    mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-evm"]),
-  }),
-  "hunter-svm": Object.freeze({
-    id: "hunter-svm",
-    family: "hunter",
-    prompt_body: path.join(ROLE_PROMPT_DIR, "hunter-svm.md"),
-    mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-svm"]),
-  }),
-  "hunter-move": Object.freeze({
-    id: "hunter-move",
-    family: "hunter",
-    prompt_body: path.join(ROLE_PROMPT_DIR, "hunter-move.md"),
-    mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-move"]),
-  }),
-  "hunter-substrate": Object.freeze({
-    id: "hunter-substrate",
-    family: "hunter",
-    prompt_body: path.join(ROLE_PROMPT_DIR, "hunter-substrate.md"),
-    mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-substrate"]),
-  }),
-  "hunter-cosmwasm": Object.freeze({
-    id: "hunter-cosmwasm",
-    family: "hunter",
-    prompt_body: path.join(ROLE_PROMPT_DIR, "hunter-cosmwasm.md"),
-    mcp_role_bundles: Object.freeze(["hunter-shared", "hunter-cosmwasm"]),
-  }),
+  // Phase F: per-chain hunter role definitions are generated below from
+  // HUNTER_ROLES in capability-packs.js. The aliases above (hunter — web)
+  // stay hand-coded because they are not chain-specific.
+  ...Object.fromEntries(
+    hunterRoleSpecs().map((role) => [
+      role.role_id,
+      Object.freeze({
+        id: role.role_id,
+        family: "hunter",
+        prompt_body: path.join(ROLE_PROMPT_DIR, role.prompt_body_filename),
+        mcp_role_bundles: role.role_bundles,
+      }),
+    ]),
+  ),
   chain: Object.freeze({
     id: "chain",
     prompt_body: path.join(ROLE_PROMPT_DIR, "chain.md"),

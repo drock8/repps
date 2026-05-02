@@ -13,6 +13,7 @@ const {
   substituteCapabilityPackVerifierTable,
   substituteClaudeHunterPackCatalogue,
 } = require("../../mcp/lib/capability-packs-rendering.js");
+const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
@@ -181,71 +182,29 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     mcp_server: true,
     local_tools: Object.freeze(["Bash", "Read", "Grep", "Glob"]),
   }),
-  "hunter-evm": Object.freeze({
-    role_id: "hunter-evm",
-    kind: "agent",
-    output_path: path.join(".claude", "agents", "hunter-evm-agent.md"),
-    name: "hunter-evm-agent",
-    description: "EVM smart-contract bug bounty hunter \u2014 spawned per smart_contract surface, scaffolds and runs Foundry tests against the public RPC ladder",
-    model: "opus",
-    color: "magenta",
-    max_turns: 200,
-    background: true,
-    mcp_server: true,
-    local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
-  }),
-  "hunter-svm": Object.freeze({
-    role_id: "hunter-svm",
-    kind: "agent",
-    output_path: path.join(".claude", "agents", "hunter-svm-agent.md"),
-    name: "hunter-svm-agent",
-    description: "SVM (Solana) smart-contract bug bounty hunter \u2014 spawned per smart_contract surface with chain_family=svm, scaffolds and runs Anchor tests against the public Solana RPC ladder",
-    model: "opus",
-    color: "cyan",
-    max_turns: 200,
-    background: true,
-    mcp_server: true,
-    local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
-  }),
-  "hunter-move": Object.freeze({
-    role_id: "hunter-move",
-    kind: "agent",
-    output_path: path.join(".claude", "agents", "hunter-move-agent.md"),
-    name: "hunter-move-agent",
-    description: "Move (Aptos + Sui) smart-contract bug bounty hunter \u2014 spawned per smart_contract surface with chain_family in {aptos, sui}, scaffolds and runs aptos move test or sui move test against the public Move RPC ladders",
-    model: "opus",
-    color: "blue",
-    max_turns: 200,
-    background: true,
-    mcp_server: true,
-    local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
-  }),
-  "hunter-substrate": Object.freeze({
-    role_id: "hunter-substrate",
-    kind: "agent",
-    output_path: path.join(".claude", "agents", "hunter-substrate-agent.md"),
-    name: "hunter-substrate-agent",
-    description: "Substrate / ink! smart-contract bug bounty hunter \u2014 spawned per smart_contract surface with chain_family=substrate, scaffolds and runs cargo test on ink! contracts against the public Substrate JSON-RPC ladder",
-    model: "opus",
-    color: "pink",
-    max_turns: 200,
-    background: true,
-    mcp_server: true,
-    local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
-  }),
-  "hunter-cosmwasm": Object.freeze({
-    role_id: "hunter-cosmwasm",
-    kind: "agent",
-    output_path: path.join(".claude", "agents", "hunter-cosmwasm-agent.md"),
-    name: "hunter-cosmwasm-agent",
-    description: "CosmWasm smart-contract bug bounty hunter \u2014 spawned per smart_contract surface with chain_family=cosmwasm, scaffolds and runs cargo test with cw-multi-test against the public CosmWasm REST ladder",
-    model: "opus",
-    color: "yellow",
-    max_turns: 200,
-    background: true,
-    mcp_server: true,
-    local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
-  }),
+  // Phase F: per-chain hunter Claude role specs derived from HUNTER_ROLES.
+  // Multiple capability packs that share a role_id (e.g. Aptos and Sui both
+  // route to the Move hunter) collapse to a single Claude agent \u2014 matching
+  // role-model.js + codex/role-specs.js. Adding a 7th hunter role
+  // auto-extends this object without editing this file.
+  ...Object.fromEntries(
+    hunterRoleSpecs().map((role) => [
+      role.role_id,
+      Object.freeze({
+        role_id: role.role_id,
+        kind: "agent",
+        output_path: path.join(".claude", "agents", `${role.name}.md`),
+        name: role.name,
+        description: role.description,
+        model: "opus",
+        color: role.color,
+        max_turns: 200,
+        background: true,
+        mcp_server: true,
+        local_tools: Object.freeze(["Bash", "Read", "Write", "Grep", "Glob"]),
+      }),
+    ]),
+  ),
   chain: Object.freeze({
     role_id: "chain",
     kind: "agent",

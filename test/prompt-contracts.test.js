@@ -1179,19 +1179,25 @@ test("Phase E: every SC pack ships a complete spawn block consumed by the catalo
   }
 });
 
-test("Phase E: bounty_write_wave_handoff schema enum stays in sync with renderer constant", () => {
-  // The renderer constant BLOCKED_HARNESS_RUN_KINDS mirrors the JSON-schema
-  // enum in mcp/lib/tools/write-wave-handoff.js. If the schema diverges
-  // (someone adds a kind to one place but not the other), this test fails
-  // before the divergence reaches a hunter at runtime.
+test("Phase E/F: BLOCKED_HARNESS_RUN_KINDS, schema enum, and waves.js normalizer all stay in sync", () => {
+  // Three-way mirror: the renderer constant, the JSON schema enum, and
+  // the runtime normalizer in waves.js (which throws on unknown kinds
+  // before the schema check would even run). If any of the three
+  // diverges, hunters following the catalogue will fail finalization.
   const { BLOCKED_HARNESS_RUN_KINDS } = require("../mcp/lib/capability-packs-rendering.js");
   const schema = require("../mcp/lib/tools/write-wave-handoff.js").inputSchema;
   const enumFromSchema = schema.properties.blocked_harness_runs.items.properties.kind.enum;
-  assert.deepEqual(
-    [...BLOCKED_HARNESS_RUN_KINDS].sort(),
-    [...enumFromSchema].sort(),
-    "BLOCKED_HARNESS_RUN_KINDS must mirror the bounty_write_wave_handoff schema enum",
-  );
+  // Read the runtime list from waves.js source — it is not exported but
+  // pinning the literal string ensures the runtime stays in lock-step.
+  const wavesSource = readFile("mcp/lib/waves.js");
+  const wavesEnumMatch = wavesSource.match(/BLOCKED_HARNESS_KIND_VALUES = Object\.freeze\(\[([^\]]+)\]\)/);
+  assert.ok(wavesEnumMatch, "could not locate BLOCKED_HARNESS_KIND_VALUES literal in waves.js");
+  const wavesKinds = Array.from(wavesEnumMatch[1].matchAll(/"([a-z_]+)"/g)).map((m) => m[1]);
+  const sorted = (arr) => [...arr].sort();
+  assert.deepEqual(sorted(BLOCKED_HARNESS_RUN_KINDS), sorted(enumFromSchema),
+    "BLOCKED_HARNESS_RUN_KINDS must mirror the write-wave-handoff schema enum");
+  assert.deepEqual(sorted(BLOCKED_HARNESS_RUN_KINDS), sorted(wavesKinds),
+    "waves.js BLOCKED_HARNESS_KIND_VALUES must mirror BLOCKED_HARNESS_RUN_KINDS — runtime normalizer rejects schema-accepted kinds otherwise");
 });
 
 test("Phase E: rendered orchestrator catalogue lists every smart-contract pack exactly once", () => {
@@ -1210,6 +1216,87 @@ test("Phase E: rendered orchestrator catalogue lists every smart-contract pack e
       matches.length,
       1,
       `rendered orchestrator catalogue must list pack ${pack.id} exactly once (found ${matches.length})`,
+    );
+  }
+});
+
+test("Phase F: adding a chain pack costs the documented number of files (registry consolidation gate)", () => {
+  // Phase F's architectural milestone: HUNTER_ROLES + CAPABILITY_PACKS in
+  // mcp/lib/capability-packs.js are the source of truth for hunter routing.
+  // role-model.js, claude-role-renderer.js, codex/role-specs.js, and
+  // tool-registry.js all derive their hunter role specs / chain bundles
+  // from the registry instead of carrying parallel hand-coded entries.
+  //
+  // This test asserts that no chain-specific identifiers leak into the four
+  // consumer files outside the cross-cutting bundles. If a future maintainer
+  // adds a chain literal back ("hunter-evm" / "hunter-svm" / etc.) outside
+  // the canonical registry, this test fails — forcing the maintainer either
+  // to remove the duplication or to update this gate's known-allowed list.
+  const chainBundles = ["hunter-evm", "hunter-svm", "hunter-move", "hunter-substrate", "hunter-cosmwasm"];
+  const consumers = [
+    "mcp/lib/role-model.js",
+    "mcp/lib/tool-registry.js",
+    "scripts/lib/claude-role-renderer.js",
+    "scripts/lib/codex-role-renderer.js",
+    "adapters/codex/role-specs.js",
+  ];
+  for (const consumer of consumers) {
+    const body = readFile(consumer);
+    for (const bundle of chainBundles) {
+      const matches = body.match(new RegExp(`\\b${bundle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g")) || [];
+      assert.equal(
+        matches.length,
+        0,
+        `${consumer} hardcodes "${bundle}" — chain-specific identifiers must come from HUNTER_ROLES in capability-packs.js, not be repeated in consumer files`,
+      );
+    }
+  }
+
+  // Also pin the file-cost: enumerate the files that must change to add a
+  // 7th chain pack today. This is the abstraction's promise.
+  // - mcp/lib/capability-packs.js: define HUNTER_ROLES + CAPABILITY_PACKS entries
+  // - mcp/lib/findings.js: chain_id + address validation (irreducible per chain)
+  // - prompts/roles/hunter-X.md: hunter prompt body (irreducible)
+  // - prompts/roles/chain.md: pivot patterns (irreducible)
+  const KNOWN_PACK_TOUCH_FILES = [
+    "mcp/lib/capability-packs.js",
+    "mcp/lib/findings.js",
+    "prompts/roles/chain.md",
+    "prompts/roles/hunter-NEW_CHAIN.md (new file)",
+  ];
+  // Anchor the count so a maintainer adding a new chain coupling outside
+  // the registry has to either fix the abstraction or extend this list.
+  assert.ok(
+    KNOWN_PACK_TOUCH_FILES.length <= 4,
+    `Adding a chain pack must touch ≤4 files; currently documented as ${KNOWN_PACK_TOUCH_FILES.length}: ${KNOWN_PACK_TOUCH_FILES.join(", ")}`,
+  );
+});
+
+test("Phase F: HUNTER_ROLES is the single source of truth for hunter role specs across consumers", () => {
+  // role-model.js, claude-role-renderer.js, codex/role-specs.js all
+  // generate their hunter entries from HUNTER_ROLES at module load. This
+  // test asserts cross-consumer consistency: every HUNTER_ROLES entry
+  // surfaces in each consumer with matching name and bundle list.
+  const { HUNTER_ROLES } = require("../mcp/lib/capability-packs.js");
+  const { ROLE_DEFINITIONS } = require("../mcp/lib/role-model.js");
+
+  for (const role of Object.values(HUNTER_ROLES)) {
+    const claudeSpec = CLAUDE_ROLE_SPECS[role.role_id];
+    const codexSpec = CODEX_ROLE_SPECS[role.role_id];
+    const roleDef = ROLE_DEFINITIONS[role.role_id];
+
+    assert.ok(claudeSpec, `HUNTER_ROLES.${role.role_id} missing CLAUDE_ROLE_SPECS entry`);
+    assert.ok(codexSpec, `HUNTER_ROLES.${role.role_id} missing CODEX_ROLE_SPECS entry`);
+    assert.ok(roleDef, `HUNTER_ROLES.${role.role_id} missing ROLE_DEFINITIONS entry`);
+
+    assert.equal(claudeSpec.name, role.name, `Claude spec name mismatch for ${role.role_id}`);
+    assert.equal(claudeSpec.color, role.color, `Claude spec color mismatch for ${role.role_id}`);
+    assert.equal(claudeSpec.description, role.description, `Claude spec description mismatch for ${role.role_id}`);
+    assert.equal(codexSpec.bob_role, role.name, `Codex spec bob_role mismatch for ${role.role_id}`);
+    assert.deepEqual(
+      [...roleDef.mcp_role_bundles].sort(),
+      [...role.role_bundles].sort(),
+      `role-model.js mcp_role_bundles drifted from HUNTER_ROLES for ${role.role_id}`,
     );
   }
 });

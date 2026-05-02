@@ -1,5 +1,7 @@
 "use strict";
 
+const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
+
 const CODEX_ROLE_SPECS = Object.freeze({
   recon: Object.freeze({
     bob_role: "recon-agent",
@@ -22,36 +24,21 @@ const CODEX_ROLE_SPECS = Object.freeze({
     lifecycle: "async_wave",
     bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
   }),
-  "hunter-evm": Object.freeze({
-    bob_role: "hunter-evm-agent",
-    agent_type: "worker",
-    lifecycle: "async_wave",
-    bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
-  }),
-  "hunter-svm": Object.freeze({
-    bob_role: "hunter-svm-agent",
-    agent_type: "worker",
-    lifecycle: "async_wave",
-    bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
-  }),
-  "hunter-move": Object.freeze({
-    bob_role: "hunter-move-agent",
-    agent_type: "worker",
-    lifecycle: "async_wave",
-    bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
-  }),
-  "hunter-substrate": Object.freeze({
-    bob_role: "hunter-substrate-agent",
-    agent_type: "worker",
-    lifecycle: "async_wave",
-    bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
-  }),
-  "hunter-cosmwasm": Object.freeze({
-    bob_role: "hunter-cosmwasm-agent",
-    agent_type: "worker",
-    lifecycle: "async_wave",
-    bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
-  }),
+  // Phase F: per-chain hunter Codex role specs derived from HUNTER_ROLES.
+  // Multiple capability packs that share a role_id collapse to a single
+  // codex spec — matching the role-model.js + Claude-role-renderer.js
+  // dedup. Adding a 7th hunter role auto-extends this object.
+  ...Object.fromEntries(
+    hunterRoleSpecs().map((role) => [
+      role.role_id,
+      Object.freeze({
+        bob_role: role.name,
+        agent_type: "worker",
+        lifecycle: "async_wave",
+        bob_agent_id_source: "bounty_start_wave.data.assignments[].agent",
+      }),
+    ]),
+  ),
   chain: Object.freeze({
     bob_role: "chain-builder",
     agent_type: "worker",

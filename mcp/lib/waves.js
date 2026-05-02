@@ -198,8 +198,19 @@ function normalizeChainNotes(value) {
   return notes;
 }
 
+// Phase E/F: enum mirrors the bounty_write_wave_handoff JSON schema and the
+// renderer's BLOCKED_HARNESS_RUN_KINDS constant. Mismatch here would cause
+// SVM/Move/Substrate/CosmWasm hunters to fail finalization even though the
+// schema accepted their handoff. capability-packs-rendering.js exports a
+// schema-vs-renderer parity test; this mirror is the runtime side of that
+// invariant.
 const BLOCKED_HARNESS_KIND_VALUES = Object.freeze([
   "foundry_fork",
+  "anchor_fork",
+  "aptos_fork",
+  "sui_fork",
+  "substrate_fork",
+  "cosmwasm_fork",
   "rpc_endpoint",
   "fuzzer",
   "symbolic_solver",

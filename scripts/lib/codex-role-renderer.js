@@ -12,18 +12,18 @@ const {
   substituteCapabilityPackVerifierTable,
   substituteCodexHunterPackCatalogue,
 } = require("../../mcp/lib/capability-packs-rendering.js");
+const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
-const CODEX_WORKER_CONTRACT_ROLE_IDS = Object.freeze([
+// Phase F: cross-cutting Codex worker contracts (recon/auth/chain/verifier/
+// evidence/grade/report). Per-chain hunter contracts are appended from
+// HUNTER_ROLES so adding a chain pack auto-extends this list without
+// editing this file.
+const CODEX_CROSS_CUTTING_ROLE_IDS = Object.freeze([
   "recon",
   "deep-recon",
   "surface-router",
   "hunter",
-  "hunter-evm",
-  "hunter-svm",
-  "hunter-move",
-  "hunter-substrate",
-  "hunter-cosmwasm",
   "chain",
   "brutalist-verifier",
   "balanced-verifier",
@@ -31,6 +31,11 @@ const CODEX_WORKER_CONTRACT_ROLE_IDS = Object.freeze([
   "evidence",
   "grader",
   "reporter",
+]);
+const CODEX_WORKER_CONTRACT_ROLE_IDS = Object.freeze([
+  ...CODEX_CROSS_CUTTING_ROLE_IDS.slice(0, 4),
+  ...hunterRoleSpecs().map((role) => role.role_id),
+  ...CODEX_CROSS_CUTTING_ROLE_IDS.slice(4),
 ]);
 
 const CODEX_SKILL_SPECS = Object.freeze({
@@ -106,7 +111,7 @@ function codexLaunchTemplates() {
     ].join("\n"),
     "{{SPAWN_HUNTER_AGENT}}": [
       "```text",
-      "For each assignment, use Codex spawn_agent for the hunter family chosen by the MCP capability router (`assignment.hunter_agent` from bounty_start_wave.data.assignments[] — one of hunter-agent, hunter-evm-agent, hunter-svm-agent, hunter-move-agent, hunter-substrate-agent, or hunter-cosmwasm-agent).",
+      `For each assignment, use Codex spawn_agent for the hunter family chosen by the MCP capability router (\`assignment.hunter_agent\` from bounty_start_wave.data.assignments[] — one of hunter-agent or any of the per-pack hunters listed in the smart-contract pack catalogue: ${hunterRoleSpecs().map((role) => role.name).join(", ")}).`,
       "- agent_type: \"worker\"",
       "- message: include the compact run header below plus the full contract for `assignment.hunter_agent` from Codex Worker Role Contracts.",
       "- Header fields: Domain: [domain]; Wave: w[wave]; Agent: a[agent]; Surface: [surface_id]; Capability pack: [assignment.capability_pack]; Brief profile: [assignment.brief_profile]; Hunter agent: [assignment.hunter_agent]; Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]; Checkpoint mode: [normal|paranoid|yolo].",
@@ -253,12 +258,13 @@ function codexRoleContractAppendix({ root = DEFAULT_ROOT } = {}) {
 }
 
 function codexWorkerLabelForPack(pack) {
-  // pack.hunter_agent is the Bob agent name (e.g., "hunter-evm-agent").
-  // The catalogue line surrounds this with adjacent prose ("-> Codex worker
-  // ${label}"), so the label itself is just the bob_role+agent_type pair.
-  // Aptos and Sui packs both resolve to "hunter-move" because they share
-  // the same Move hunter contract; the renderer picks the role id by
-  // stripping the conventional "-agent" suffix from pack.hunter_agent.
+  // pack.hunter_agent is the Bob agent name (with the conventional
+  // "-agent" suffix). The catalogue line surrounds this with adjacent
+  // prose ("-> Codex worker ${label}"), so the label itself is just the
+  // bob_role+agent_type pair. Multiple packs that share a role_id (e.g.
+  // Move-family aptos+sui) resolve to the same Codex worker contract;
+  // the renderer picks the role id by stripping "-agent" from
+  // pack.hunter_agent.
   const roleId = pack.hunter_agent.replace(/-agent$/, "");
   // CODEX_WORKER_CONTRACT_ROLE_IDS holds the canonical role list. If a pack
   // is added without a matching codex role spec, fail loudly here rather
