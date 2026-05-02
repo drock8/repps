@@ -8,8 +8,10 @@ const VALID_ROLE_BUNDLES = Object.freeze([
   "evidence",
   "grader",
   "hunter",
+  "hunter-web",
   "orchestrator",
   "reporter",
+  "router",
   "verifier",
 ]);
 const REQUIRED_FIELDS = Object.freeze([

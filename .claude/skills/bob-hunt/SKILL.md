@@ -6,6 +6,7 @@ allowed-tools:
   - Task
   - Read
   - mcp__bountyagent__bounty_start_wave
+  - mcp__bountyagent__bounty_route_surfaces
   - mcp__bountyagent__bounty_import_http_traffic
   - mcp__bountyagent__bounty_public_intel
   - mcp__bountyagent__bounty_list_findings
@@ -69,7 +70,7 @@ MCP-owned session artifacts:
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
 - `bounty_write_chain_attempt` writes CHAIN-phase evidence to `chain-attempts.jsonl`; `bounty_read_chain_attempts` is the only machine-readable chain source.
 - `bounty_write_evidence_packs` writes formal pre-grade evidence to `evidence-packs.json`; `bounty_read_evidence_packs` validates final-reportable coverage.
-- `bounty_read_hunter_brief` returns traffic, audit, circuit-breaker, runtime ranking, intel, static scan, assignment, coverage, and scope summaries.
+- `bounty_route_surfaces` writes `surface-routes.json`; `bounty_read_hunter_brief` returns traffic, audit, circuit-breaker, runtime ranking, intel, static scan, assignment, routing, coverage, and scope summaries.
 - `bounty_record_surface_leads`, `bounty_read_surface_leads`, and `bounty_promote_surface_leads` own compact `surface-leads.json` and promotion into `attack_surface.json`.
 - `bounty_read_pipeline_analytics` is the metadata-only dashboard for debugging stuck sessions and recent cross-session pipeline health.
 - `bounty_set_operator_note` stores one bounded non-secret operator instruction in state; `bounty_clear_operator_note` removes it.
@@ -93,7 +94,7 @@ Spawn exactly one recon agent by resolved `deep_mode`, then wait:
 deep_mode false: Agent(subagent_type: "recon-agent", name: "recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
 deep_mode true: Agent(subagent_type: "deep-recon-agent", name: "deep-recon", prompt: "DOMAIN=[domain] SESSION=~/bounty-agent-sessions/[domain]")
 ```
-After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })`. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Then call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
+After recon, in deep mode call `bounty_promote_surface_leads({ target_domain, limit: 8, min_score: 60 })`, then `bounty_read_surface_leads({ target_domain, limit: 20 })`. Then read `attack_surface.json`; if missing or empty, tell the user `Recon found no attack surfaces for [domain]` and stop. Spawn `surface-router-agent` once, wait for it to call `bounty_route_surfaces`, then call `bounty_transition_phase({ target_domain, to_phase: "AUTH" })`.
 
 ## PHASE 2: AUTH
 If `--no-auth` is set: skip all signup logic, call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status: "unauthenticated" })`, and proceed to HUNT.
@@ -130,16 +131,17 @@ Wave policy:
 Before spawning a wave:
 1. If `state.pending_wave` is non-null, stop and require `/bob-hunt resume [domain]`.
 2. Compute assignments from requeue plus wave policy.
-3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`.
-4. Spawn hunters only after `bounty_start_wave` succeeds. Use each returned `result.data.assignments[].handoff_token` only in that hunter's spawn prompt.
+3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`, and MCP returns each assignment's capability routing.
+4. Spawn hunters only after `bounty_start_wave` succeeds. Use each returned `result.data.assignments[].hunter_agent` as the subagent type and that assignment's `handoff_token` only in its spawn prompt.
 
 Hunter spawn prompt must be compact and include:
 ```
-Agent(subagent_type: "hunter-agent", name: "hunter-w[wave]-a[agent]", run_in_background: true, prompt: "
+Agent(subagent_type: "[assignment.hunter_agent]", name: "hunter-w[wave]-a[agent]", run_in_background: true, prompt: "
 Domain: [domain]
 Wave: w[wave]
 Agent: a[agent]
 Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]
+Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent].
 First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: false }) and use .data.
 Use run_context, surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.
 Egress profile: [egress_profile]. Pass this exact value as egress_profile on every bounty_http_scan call.

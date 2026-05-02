@@ -16,6 +16,9 @@ const {
   ERROR_CODES,
   ToolError,
 } = require("./envelope.js");
+const {
+  normalizeAssignmentRouteMetadata,
+} = require("./capability-packs.js");
 
 function loadWaveAssignments(domain, waveNumber) {
   const dir = sessionDir(domain);
@@ -47,12 +50,13 @@ function loadWaveAssignments(domain, waveNumber) {
     const handoffTokenSha256 = typeof assignment.handoff_token_sha256 === "string" && assignment.handoff_token_sha256.trim()
       ? assignment.handoff_token_sha256.trim()
       : null;
+    const routeMetadata = normalizeAssignmentRouteMetadata(assignment);
     if (assignmentByAgent.has(agent)) {
       throw new Error(`Duplicate assignment for ${agent} in ${assignmentsPath}`);
     }
     const normalizedAssignment = handoffTokenSha256
-      ? { agent, surface_id: surfaceId, handoff_token_sha256: handoffTokenSha256 }
-      : { agent, surface_id: surfaceId };
+      ? { agent, surface_id: surfaceId, ...routeMetadata, handoff_token_sha256: handoffTokenSha256 }
+      : { agent, surface_id: surfaceId, ...routeMetadata };
     assignments.push(normalizedAssignment);
     assignmentByAgent.set(agent, normalizedAssignment);
   }

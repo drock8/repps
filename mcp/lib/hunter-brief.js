@@ -42,6 +42,9 @@ const {
 const {
   filterExclusionsByHosts,
 } = require("./scope.js");
+const {
+  normalizeAssignmentRouteMetadata,
+} = require("./capability-packs.js");
 
 // Bypass table tech-to-file map used by hunter brief generation.
 const BYPASS_TABLE_MAP = {
@@ -433,6 +436,10 @@ function readHunterBrief(args) {
   if (!assignment) {
     throw new Error(`Agent ${agent} is not assigned in wave ${wave}`);
   }
+  const routeMetadata = normalizeAssignmentRouteMetadata(assignment);
+  if (routeMetadata.brief_profile !== "web") {
+    throw new Error(`Unsupported hunter brief profile: ${routeMetadata.brief_profile}`);
+  }
 
   // 2. Load attack surface and find assigned surface
   const attackSurface = readAttackSurfaceStrict(domain);
@@ -496,6 +503,9 @@ function readHunterBrief(args) {
       auth_status: state.auth_status,
       egress_profile: egressProfile,
       block_internal_hosts: blockInternalHosts,
+      capability_pack: routeMetadata.capability_pack,
+      hunter_agent: routeMetadata.hunter_agent,
+      brief_profile: routeMetadata.brief_profile,
     },
     target_url: state.target_url,
     wave,

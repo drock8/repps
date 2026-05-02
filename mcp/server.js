@@ -22,7 +22,7 @@
 //           bounty_record_surface_leads, bounty_read_surface_leads,
 //           bounty_read_session_summary, bounty_set_operator_note,
 //           bounty_clear_operator_note,
-//           bounty_promote_surface_leads
+//           bounty_promote_surface_leads, bounty_route_surfaces
 
 const { redactUrlSensitiveValues } = require("./redaction.js");
 const {
@@ -70,6 +70,7 @@ const {
   sessionsRoot,
   statePath,
   surfaceLeadsPath,
+  surfaceRoutesPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,
@@ -94,6 +95,9 @@ const {
 const {
   readSessionSummary,
 } = require("./lib/session-summary.js");
+const {
+  routeSurfaces,
+} = require("./lib/surface-router.js");
 const {
   buildCoverageSummaryForSurface,
   computeCoverageRequeueSurfaceIds,
@@ -236,6 +240,7 @@ module.exports = {
   readEvidencePacks,
   resolveAuthJsonPath,
   reportMarkdownPath,
+  routeSurfaces,
   sessionDir,
   sessionLockPath,
   sessionsRoot,
@@ -246,6 +251,7 @@ module.exports = {
   staticScan,
   staticScanResultsJsonlPath,
   surfaceLeadsPath,
+  surfaceRoutesPath,
   startWave,
   findingsJsonlPath,
   findingsMarkdownPath,

@@ -4,6 +4,7 @@ const TOOL_MODULES = Object.freeze([
   require("./http-scan.js"),
   require("./read-http-audit.js"),
   require("./start-wave.js"),
+  require("./route-surfaces.js"),
   require("./import-http-traffic.js"),
   require("./public-intel.js"),
   require("./import-static-artifact.js"),

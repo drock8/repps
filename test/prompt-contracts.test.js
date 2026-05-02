@@ -117,6 +117,28 @@ test("hunter frontmatter excludes Write and still exposes wave handoff MCP tools
   assert.ok(!tools.includes("mcp__bountyagent__bounty_read_handoff"));
 });
 
+test("surface-router-agent is thin and cannot hunt or write directly", () => {
+  const document = readFile(".claude/agents/surface-router-agent.md");
+  const frontmatter = parseFrontmatter(document, "surface-router-agent.md");
+  const tools = frontmatter.tools.split(/\s*,\s*/).filter(Boolean);
+
+  assert.deepEqual(tools, ["Read", "mcp__bountyagent__bounty_route_surfaces"]);
+  assert.match(document, /mcpServers:\s*\n\s*-\s*bountyagent/);
+  assert.match(document, /bounty_route_surfaces/);
+  assert.match(document, /surface-routes\.json/);
+  assert.doesNotMatch(frontmatter.tools, /Bash|Write|bounty_http_scan|curl|browser/i);
+  assert.match(document, /Do not do recon, hunting, auth, HTTP requests, browser work, Bash, or direct file writes/);
+});
+
+test("generated hunter-agent tools come from the hunter-web bundle", () => {
+  const spec = AGENT_TOOL_SPECS["hunter-agent.md"];
+  assert.deepEqual(spec.roleBundles, ["hunter-web"]);
+  assert.deepEqual(
+    toolsForSpec(spec).filter((tool) => tool.startsWith("mcp__bountyagent__")).sort(),
+    permissionsForRoleBundles(["hunter-web"]).sort(),
+  );
+});
+
 test("manifest, settings, and generated Claude config keep global MCP permissions narrowed", () => {
   const manifestTools = new Set(Object.keys(TOOL_MANIFEST));
   const registeredTools = new Set(TOOLS.map((tool) => tool.name));
@@ -154,7 +176,10 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.deepEqual(TOOL_MANIFEST.bounty_read_pipeline_analytics.role_bundles, ["orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.global_preapproval, false);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.mutating, false);
-  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_route_surfaces.role_bundles, ["orchestrator", "router"]);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.global_preapproval, false);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.mutating, true);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "hunter-web", "orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.global_preapproval, false);
@@ -164,9 +189,11 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.ok(!sourceAllowed.has("bounty_merge_wave_handoffs"));
   assert.ok(!sourceAllowed.has("bounty_read_tool_telemetry"));
   assert.ok(!sourceAllowed.has("bounty_read_pipeline_analytics"));
+  assert.ok(!sourceAllowed.has("bounty_route_surfaces"));
   assert.ok(!generatedAllowed.has("bounty_merge_wave_handoffs"));
   assert.ok(!generatedAllowed.has("bounty_read_tool_telemetry"));
   assert.ok(!generatedAllowed.has("bounty_read_pipeline_analytics"));
+  assert.ok(!generatedAllowed.has("bounty_route_surfaces"));
   assert.ok(!sourceAllowed.has("bounty_promote_surface_leads"));
   assert.ok(sourceAllowed.has("bounty_record_surface_leads"));
   assert.ok(sourceAllowed.has("bounty_read_surface_leads"));
@@ -183,6 +210,7 @@ test("manifest, settings, and generated Claude config keep global MCP permission
 
 test("MCP-dependent agents declare official mcpServers bountyagent metadata", () => {
   const agents = [
+    "surface-router-agent",
     "hunter-agent",
     "brutalist-verifier",
     "balanced-verifier",
@@ -390,6 +418,7 @@ test("bob-hunt skill allowed-tools match orchestrator and auth bundles", () => {
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_merge_wave_handoffs"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_tool_telemetry"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_pipeline_analytics"));
+  assert.ok(allowedTools.includes("mcp__bountyagent__bounty_route_surfaces"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_read_session_summary"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_set_operator_note"));
   assert.ok(allowedTools.includes("mcp__bountyagent__bounty_clear_operator_note"));
@@ -1048,6 +1077,24 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(orchestratorPrompt, /Missing structured handoffs resolve only through `pending` or explicit `force-merge`\./);
   assert.match(orchestratorPrompt, /bounty_log_coverage/);
   assert.match(orchestratorPrompt, /never write `coverage\.jsonl` through Bash/);
+});
+
+test("bob-hunt routes surfaces after recon and spawns returned hunter agents", () => {
+  const orchestratorPrompt = readFile(".claude/skills/bob-hunt/SKILL.md");
+
+  assert.match(orchestratorPrompt, /Spawn `surface-router-agent` once, wait for it to call `bounty_route_surfaces`/);
+  assert.match(orchestratorPrompt, /surface-routes\.json/);
+  assert.match(orchestratorPrompt, /assignments\[\]\.hunter_agent/);
+  assert.match(orchestratorPrompt, /subagent_type: "\[assignment\.hunter_agent\]"/);
+  assert.match(orchestratorPrompt, /Capability pack: \[assignment\.capability_pack\]\. Brief profile: \[assignment\.brief_profile\]/);
+});
+
+test("generic web prompts do not embed future field-specific hunter workflows", () => {
+  const documents = [
+    readFile(".claude/skills/bob-hunt/SKILL.md"),
+    readFile(".claude/agents/hunter-agent.md"),
+  ].join("\n");
+  assert.doesNotMatch(documents, /\b(EVM|Foundry|Halmos|SVM|Aptos|Sui|Substrate|CosmWasm)\b/i);
 });
 
 test("post-report evidence hunters are explicit and do not masquerade as wave handoffs", () => {

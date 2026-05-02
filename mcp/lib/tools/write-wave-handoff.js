@@ -104,7 +104,7 @@ module.exports = Object.freeze({
     ]
   },
   handler: writeWaveHandoff,
-  role_bundles: ["hunter"],
+  role_bundles: ["hunter", "hunter-web"],
   mutating: true,
   global_preapproval: true,
   network_access: false,

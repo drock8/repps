@@ -68,7 +68,7 @@ test("installer copies a require-able complete MCP runtime", () => {
       "-e",
       [
         "const server = require(process.argv[1]);",
-        "if (!Array.isArray(server.TOOLS) || server.TOOLS.length !== 45) process.exit(2);",
+        "if (!Array.isArray(server.TOOLS) || server.TOOLS.length !== 46) process.exit(2);",
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_list_auth_profiles')) process.exit(3);",
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_read_tool_telemetry')) process.exit(6);",
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_read_pipeline_analytics')) process.exit(7);",
@@ -78,6 +78,7 @@ test("installer copies a require-able complete MCP runtime", () => {
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_read_session_summary')) process.exit(11);",
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_set_operator_note')) process.exit(12);",
         "if (!server.TOOLS.some((tool) => tool.name === 'bounty_clear_operator_note')) process.exit(13);",
+        "if (!server.TOOLS.some((tool) => tool.name === 'bounty_route_surfaces')) process.exit(14);",
         "Promise.resolve(server.executeTool('bounty_list_auth_profiles', { target_domain: 'example.com' }))",
         "  .then((result) => { if (!result.ok || result.data.target_domain !== 'example.com') process.exit(4); })",
         "  .catch(() => process.exit(5));",

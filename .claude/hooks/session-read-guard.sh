@@ -38,6 +38,7 @@ BLOCKED_EXACT = {
     "http-audit.jsonl",
     "traffic.jsonl",
     "public-intel.json",
+    "surface-routes.json",
     "static-artifacts.jsonl",
     "static-scan-results.jsonl",
     "pipeline-events.jsonl",

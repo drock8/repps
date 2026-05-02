@@ -98,6 +98,7 @@ const {
   readSessionSummary,
   readSessionState,
   readStateSummary,
+  routeSurfaces,
   setOperatorNote,
   clearOperatorNote,
   readCoverageRecordsFromJsonl,
@@ -137,6 +138,7 @@ const {
   staticScan,
   staticScanResultsJsonlPath,
   surfaceLeadsPath,
+  surfaceRoutesPath,
   tempEmail,
   transitionPhase,
   trafficJsonlPath,
@@ -161,6 +163,7 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_http_scan",
   "bounty_read_http_audit",
   "bounty_start_wave",
+  "bounty_route_surfaces",
   "bounty_import_http_traffic",
   "bounty_public_intel",
   "bounty_import_static_artifact",
@@ -626,6 +629,7 @@ test("mcp server public exports remain stable", () => {
     "reportMarkdownPath",
     "resolveAuthJsonPath",
     "resolveHunterKnowledge",
+    "routeSurfaces",
     "sessionDir",
     "sessionLockPath",
     "sessionsRoot",
@@ -642,6 +646,7 @@ test("mcp server public exports remain stable", () => {
     "summarizeFindings",
     "summarizeStaticScanHints",
     "surfaceLeadsPath",
+    "surfaceRoutesPath",
     "tempEmail",
     "trafficJsonlPath",
     "transitionPhase",
@@ -710,6 +715,13 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   const byName = new Map(TOOLS.map((tool) => [tool.name, tool]));
   assert.equal(byName.get("bounty_read_http_audit").inputSchema.required[0], "target_domain");
   assert.equal(byName.get("bounty_start_wave").inputSchema.properties.assignments.type, "array");
+  assert.deepEqual(TOOL_MANIFEST.bounty_route_surfaces.role_bundles, ["orchestrator", "router"]);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.global_preapproval, false);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.network_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.browser_access, false);
+  assert.equal(TOOL_MANIFEST.bounty_route_surfaces.sensitive_output, false);
+  assert.deepEqual(TOOL_MANIFEST.bounty_route_surfaces.session_artifacts_written, ["surface-routes.json"]);
   assert.equal(byName.get("bounty_http_scan").inputSchema.properties.url.type, "string");
   assert.equal(byName.get("bounty_http_scan").inputSchema.properties.egress_profile.type, "string");
   assert.deepEqual(byName.get("bounty_http_scan").inputSchema.required, ["method", "url", "target_domain"]);
@@ -732,7 +744,7 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.mutating, false);
   assert.equal(TOOL_MANIFEST.bounty_read_pipeline_analytics.global_preapproval, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_pipeline_analytics.role_bundles, ["orchestrator"]);
-  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.role_bundles, ["hunter", "hunter-web", "orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.network_access, false);
@@ -741,7 +753,7 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.sensitive_output, false);
   assert.equal(TOOL_MANIFEST.bounty_record_surface_leads.hook_required, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_record_surface_leads.session_artifacts_written, ["surface-leads.json"]);
-  assert.deepEqual(TOOL_MANIFEST.bounty_read_surface_leads.role_bundles, ["hunter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_surface_leads.role_bundles, ["hunter", "hunter-web", "orchestrator"]);
   assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.mutating, false);
   assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.network_access, false);
@@ -2662,6 +2674,86 @@ test("session lock busy blocks mutating tools and stale locks are recoverable", 
   });
 });
 
+test("capability routing maps current web surface types to the web pack", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAttackSurfaces(domain, [
+      { id: "S-api", surface_type: "api", hosts: [`https://api.${domain}`] },
+      { id: "S-graphql", surface_type: "GraphQL", hosts: [`https://app.${domain}`] },
+      { id: "S-upload", surface_type: "upload", hosts: [`https://app.${domain}`] },
+      { id: "S-billing", surface_type: "billing", hosts: [`https://app.${domain}`] },
+      { id: "S-unknown", surface_type: "unknown", hosts: [`https://app.${domain}`] },
+      { id: "S-missing", hosts: [`https://app.${domain}`] },
+    ]);
+
+    const result = JSON.parse(routeSurfaces({ target_domain: domain }));
+    assert.equal(result.routed, true);
+    assert.equal(result.surface_count, 6);
+    assert.deepEqual(result.counts, { web: 6 });
+    assert.equal(result.surface_routes_path, surfaceRoutesPath(domain));
+
+    const routes = JSON.parse(fs.readFileSync(surfaceRoutesPath(domain), "utf8")).routes;
+    assert.deepEqual(routes.map((route) => route.capability_pack), Array(6).fill("web"));
+    assert.deepEqual(routes.map((route) => route.hunter_agent), Array(6).fill("hunter-agent"));
+    assert.deepEqual(routes.map((route) => route.brief_profile), Array(6).fill("web"));
+    assert.equal(routes.find((route) => route.surface_id === "S-graphql").surface_type, "graphql");
+    assert.deepEqual(routes.find((route) => route.surface_id === "S-api").reasons, ["surface_type:api"]);
+    assert.deepEqual(routes.find((route) => route.surface_id === "S-missing").reasons, ["surface_type:missing"]);
+  });
+});
+
+test("bounty_route_surfaces writes bounded current routes and removes stale routes", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAttackSurfaces(domain, [{
+      id: "S-1",
+      surface_type: "api",
+      hosts: [`https://api.${domain}`],
+      endpoints: ["/api/private/export?token=secret"],
+      evidence: ["large recon details that should not be copied into surface-routes.json"],
+    }]);
+
+    JSON.parse(routeSurfaces({ target_domain: domain }));
+    let routeText = fs.readFileSync(surfaceRoutesPath(domain), "utf8");
+    assert.doesNotMatch(routeText, /private\/export|large recon details/);
+    assert.deepEqual(JSON.parse(routeText).routes.map((route) => Object.keys(route).sort()), [[
+      "brief_profile",
+      "capability_pack",
+      "confidence",
+      "hunter_agent",
+      "reasons",
+      "surface_id",
+      "surface_type",
+    ]]);
+
+    seedAttackSurfaces(domain, [{ id: "S-2", surface_type: "admin", hosts: [`https://admin.${domain}`] }]);
+    const result = JSON.parse(routeSurfaces({ target_domain: domain }));
+    routeText = fs.readFileSync(surfaceRoutesPath(domain), "utf8");
+    assert.deepEqual(result.counts, { web: 1 });
+    assert.deepEqual(JSON.parse(routeText).routes.map((route) => route.surface_id), ["S-2"]);
+    assert.doesNotMatch(routeText, /S-1/);
+  });
+});
+
+test("bounty_route_surfaces reports missing or malformed attack surface without writing routes", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    assert.throws(
+      () => routeSurfaces({ target_domain: domain }),
+      /Missing attack surface JSON:/,
+    );
+    assert.equal(fs.existsSync(surfaceRoutesPath(domain)), false);
+
+    fs.mkdirSync(sessionDir(domain), { recursive: true });
+    writeFileAtomic(attackSurfacePath(domain), "{bad json");
+    assert.throws(
+      () => routeSurfaces({ target_domain: domain }),
+      /Malformed attack surface JSON:/,
+    );
+    assert.equal(fs.existsSync(surfaceRoutesPath(domain)), false);
+  });
+});
+
 test("bounty_start_wave validates inputs, writes assignments, and updates pending_wave", () => {
   withTempHome(() => {
     const domain = "example.com";
@@ -2703,15 +2795,34 @@ test("bounty_start_wave validates inputs, writes assignments, and updates pendin
       started: true,
       wave_number: 2,
       assignments: [
-        { agent: "a1", surface_id: "surface-a" },
-        { agent: "a2", surface_id: "surface-b" },
+        {
+          agent: "a1",
+          surface_id: "surface-a",
+          capability_pack: "web",
+          hunter_agent: "hunter-agent",
+          brief_profile: "web",
+        },
+        {
+          agent: "a2",
+          surface_id: "surface-b",
+          capability_pack: "web",
+          hunter_agent: "hunter-agent",
+          brief_profile: "web",
+        },
       ],
       assignments_path: path.join(sessionDir(domain), "wave-2-assignments.json"),
       state: expectedState,
     });
     const assignmentDoc = JSON.parse(fs.readFileSync(path.join(sessionDir(domain), "wave-2-assignments.json"), "utf8"));
     assert.ok(assignmentDoc.assignments.every((assignment) => /^[a-f0-9]{64}$/.test(assignment.handoff_token_sha256)));
+    assert.ok(assignmentDoc.assignments.every((assignment) => assignment.capability_pack === "web"));
+    assert.ok(assignmentDoc.assignments.every((assignment) => assignment.hunter_agent === "hunter-agent"));
+    assert.ok(assignmentDoc.assignments.every((assignment) => assignment.brief_profile === "web"));
     assert.doesNotMatch(JSON.stringify(assignmentDoc), new RegExp(result.assignments[0].handoff_token));
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(surfaceRoutesPath(domain), "utf8")).routes.map((route) => route.surface_id),
+      ["surface-a", "surface-b"],
+    );
   });
 });
 
@@ -7396,6 +7507,9 @@ test("bounty_read_hunter_brief returns surface, exclusions, and valid IDs", () =
       auth_status: "pending",
       egress_profile: "operator-eu",
       block_internal_hosts: true,
+      capability_pack: "web",
+      hunter_agent: "hunter-agent",
+      brief_profile: "web",
     });
     assert.equal(brief.wave, "w1");
     assert.equal(brief.agent, "a1");
@@ -7410,6 +7524,8 @@ test("bounty_read_hunter_brief returns surface, exclusions, and valid IDs", () =
     assert.equal(brief.auth_hint, undefined);
     assert.match(brief.auth_profiles_hint, /bounty_list_auth_profiles/);
     assert.doesNotMatch(JSON.stringify(brief), /auth\.json/i);
+    assert.strictEqual(brief.bob_spec_status, undefined);
+    assert.strictEqual(brief.rpc_pool, undefined);
   });
 });
 

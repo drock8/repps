@@ -20,8 +20,12 @@ const AGENT_TOOL_SPECS = Object.freeze({
     roleBundles: [],
     extras: ["Bash", "Read", "Write", "Glob", "Grep"],
   },
+  "surface-router-agent.md": {
+    roleBundles: ["router"],
+    extras: ["Read"],
+  },
   "hunter-agent.md": {
-    roleBundles: ["hunter"],
+    roleBundles: ["hunter-web"],
     extras: ["Bash", "Read", "Grep", "Glob"],
   },
   "brutalist-verifier.md": {
