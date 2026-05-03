@@ -1093,6 +1093,12 @@ function latestEvent(events) {
   return events.length ? events[events.length - 1] : null;
 }
 
+function latestActivityTimestamp(events, artifacts) {
+  const latest = latestEvent(events);
+  const latestMs = Math.max(timestampMs(latest?.ts), timestampMs(artifacts.latest_artifact_ts));
+  return latestMs > 0 ? new Date(latestMs).toISOString() : null;
+}
+
 function compactEvent(event) {
   if (!event) return null;
   const compact = {
@@ -1383,10 +1389,14 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
   }
 
   const latest = latestEvent(allEvents);
-  if (pendingWave != null && latest && Date.now() - timestampMs(latest.ts) > STALE_PENDING_WAVE_MS) {
+  const latestActivityTs = latestActivityTimestamp(allEvents, artifacts);
+  const latestActivityMs = timestampMs(latestActivityTs);
+  if (pendingWave != null && latestActivityMs > 0 && Date.now() - latestActivityMs > STALE_PENDING_WAVE_MS) {
     issues.push(issue("stale_pending_wave", "needs_attention", "Pending wave has not advanced recently.", {
       wave_number: pendingWave,
       latest_event: compactEvent(latest),
+      latest_artifact_ts: artifacts.latest_artifact_ts,
+      latest_activity_ts: latestActivityTs,
     }));
   }
 
@@ -1447,6 +1457,7 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
     grade_verdict: artifacts.grade.verdict,
     report_present: artifacts.report.present,
     latest_event: compactEvent(latest),
+    latest_activity_ts: latestActivityTs,
     health: {
       status: healthStatus,
       reasons: issues.map((item) => item.code),

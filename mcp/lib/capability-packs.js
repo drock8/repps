@@ -574,8 +574,10 @@ function normalizeContextBudget(value, pack) {
 function normalizeAssignmentRouteMetadata(assignment) {
   const hasRouteMetadata = !!assignment && (
     assignment.capability_pack != null ||
+    assignment.capability_pack_version != null ||
     assignment.hunter_agent != null ||
-    assignment.brief_profile != null
+    assignment.brief_profile != null ||
+    assignment.context_budget != null
   );
   if (!hasRouteMetadata) {
     // Legacy assignment files (pre-router) carry no route metadata. Default

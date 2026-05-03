@@ -262,7 +262,33 @@ function normalizeFinalizeArgs(args) {
 function evaluateHunterCompletion(args) {
   const marker = normalizeFinalizeArgs(args);
   const waveNumber = Number(marker.wave.slice(1));
-  const handoffs = buildWaveHandoffsDocument(marker.target_domain, [waveNumber]);
+  let waveAssignments;
+  try {
+    waveAssignments = loadWaveAssignments(marker.target_domain, waveNumber);
+  } catch (error) {
+    return {
+      ok: false,
+      status: "blocked",
+      block_code: "unreadable_wave_assignments",
+      reason: `Hunter ${marker.wave}/${marker.agent} could not read wave assignments: ${error.message || String(error)}`,
+      marker,
+      handoff: handoffTelemetry(null, { present: false, valid: false }),
+    };
+  }
+
+  let handoffs;
+  try {
+    handoffs = buildWaveHandoffsDocument(marker.target_domain, [waveNumber]);
+  } catch (error) {
+    return {
+      ok: false,
+      status: "blocked",
+      block_code: "unreadable_wave_assignments",
+      reason: `Hunter ${marker.wave}/${marker.agent} could not evaluate wave assignments: ${error.message || String(error)}`,
+      marker,
+      handoff: handoffTelemetry(null, { present: false, valid: false }),
+    };
+  }
 
   const missing = (handoffs.missing_handoffs || []).find((item) => item.agent === marker.agent);
   if (missing) {
@@ -311,8 +337,7 @@ function evaluateHunterCompletion(args) {
     };
   }
 
-  const { assignmentByAgent } = loadWaveAssignments(marker.target_domain, waveNumber);
-  const assignment = assignmentByAgent.get(marker.agent);
+  const assignment = waveAssignments.assignmentByAgent.get(marker.agent);
   const techniqueAttemptBlock = evaluateTechniqueAttemptRequirement(marker, assignment);
   if (techniqueAttemptBlock) {
     return {

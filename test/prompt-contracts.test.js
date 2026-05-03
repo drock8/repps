@@ -219,6 +219,7 @@ test("Codex plugin manifest and direct skills expose portable Bob contracts", ()
   assert.match(hunt, /BEGIN hunter CONTRACT/);
   assert.match(hunt, /spawn_agent/);
   assert.match(hunt, /agent_type: "worker"/);
+  assert.match(hunt, /bounty_read_hunter_brief\(\{ target_domain:[\s\S]*egress_profile:[\s\S]*block_internal_hosts: \[block_internal_hosts\]/);
   assert.match(hunt, /wait_agent/);
   assert.match(hunt, /close_agent/);
   assert.match(hunt, /host_agent_id -> w\[wave\]\/a\[agent\]\/surface_id/);
@@ -2254,9 +2255,13 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(hunterPrompt, /bounty_read_technique_pack/);
   assert.match(hunterPrompt, /full_pack_read_limit/);
   assert.match(hunterPrompt, /bounty_log_technique_attempt/);
+  assert.match(hunterPrompt, /Every call requires a valid `status` and non-empty `evidence`; include `outcome` when the attempt has a concrete result/);
   assert.match(hunterPrompt, /technique-pack-reads\.jsonl/);
   assert.match(hunterPrompt, /never write `technique-attempts\.jsonl` or `technique-pack-reads\.jsonl` through Bash/);
   assert.match(orchestratorPrompt, /bounty_read_hunter_brief\(\{ target_domain:[\s\S]*egress_profile:[\s\S]*block_internal_hosts/);
+  assert.match(orchestratorPrompt, /block_internal_hosts: \[block_internal_hosts\]/);
+  assert.doesNotMatch(orchestratorPrompt, /block_internal_hosts: false/);
+  assert.match(orchestratorPrompt, /Egress profile: \[egress_profile\]\. Block internal hosts: \[block_internal_hosts\]/);
   assert.match(orchestratorPrompt, /Context budget: \[assignment\.context_budget\]/);
   assert.match(orchestratorPrompt, /technique_packs\.selected/);
   assert.match(orchestratorPrompt, /registry warnings, and small legacy technique summaries/);
@@ -2287,6 +2292,23 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(orchestratorPrompt, /bounty_log_coverage/);
   assert.match(orchestratorPrompt, /never write `coverage\.jsonl` through Bash/);
   assert.match(orchestratorPrompt, /technique-pack-reads\.jsonl/);
+});
+
+test("replay prompts preserve technique-pack priority and MCP-owned artifact prohibitions", () => {
+  const replayPrompts = [
+    "scripts/replay-prompts/00-baseline.md",
+    "scripts/replay-prompts/01-scope-anchor.md",
+    "testing/policy-replay/prompts/00-baseline.md",
+    "testing/policy-replay/prompts/01-scope-anchor.md",
+  ];
+
+  for (const promptPath of replayPrompts) {
+    const prompt = readFile(promptPath);
+    assert.match(prompt, /technique_packs\.selected/);
+    assert.match(prompt, /Prefer `technique_packs\.selected` as the primary technique context/);
+    assert.match(prompt, /top-level `techniques` and `payload_hints` fields are smaller legacy compatibility summaries/);
+    assert.match(prompt, /Never create or backfill[\s\S]*technique-attempts\.jsonl[\s\S]*technique-pack-reads\.jsonl/);
+  }
 });
 
 test("context scaling architecture doc is durable and matches enforced budget contract", () => {

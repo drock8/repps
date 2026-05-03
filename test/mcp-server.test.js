@@ -324,6 +324,8 @@ function withTempTechniqueKnowledge(document, fn) {
 
 function withTempTechniqueKnowledgeText(contents, fn) {
   const previousProjectDir = process.env.CLAUDE_PROJECT_DIR;
+  const previousBobResourceDir = process.env.BOB_RESOURCE_DIR;
+  const previousBobProjectDir = process.env.BOB_PROJECT_DIR;
   const tempProjectDir = fs.mkdtempSync(path.join(os.tmpdir(), "bountyagent-techniques-"));
   const knowledgeDir = path.join(tempProjectDir, ".claude", "knowledge");
   fs.mkdirSync(knowledgeDir, { recursive: true });
@@ -333,12 +335,24 @@ function withTempTechniqueKnowledgeText(contents, fn) {
     "utf8",
   );
   process.env.CLAUDE_PROJECT_DIR = tempProjectDir;
+  delete process.env.BOB_RESOURCE_DIR;
+  delete process.env.BOB_PROJECT_DIR;
 
   const cleanup = () => {
     if (previousProjectDir === undefined) {
       delete process.env.CLAUDE_PROJECT_DIR;
     } else {
       process.env.CLAUDE_PROJECT_DIR = previousProjectDir;
+    }
+    if (previousBobResourceDir === undefined) {
+      delete process.env.BOB_RESOURCE_DIR;
+    } else {
+      process.env.BOB_RESOURCE_DIR = previousBobResourceDir;
+    }
+    if (previousBobProjectDir === undefined) {
+      delete process.env.BOB_PROJECT_DIR;
+    } else {
+      process.env.BOB_PROJECT_DIR = previousBobProjectDir;
     }
     fs.rmSync(tempProjectDir, { recursive: true, force: true });
   };
@@ -1899,6 +1913,52 @@ test("pipeline analytics flags blocked pending waves and malformed event lines",
     assert.ok(analytics.sessions[0].health.reasons.includes("hunter_handoff_failures"));
     assert.ok(analytics.bottlenecks.some((bottleneck) => bottleneck.code === "hunter_handoff_failures"));
     assert.ok(analytics.next_actions.some((action) => /handoffs/.test(action.action)));
+  });
+});
+
+test("pipeline analytics uses recent technique-pack read artifacts as pending-wave activity", () => {
+  withTempHome(() => {
+    const domain = "recent-pack-read.example";
+    const oldDate = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const oldIso = oldDate.toISOString();
+    seedSessionState(domain, { phase: "HUNT", pending_wave: 1, hunt_wave: 0 });
+    seedAttackSurface(domain, ["surface-a"]);
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    fs.appendFileSync(pipelineEventsJsonlPath(domain), `${JSON.stringify({
+      version: 1,
+      ts: oldIso,
+      target_domain: domain,
+      type: "wave_started",
+      wave_number: 1,
+      status: "started",
+      source: "test",
+      counts: { assignments: 1 },
+    })}\n`, "utf8");
+    fs.utimesSync(statePath(domain), oldDate, oldDate);
+    fs.utimesSync(attackSurfacePath(domain), oldDate, oldDate);
+
+    writeFileAtomic(techniquePackReadsJsonlPath(domain), `${JSON.stringify({
+      version: 1,
+      ts: new Date().toISOString(),
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      pack_id: "generic-rest-api",
+      pack_version: 1,
+      registry_version: 1,
+      capability_pack: "web",
+      capability_pack_version: 1,
+      mode: "full",
+    })}\n`);
+
+    const analytics = JSON.parse(readPipelineAnalytics({ target_domain: domain, include_events: true }));
+    const row = analytics.sessions[0];
+    assert.equal(row.technique_pack_reads.full_reads, 1);
+    assert.ok(row.health.reasons.includes("hunter_handoff_failures"));
+    assert.equal(row.health.reasons.includes("stale_pending_wave"), false);
+    assert.equal(row.latest_event.ts, oldIso);
+    assert.ok(Date.now() - Date.parse(row.latest_activity_ts) < 60_000);
   });
 });
 
@@ -4755,6 +4815,49 @@ test("bounty_finalize_hunter_run blocks missing invalid and mismatched handoffs"
   });
 });
 
+test("bounty_finalize_hunter_run blocks unreadable wave assignments and records telemetry", async () => {
+  await withTempHome(async () => {
+    const domain = "unreadable-assignments.example";
+    seedSessionState(domain, { phase: "HUNT", hunt_wave: 1, pending_wave: 1 });
+
+    const missing = await executeTool("bounty_finalize_hunter_run", {
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+    });
+    assert.equal(missing.ok, false);
+    assert.equal(missing.error.code, "STATE_CONFLICT");
+    assert.equal(missing.error.details.block_code, "unreadable_wave_assignments");
+    assert.match(missing.error.message, /could not read wave assignments/);
+
+    writeFileAtomic(path.join(sessionDir(domain), "wave-1-assignments.json"), "{bad json");
+    const malformed = await executeTool("bounty_finalize_hunter_run", {
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+    });
+    assert.equal(malformed.ok, false);
+    assert.equal(malformed.error.code, "STATE_CONFLICT");
+    assert.equal(malformed.error.details.block_code, "unreadable_wave_assignments");
+
+    const rows = readJsonl(agentRunTelemetryPath());
+    assert.deepEqual(rows.map((row) => row.status), ["blocked", "blocked"]);
+    assert.deepEqual(rows.map((row) => row.block_code), [
+      "unreadable_wave_assignments",
+      "unreadable_wave_assignments",
+    ]);
+    assert.ok(rows.every((row) => row.telemetry_source === "bounty_finalize_hunter_run"));
+
+    const pipelineRows = readJsonl(pipelineEventsJsonlPath(domain));
+    assert.deepEqual(
+      pipelineRows.filter((row) => row.type === "hunter_stopped").map((row) => row.block_code),
+      ["unreadable_wave_assignments", "unreadable_wave_assignments"],
+    );
+  });
+});
+
 test("bounty_finalize_hunter_run allows valid handoff and records metadata-only telemetry", async () => {
   await withTempHome(async () => {
     const domain = "example.com";
@@ -6433,6 +6536,24 @@ test("normalizeAssignmentRouteMetadata throws on smart_contract assignment witho
       surface_type: "smart_contract",
     }),
     /surface_type=smart_contract is missing capability_pack/,
+  );
+  assert.throws(
+    () => normalizeAssignmentRouteMetadata({
+      agent: "a1",
+      surface_id: "surface-web",
+      surface_type: "api",
+      capability_pack_version: 1,
+    }),
+    /assignment route metadata has invalid capability_pack/,
+  );
+  assert.throws(
+    () => normalizeAssignmentRouteMetadata({
+      agent: "a1",
+      surface_id: "surface-web",
+      surface_type: "api",
+      context_budget: expectedWebContextBudget(),
+    }),
+    /assignment route metadata has invalid capability_pack/,
   );
   // Web assignment with no route metadata still legitimately defaults to web.
   const webMeta = normalizeAssignmentRouteMetadata({
@@ -11867,6 +11988,49 @@ test("malformed technique registry file warns instead of failing hunter brief ge
       assert.equal(brief.knowledge_summary.registry_warnings.length, 1);
     });
   });
+});
+
+test("temporary technique knowledge ignores and restores ambient Bob resource env", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bountyagent-ambient-resources-"));
+  try {
+    const resources = path.join(root, "resources");
+    const project = path.join(root, "project");
+    fs.mkdirSync(path.join(resources, "knowledge"), { recursive: true });
+    fs.mkdirSync(project, { recursive: true });
+    fs.writeFileSync(path.join(resources, "knowledge", "hunter-techniques.json"), `${JSON.stringify({
+      version: 1,
+      entries: [{
+        id: "ambient-only",
+        title: "Ambient only",
+        capability_packs: ["web"],
+        techniques: ["This ambient resource must not leak into scoped tests."],
+      }],
+    }, null, 2)}\n`, "utf8");
+
+    withEnv({
+      BOB_RESOURCE_DIR: resources,
+      BOB_PROJECT_DIR: project,
+      CLAUDE_PROJECT_DIR: undefined,
+    }, () => {
+      withTempTechniqueKnowledge({
+        version: 1,
+        entries: [{
+          id: "scoped-only",
+          title: "Scoped only",
+          capability_packs: ["web"],
+          techniques: ["Use only the scoped test registry."],
+        }],
+      }, () => {
+        assert.equal(process.env.BOB_RESOURCE_DIR, undefined);
+        assert.equal(process.env.BOB_PROJECT_DIR, undefined);
+        assert.deepEqual(loadTechniqueRegistry().packs.map((pack) => pack.id), ["scoped-only"]);
+      });
+      assert.equal(process.env.BOB_RESOURCE_DIR, resources);
+      assert.equal(process.env.BOB_PROJECT_DIR, project);
+    });
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("context budget and technique-pack MCP tools are deterministic and bounded", async () => {
