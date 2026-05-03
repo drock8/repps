@@ -507,6 +507,27 @@ test("hunting rules and hunter prompt encode the smart_contract anti-stop rule",
   );
 });
 
+test("hunter prompt teaches the blocked_prereqs[] policy and orchestrator handles terminally_blocked surfaces", () => {
+  const hunterPrompt = readFile(".claude/agents/hunter-agent.md");
+  assert.match(hunterPrompt, /blocked_prereqs/, "hunter prompt missing blocked_prereqs policy");
+  assert.match(hunterPrompt, /auth_missing/, "hunter prompt missing auth_missing kind reference");
+  assert.match(hunterPrompt, /egress_unreachable/, "hunter prompt missing egress_unreachable kind reference");
+  assert.match(hunterPrompt, /bounty_clear_terminal_block/, "hunter prompt missing bounty_clear_terminal_block reference");
+
+  const orchestratorPrompt = readFile("prompts/roles/orchestrator.md");
+  assert.match(orchestratorPrompt, /terminally_blocked/, "orchestrator prompt missing terminally_blocked exclusion guidance");
+  assert.match(orchestratorPrompt, /bounty_clear_terminal_block/, "orchestrator prompt missing clear-block tool reference");
+  assert.match(
+    orchestratorPrompt,
+    /override_reason` is rejected outside/,
+    "orchestrator prompt missing override_reason scope warning",
+  );
+
+  const reporterPrompt = readFile("prompts/roles/reporter.md");
+  assert.match(reporterPrompt, /Blocked by missing prerequisites/, "reporter prompt missing blocked-prereqs section guidance");
+  assert.match(reporterPrompt, /bounty_report_written/, "reporter prompt missing bounty_report_written call");
+});
+
 test("bob-spec loader is wired into the hunter brief", () => {
   const briefSource = readFile("mcp/lib/hunter-brief.js");
   assert.match(

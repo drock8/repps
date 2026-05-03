@@ -2249,6 +2249,32 @@ test("bounty_read_session_summary derives compact status without raw proof evide
   });
 });
 
+test("bounty_read_session_summary aggregates blocked_prereqs by (kind, identifier_hint)", () => {
+  withTempHome(() => {
+    const domain = "summary-blocked.example.com";
+    seedSessionState(domain, {
+      phase: "REPORT",
+      hunt_wave: 3,
+      terminally_blocked: [
+        buildTerminallyBlockedEntry("surface-a", "auth_missing", "attacker", { reason: "no attacker profile registered" }),
+        buildTerminallyBlockedEntry("surface-b", "auth_missing", "attacker", { reason: "blocked second surface" }),
+        buildTerminallyBlockedEntry("surface-c", "egress_unreachable", null, { reason: "default egress unreachable" }),
+      ],
+    });
+    const summary = JSON.parse(readSessionSummary({ target_domain: domain })).summary;
+    assert.equal(summary.blocked_prereqs.total_blocked_surfaces, 3);
+    const authGroup = summary.blocked_prereqs.by_kind.find((g) => g.kind === "auth_missing" && g.identifier_hint === "attacker");
+    assert.ok(authGroup, "expected auth_missing/attacker group");
+    assert.equal(authGroup.surface_count, 2);
+    assert.deepEqual(authGroup.surface_ids.sort(), ["surface-a", "surface-b"]);
+    assert.match(authGroup.example_reason || "", /no attacker profile/);
+    const egressGroup = summary.blocked_prereqs.by_kind.find((g) => g.kind === "egress_unreachable");
+    assert.ok(egressGroup, "expected egress_unreachable group");
+    assert.equal(egressGroup.identifier_hint, null);
+    assert.equal(egressGroup.surface_count, 1);
+  });
+});
+
 test("bounty_write_chain_attempt records normalized attempts and bounty_read_chain_attempts summarizes outcomes", async () => {
   await withTempHome(async () => {
     const domain = "chain-attempt.example.com";

@@ -95,6 +95,43 @@ function nextAction(state, artifacts, blockers) {
   return "Inspect session state through MCP readers.";
 }
 
+function summarizeBlockedPrereqs(state) {
+  const groups = new Map();
+  const terminallyBlocked = Array.isArray(state.terminally_blocked) ? state.terminally_blocked : [];
+  for (const entry of terminallyBlocked) {
+    if (!entry || !Array.isArray(entry.blockers)) continue;
+    for (const blocker of entry.blockers) {
+      const hint = blocker.identifier_hint || null;
+      const key = `${blocker.kind}\t${hint || ""}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          kind: blocker.kind,
+          identifier_hint: hint,
+          surface_count: 0,
+          surface_ids: [],
+          example_reason: blocker.reason || null,
+        });
+      }
+      const group = groups.get(key);
+      group.surface_count += 1;
+      if (!group.surface_ids.includes(entry.surface_id)) {
+        group.surface_ids.push(entry.surface_id);
+      }
+      if (!group.example_reason && blocker.reason) {
+        group.example_reason = blocker.reason;
+      }
+    }
+  }
+  return {
+    total_blocked_surfaces: terminallyBlocked.length,
+    by_kind: Array.from(groups.values()).sort((a, b) =>
+      a.kind === b.kind
+        ? (a.identifier_hint || "").localeCompare(b.identifier_hint || "")
+        : a.kind.localeCompare(b.kind),
+    ),
+  };
+}
+
 function readSessionSummary(args) {
   const domain = assertNonEmptyString(args.target_domain, "target_domain");
   const { state } = readSessionStateStrict(domain);
@@ -113,6 +150,7 @@ function readSessionSummary(args) {
       pending_wave: state.pending_wave,
       finding_total: artifacts.findings.total,
       final_reportable_count: artifacts.verification.final_reportable_count,
+      blocked_prereqs: summarizeBlockedPrereqs(state),
       evidence_status: {
         status: evidenceStatus(artifacts),
         exists: artifacts.evidence.exists,
