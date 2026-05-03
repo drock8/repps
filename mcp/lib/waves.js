@@ -68,6 +68,9 @@ const {
   safeAppendPipelineEventDirect,
 } = require("./pipeline-analytics.js");
 const {
+  validateNoSensitiveMaterial,
+} = require("./sensitive-material.js");
+const {
   computeHuntToChainGate,
 } = require("./phase-gates.js");
 
@@ -219,6 +222,28 @@ const BLOCKED_HARNESS_KIND_VALUES = Object.freeze([
   "other",
 ]);
 
+// Mirror of capability-packs-rendering.js BLOCKED_PREREQ_KINDS and the
+// bounty_write_wave_handoff schema enum for blocked_prereqs[].kind. Like
+// BLOCKED_HARNESS_KIND_VALUES this is a runtime guard that throws on unknown
+// kinds before the JSON schema would even check; mismatch with the renderer
+// constant or schema enum is caught by the parity test in
+// test/prompt-contracts.test.js.
+const BLOCKED_PREREQ_KIND_VALUES = Object.freeze([
+  "auth_missing",
+  "egress_unreachable",
+  "funded_wallet_missing",
+  "key_material_missing",
+  "external_credential_missing",
+]);
+
+const BLOCKED_PREREQ_IDENTIFIER_HINT_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,63}$/;
+
+// Long-hex rejector for identifier_hint. Catches private-key / hash shapes
+// (32+ lowercase hex chars) that pass the handle-format regex but should
+// never appear in a registry handle. Layered defense above
+// validateNoSensitiveMaterial which targets JWT / bearer / cookie shapes.
+const BLOCKED_PREREQ_IDENTIFIER_HINT_LONG_HEX_PATTERN = /^[0-9a-f]{32,}$/;
+
 const BYPASS_ATTEMPT_OUTCOME_VALUES = Object.freeze([
   "no_finding",
   "partial_evidence",
@@ -255,6 +280,78 @@ function normalizeBlockedHarnessRuns(value) {
       const neededFor = assertNonEmptyString(entry.needed_for, `blocked_harness_runs[${index}].needed_for`);
       if (neededFor.length > 200) {
         throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_harness_runs[${index}].needed_for must be at most 200 characters`);
+      }
+      normalized.needed_for = neededFor;
+    }
+    return normalized;
+  });
+}
+
+function normalizeBlockedPrereqs(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) {
+    throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "blocked_prereqs must be an array");
+  }
+  if (value.length > 20) {
+    throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "blocked_prereqs must contain at most 20 entries");
+  }
+  return value.map((entry, index) => {
+    if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}] must be an object`);
+    }
+    const kind = assertNonEmptyString(entry.kind, `blocked_prereqs[${index}].kind`);
+    if (!BLOCKED_PREREQ_KIND_VALUES.includes(kind)) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].kind must be one of ${BLOCKED_PREREQ_KIND_VALUES.join(", ")}`);
+    }
+    const reason = assertNonEmptyString(entry.reason, `blocked_prereqs[${index}].reason`);
+    if (reason.length > 240) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].reason must be at most 240 characters`);
+    }
+    try {
+      validateNoSensitiveMaterial(reason, `blocked_prereqs[${index}].reason`);
+    } catch (error) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, error.message);
+    }
+    const normalized = { kind, reason };
+    if (entry.identifier_hint != null) {
+      const identifierHint = assertNonEmptyString(entry.identifier_hint, `blocked_prereqs[${index}].identifier_hint`);
+      if (identifierHint.length > 64) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].identifier_hint must be at most 64 characters`);
+      }
+      if (!BLOCKED_PREREQ_IDENTIFIER_HINT_PATTERN.test(identifierHint)) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].identifier_hint must match /^[a-z0-9][a-z0-9_.-]{0,63}$/ — use a lowercase registry handle, not a credential or token value`);
+      }
+      if (BLOCKED_PREREQ_IDENTIFIER_HINT_LONG_HEX_PATTERN.test(identifierHint)) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].identifier_hint looks like a hex private key, address, or hash; use a human-readable registry handle instead`);
+      }
+      try {
+        validateNoSensitiveMaterial(identifierHint, `blocked_prereqs[${index}].identifier_hint`);
+      } catch (error) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, error.message);
+      }
+      normalized.identifier_hint = identifierHint;
+    }
+    if (entry.evidence_summary != null) {
+      const evidenceSummary = assertNonEmptyString(entry.evidence_summary, `blocked_prereqs[${index}].evidence_summary`);
+      if (evidenceSummary.length > 300) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].evidence_summary must be at most 300 characters`);
+      }
+      try {
+        validateNoSensitiveMaterial(evidenceSummary, `blocked_prereqs[${index}].evidence_summary`);
+      } catch (error) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, error.message);
+      }
+      normalized.evidence_summary = evidenceSummary;
+    }
+    if (entry.needed_for != null) {
+      const neededFor = assertNonEmptyString(entry.needed_for, `blocked_prereqs[${index}].needed_for`);
+      if (neededFor.length > 200) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, `blocked_prereqs[${index}].needed_for must be at most 200 characters`);
+      }
+      try {
+        validateNoSensitiveMaterial(neededFor, `blocked_prereqs[${index}].needed_for`);
+      } catch (error) {
+        throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, error.message);
       }
       normalized.needed_for = neededFor;
     }
@@ -322,6 +419,15 @@ function assertBlockedHarnessConsistency(surfaceStatus, blockedHarnessRuns) {
   }
 }
 
+function assertBlockedPrereqConsistency(surfaceStatus, blockedPrereqs) {
+  if (surfaceStatus === "complete" && blockedPrereqs.length > 0) {
+    throw new ToolError(
+      ERROR_CODES.INVALID_ARGUMENTS,
+      "surface_status cannot be 'complete' when blocked_prereqs is non-empty; set surface_status to 'partial' or resolve the missing prerequisites first",
+    );
+  }
+}
+
 function assertSmartContractCompletionEvidence({
   surfaceType,
   surfaceStatus,
@@ -373,8 +479,10 @@ function validateWaveHandoffPayload(payload, {
   const findingIdSet = new Set(findingsForCheck.map((finding) => finding.id));
 
   const blockedHarnessRuns = normalizeBlockedHarnessRuns(payload.blocked_harness_runs);
+  const blockedPrereqs = normalizeBlockedPrereqs(payload.blocked_prereqs);
   const bypassAttempts = normalizeBypassAttempts(payload.bypass_attempts, { findingIds: findingIdSet });
   assertBlockedHarnessConsistency(surfaceStatus, blockedHarnessRuns);
+  assertBlockedPrereqConsistency(surfaceStatus, blockedPrereqs);
 
   // Authoritative source for surface_type is the MCP-owned assignment file
   // (captured at start_wave time). Callers from active wave paths
@@ -400,6 +508,7 @@ function validateWaveHandoffPayload(payload, {
     summary: normalizeHandoffSummary(payload),
     chain_notes: normalizeChainNotes(payload.chain_notes),
     blocked_harness_runs: blockedHarnessRuns,
+    blocked_prereqs: blockedPrereqs,
     bypass_attempts: bypassAttempts,
     dead_ends: normalizeStringArray(payload.dead_ends, "dead_ends"),
     waf_blocked_endpoints: normalizeStringArray(payload.waf_blocked_endpoints, "waf_blocked_endpoints"),
@@ -1056,6 +1165,7 @@ function writeWaveHandoff(args) {
   const summary = normalizeHandoffSummary(args, { requireStructuredSummary: true });
   const chainNotes = normalizeChainNotes(args.chain_notes);
   const blockedHarnessRuns = normalizeBlockedHarnessRuns(args.blocked_harness_runs);
+  const blockedPrereqs = normalizeBlockedPrereqs(args.blocked_prereqs);
 
   if (typeof args.content !== "string") {
     throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "content must be a string");
@@ -1083,6 +1193,7 @@ function writeWaveHandoff(args) {
     const findingIdSet = new Set(findingsForRun.map((finding) => finding.id));
     const bypassAttempts = normalizeBypassAttempts(args.bypass_attempts, { findingIds: findingIdSet });
     assertBlockedHarnessConsistency(surfaceStatus, blockedHarnessRuns);
+    assertBlockedPrereqConsistency(surfaceStatus, blockedPrereqs);
     assertSmartContractCompletionEvidence({
       surfaceType,
       surfaceStatus,
@@ -1101,6 +1212,7 @@ function writeWaveHandoff(args) {
       summary,
       chain_notes: chainNotes,
       blocked_harness_runs: blockedHarnessRuns,
+      blocked_prereqs: blockedPrereqs,
       bypass_attempts: bypassAttempts,
       dead_ends: normalizeStringArray(args.dead_ends, "dead_ends"),
       waf_blocked_endpoints: normalizeStringArray(args.waf_blocked_endpoints, "waf_blocked_endpoints"),

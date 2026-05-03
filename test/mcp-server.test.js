@@ -4049,6 +4049,7 @@ test("bounty_write_wave_handoff writes matching markdown and json with normalize
       summary: "Freeform handoff summary.",
       chain_notes: [],
       blocked_harness_runs: [],
+      blocked_prereqs: [],
       bypass_attempts: [],
       dead_ends: [],
       waf_blocked_endpoints: [],
@@ -4098,6 +4099,246 @@ test("bounty_write_wave_handoff accepts surface_status: partial with blocked_har
     assert.equal(payload.blocked_harness_runs[0].kind, "foundry_fork");
     assert.equal(payload.blocked_harness_runs[0].harness, "foundry-fork-mainnet");
     assert.equal(payload.blocked_harness_runs[0].needed_for, "PSM donation invariant");
+  });
+});
+
+test("bounty_write_wave_handoff accepts surface_status: partial with blocked_prereqs", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    const result = JSON.parse(writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Blocked by missing auth profiles.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        {
+          kind: "auth_missing",
+          identifier_hint: "attacker",
+          reason: "Org-scoped IDOR test requires attacker session; bounty_list_auth_profiles returned []",
+          needed_for: "cross-org dashboard authz check",
+        },
+        {
+          kind: "egress_unreachable",
+          identifier_hint: "us-west-egress",
+          reason: "thegraph.kiln.fi returned ECONNREFUSED across 5 attempts on default egress",
+          evidence_summary: "circuit-breaker reports 5 failures past threshold for thegraph.kiln.fi",
+        },
+      ],
+    }));
+    const payload = JSON.parse(fs.readFileSync(result.written_json, "utf8"));
+    assert.equal(payload.surface_status, "partial");
+    assert.equal(payload.blocked_prereqs.length, 2);
+    assert.equal(payload.blocked_prereqs[0].kind, "auth_missing");
+    assert.equal(payload.blocked_prereqs[0].identifier_hint, "attacker");
+    assert.equal(payload.blocked_prereqs[0].needed_for, "cross-org dashboard authz check");
+    assert.equal(payload.blocked_prereqs[1].kind, "egress_unreachable");
+    assert.equal(payload.blocked_prereqs[1].identifier_hint, "us-west-egress");
+    assert.match(payload.blocked_prereqs[1].evidence_summary, /circuit-breaker/);
+  });
+});
+
+test("bounty_write_wave_handoff rejects surface_status: complete with blocked_prereqs", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "complete",
+      summary: "Pretending to be done despite missing material.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "auth_missing", identifier_hint: "attacker", reason: "no profile loaded" },
+      ],
+    }), /surface_status cannot be 'complete' when blocked_prereqs is non-empty/);
+  });
+});
+
+test("bounty_write_wave_handoff rejects blocked_prereqs with unknown kind", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Trying a kind that does not exist in the registry.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "captcha_missing", identifier_hint: "captcha", reason: "captcha solver not configured" },
+      ],
+    }), /blocked_prereqs\[0\]\.kind must be one of/);
+  });
+});
+
+test("bounty_write_wave_handoff rejects blocked_prereqs identifier_hint that looks like a secret", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    // Mixed-case JWT shape rejected by the format regex.
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Operator pasted a credential into identifier_hint by accident.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "auth_missing", identifier_hint: "eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MX0", reason: "JWT token leaked into hint" },
+      ],
+    }), /identifier_hint must match/);
+    // Lowercase JWT shape passes the format regex but the sensitive-material
+    // validator catches the dotted JWT structure.
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Operator pasted a lowercase JWT into identifier_hint.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "auth_missing", identifier_hint: "eyjabcdefghij.eyjklmnopqr.sigabcdefghij", reason: "lowercase JWT" },
+      ],
+    }), /appears to contain secrets/);
+    // 64-char lowercase hex (private key / SHA-256 shape) rejected by the
+    // long-hex screen even though the format regex accepts it.
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Operator pasted a hex hash into identifier_hint.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "key_material_missing", identifier_hint: "a".repeat(64), reason: "hex hash leaked" },
+      ],
+    }), /looks like a hex private key, address, or hash/);
+    // 65-char lowercase still rejected because of maxLength.
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Operator pasted a long lowercase token into identifier_hint.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "key_material_missing", identifier_hint: "a".repeat(65), reason: "long lowercase token" },
+      ],
+    }), /identifier_hint must be at most 64 characters/);
+    // Leading hyphen / non-alphanumeric start rejected.
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Operator used leading hyphen.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "auth_missing", identifier_hint: "-attacker", reason: "leading hyphen" },
+      ],
+    }), /identifier_hint must match/);
+  });
+});
+
+test("bounty_write_wave_handoff accepts blocked_prereqs without identifier_hint", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    const result = JSON.parse(writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Egress unreachable; no specific egress profile would obviously help.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        {
+          kind: "egress_unreachable",
+          reason: "thegraph.kiln.fi unreachable across 5 attempts on default egress",
+        },
+      ],
+    }));
+    const payload = JSON.parse(fs.readFileSync(result.written_json, "utf8"));
+    assert.equal(payload.blocked_prereqs.length, 1);
+    assert.equal(payload.blocked_prereqs[0].kind, "egress_unreachable");
+    assert.equal(payload.blocked_prereqs[0].identifier_hint, undefined);
+  });
+});
+
+test("bounty_write_wave_handoff rejects blocked_prereqs reason with embedded secrets", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Reason field contains a leaked credential.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        {
+          kind: "auth_missing",
+          reason: "Tried Authorization: Bearer eyJabcdefghij.eyJklmnopqr.sigabcdefghij from previous run",
+        },
+      ],
+    }), /appears to contain secrets/);
+  });
+});
+
+test("bounty_write_wave_handoff rejects blocked_prereqs reason past 240 chars", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Reason is too long.",
+      content: "# Handoff\n",
+      blocked_prereqs: [
+        { kind: "auth_missing", identifier_hint: "attacker", reason: "x".repeat(241) },
+      ],
+    }), /blocked_prereqs\[0\]\.reason must be at most 240 characters/);
+  });
+});
+
+test("bounty_write_wave_handoff rejects more than 20 blocked_prereqs", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedAssignments(domain, 1, [{ agent: "a1", surface_id: "surface-a" }]);
+    const overflow = Array.from({ length: 21 }, (_, i) => ({
+      kind: "auth_missing",
+      identifier_hint: `attacker${i}`,
+      reason: `entry ${i}`,
+    }));
+    assert.throws(() => writeWaveHandoff({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: "surface-a",
+      surface_status: "partial",
+      summary: "Too many blocked_prereqs entries.",
+      content: "# Handoff\n",
+      blocked_prereqs: overflow,
+    }), /blocked_prereqs must contain at most 20 entries/);
   });
 });
 

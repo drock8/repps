@@ -846,6 +846,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 
@@ -910,6 +915,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-evm CONTRACT
@@ -971,6 +981,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-svm CONTRACT
@@ -1040,6 +1055,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-move CONTRACT
@@ -1116,6 +1136,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-substrate CONTRACT
@@ -1194,6 +1219,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-cosmwasm CONTRACT
