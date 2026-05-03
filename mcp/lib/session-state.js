@@ -598,6 +598,15 @@ function clearTerminalBlock(args) {
       "reason must be at most 280 characters",
     );
   }
+  // The clear reason lands in state.terminal_block_clear_history (durable
+  // public state). Screen for credentials so an operator pasting "added
+  // attacker auth profile with cookie SESS=eyJabc..." cannot leak the
+  // cookie into bounty_read_session_state output.
+  try {
+    require("./sensitive-material.js").validateNoSensitiveMaterial(reason, "reason");
+  } catch (error) {
+    throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, error.message);
+  }
 
   return withSessionLock(domain, () => {
     const { raw, state } = readSessionStateStrict(domain);

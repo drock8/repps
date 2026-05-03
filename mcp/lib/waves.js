@@ -929,21 +929,22 @@ function startWave(args) {
     });
     const assignmentsForDisk = persistedAssignments.map(({ handoff_token, ...assignment }) => assignment);
 
-    writeFileAtomic(assignmentsPath, `${JSON.stringify({
-      wave_number: waveNumber,
-      assignments: assignmentsForDisk,
-    }, null, 2)}\n`);
-
-    // Snapshot registries AT WAVE START so the next merge can compare
-    // against "what the hunter could have used". A snapshot taken at
-    // merge time would include profiles added mid-wave that the hunter
-    // never had access to.
+    // Snapshot registries BEFORE the assignment file is written. If the
+    // snapshot throws (auth.json malformed, egress config missing, etc.)
+    // we want the wave start to fail cleanly with no orphaned assignment
+    // file — not a half-written session that fails on retry with
+    // "Assignment file already exists".
     const startSnapshot = snapshotPrereqRegistries(domain);
     const priorSnapshots = Array.isArray(state.prereq_registry_snapshots) ? state.prereq_registry_snapshots : [];
     const nextSnapshots = [
       ...priorSnapshots.filter((s) => s.wave !== waveNumber),
       { wave: waveNumber, ...startSnapshot },
     ].sort((a, b) => a.wave - b.wave);
+
+    writeFileAtomic(assignmentsPath, `${JSON.stringify({
+      wave_number: waveNumber,
+      assignments: assignmentsForDisk,
+    }, null, 2)}\n`);
 
     const nextState = {
       ...state,

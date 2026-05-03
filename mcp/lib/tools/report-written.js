@@ -15,12 +15,15 @@ module.exports = Object.freeze({
   },
   handler: reportWritten,
   role_bundles: ["reporter", "orchestrator"],
-  mutating: false,
+  // Appends a row to pipeline-events.jsonl; mutating: true reflects the
+  // side effect honestly and surfaces the artifact in
+  // session_artifacts_written for audit.
+  mutating: true,
   global_preapproval: false,
   network_access: false,
   browser_access: false,
   scope_required: false,
   sensitive_output: false,
-  session_artifacts_written: [],
+  session_artifacts_written: ["pipeline-events.jsonl"],
   hook_required: false,
 });

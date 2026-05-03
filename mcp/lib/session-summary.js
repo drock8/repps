@@ -95,10 +95,28 @@ function nextAction(state, artifacts, blockers) {
   return "Inspect session state through MCP readers.";
 }
 
+// Operator-actionability ordering: kinds the operator can resolve
+// fastest first. auth/egress have registry-based unblock paths;
+// funded_wallet/key_material/external_credential require operator
+// procurement. Lower number = higher actionability.
+const BLOCKED_PREREQ_KIND_ACTIONABILITY = Object.freeze({
+  auth_missing: 0,
+  egress_unreachable: 1,
+  funded_wallet_missing: 2,
+  key_material_missing: 3,
+  external_credential_missing: 4,
+});
+
 function summarizeBlockedPrereqs(state) {
   const groups = new Map();
   const terminallyBlocked = Array.isArray(state.terminally_blocked) ? state.terminally_blocked : [];
-  for (const entry of terminallyBlocked) {
+  // Iterate in blocked_at_wave ASC order so the LATEST blocker
+  // overrides the example_reason field — operators care about the
+  // freshest signal, not the oldest sample.
+  const sortedEntries = [...terminallyBlocked].sort((a, b) =>
+    (a.blocked_at_wave || 0) - (b.blocked_at_wave || 0),
+  );
+  for (const entry of sortedEntries) {
     if (!entry || !Array.isArray(entry.blockers)) continue;
     for (const blocker of entry.blockers) {
       const hint = blocker.identifier_hint || null;
@@ -109,7 +127,8 @@ function summarizeBlockedPrereqs(state) {
           identifier_hint: hint,
           surface_count: 0,
           surface_ids: [],
-          example_reason: blocker.reason || null,
+          latest_reason: null,
+          latest_blocked_at_wave: 0,
         });
       }
       const group = groups.get(key);
@@ -117,18 +136,23 @@ function summarizeBlockedPrereqs(state) {
       if (!group.surface_ids.includes(entry.surface_id)) {
         group.surface_ids.push(entry.surface_id);
       }
-      if (!group.example_reason && blocker.reason) {
-        group.example_reason = blocker.reason;
+      // Latest wave wins (entries are sorted ASC, so later iterations overwrite).
+      if (blocker.reason) {
+        group.latest_reason = blocker.reason;
+      }
+      if ((entry.blocked_at_wave || 0) > group.latest_blocked_at_wave) {
+        group.latest_blocked_at_wave = entry.blocked_at_wave || 0;
       }
     }
   }
   return {
     total_blocked_surfaces: terminallyBlocked.length,
-    by_kind: Array.from(groups.values()).sort((a, b) =>
-      a.kind === b.kind
-        ? (a.identifier_hint || "").localeCompare(b.identifier_hint || "")
-        : a.kind.localeCompare(b.kind),
-    ),
+    by_kind: Array.from(groups.values()).sort((a, b) => {
+      const aRank = BLOCKED_PREREQ_KIND_ACTIONABILITY[a.kind] ?? 99;
+      const bRank = BLOCKED_PREREQ_KIND_ACTIONABILITY[b.kind] ?? 99;
+      if (aRank !== bRank) return aRank - bRank;
+      return (a.identifier_hint || "").localeCompare(b.identifier_hint || "");
+    }),
   };
 }
 

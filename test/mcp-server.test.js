@@ -864,7 +864,7 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.deepEqual(TOOL_MANIFEST.bounty_promote_surface_leads.session_artifacts_written, ["surface-leads.json", "attack_surface.json", "state.json"]);
   assert.equal(TOOL_MANIFEST.bounty_read_session_summary.mutating, false);
   assert.equal(TOOL_MANIFEST.bounty_read_session_summary.global_preapproval, true);
-  assert.deepEqual(TOOL_MANIFEST.bounty_read_session_summary.role_bundles, ["orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_session_summary.role_bundles, ["orchestrator", "reporter"]);
   assert.equal(TOOL_MANIFEST.bounty_set_operator_note.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_set_operator_note.global_preapproval, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_set_operator_note.role_bundles, ["orchestrator"]);
@@ -2263,11 +2263,14 @@ test("bounty_read_session_summary aggregates blocked_prereqs by (kind, identifie
     });
     const summary = JSON.parse(readSessionSummary({ target_domain: domain })).summary;
     assert.equal(summary.blocked_prereqs.total_blocked_surfaces, 3);
+    // by_kind ordered by actionability: auth_missing (rank 0) before egress_unreachable (rank 1).
+    assert.equal(summary.blocked_prereqs.by_kind[0].kind, "auth_missing");
+    assert.equal(summary.blocked_prereqs.by_kind[1].kind, "egress_unreachable");
     const authGroup = summary.blocked_prereqs.by_kind.find((g) => g.kind === "auth_missing" && g.identifier_hint === "attacker");
     assert.ok(authGroup, "expected auth_missing/attacker group");
     assert.equal(authGroup.surface_count, 2);
     assert.deepEqual(authGroup.surface_ids.sort(), ["surface-a", "surface-b"]);
-    assert.match(authGroup.example_reason || "", /no attacker profile/);
+    assert.match(authGroup.latest_reason || "", /blocked second surface|no attacker profile/);
     const egressGroup = summary.blocked_prereqs.by_kind.find((g) => g.kind === "egress_unreachable");
     assert.ok(egressGroup, "expected egress_unreachable group");
     assert.equal(egressGroup.identifier_hint, null);
@@ -4331,6 +4334,24 @@ test("bounty_clear_terminal_block rejects clearing a surface that was never term
       surface_id: "surface-z",
       reason: "operator wants to clear a non-blocked surface",
     }), /not in state\.terminally_blocked/);
+  });
+});
+
+test("bounty_clear_terminal_block rejects a reason that contains credentials", () => {
+  withTempHome(() => {
+    const domain = "secret-reason.example.com";
+    seedSessionState(domain, {
+      phase: "HUNT",
+      hunt_wave: 1,
+      terminally_blocked: [
+        buildTerminallyBlockedEntry("surface-a", "auth_missing", "attacker", { reason: "no profile" }),
+      ],
+    });
+    assert.throws(() => clearTerminalBlock({
+      target_domain: domain,
+      surface_id: "surface-a",
+      reason: "Authorization: Bearer eyJabcdefghij.eyJklmnopqr.sigabcdefghij was added",
+    }), /appears to contain secrets/);
   });
 });
 
