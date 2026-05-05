@@ -59,6 +59,8 @@ OK: mcp_server_loadable - mcp/server.js loads successfully
 WARN: optional_tool_subfinder - subfinder is missing; related recon steps will be skipped
 WARN: optional_tool_nuclei - nuclei is missing; related recon steps will be skipped
 WARN: optional_tool_httpx - httpx is missing; related recon steps will be skipped
+WARN: optional_tool_katana - katana is missing; related recon steps will be skipped
+WARN: optional_tool_jwt_tool - jwt_tool is missing; JWT candidate review helpers will be skipped
 WARN: optional_patchright - patchright is missing; Tier 2 auto-signup is disabled
 WARN: optional_capsolver - CAPSOLVER_API_KEY is not set; CAPTCHA solving is disabled
 

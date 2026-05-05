@@ -145,7 +145,7 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     kind: "agent",
     output_path: path.join(".claude", "agents", "recon-agent.md"),
     name: "recon-agent",
-    description: "Runs bounded normal recon \u2014 subdomain enum, live hosts, archived URLs, nuclei, JS extraction \u2014 and produces attack_surface.json",
+    description: "Runs bounded normal recon \u2014 subdomain enum, live hosts, archived/crawled URLs, nuclei, JS/JWT extraction \u2014 and produces attack_surface.json",
     model: "opus",
     color: "cyan",
     local_tools: Object.freeze(["Bash", "Read", "Write", "Glob", "Grep"]),

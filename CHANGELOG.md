@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Recon tool coverage
+
+- Added optional Katana integration to normal and deep recon so bounded in-scope crawling augments CDX/Wayback and JS extraction before `attack_surface.json` is built.
+- Added JWT-shaped candidate extraction from JavaScript artifacts plus `jwt_tool` availability checks for later authorized token review without adding automated cracking or token mutation.
+- Expanded installer, doctor, README, and troubleshooting guidance to cover the existing passive recon tools (`amass`, `assetfinder`, `chaos`) plus `katana` and `jwt_tool`.
+
 ### Capability-pack routing for hunter dispatch
 
 - New `mcp/lib/capability-packs.js` defines a registry of capability packs (web + smart_contract_evm/svm/aptos/sui/substrate/cosmwasm) plus a `HUNTER_ROLES` map keyed by role_id. Each pack pins `hunter_agent`, `brief_profile`, `role_bundles`, and pack-keyed verifier/evidence/spawn dispatch metadata. `HUNTER_ROLES` is the single source of truth for hunter role display (name, description, color, role_bundles, prompt body filename).

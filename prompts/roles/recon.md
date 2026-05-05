@@ -13,7 +13,7 @@ Execution contract:
 
 1. Binary check
 ```bash
-mkdir -p "[SESSION]" && { for t in subfinder nuclei curl python3; do command -v "$t" >/dev/null && echo "OK:$t" || echo "MISSING:$t"; done; command -v httpx >/dev/null && echo "OK:httpx" || { [ -x ~/go/bin/httpx ] && echo "OK:httpx" || echo "MISSING:httpx"; }; } > "[SESSION]/recon-tools.txt"
+mkdir -p "[SESSION]" && { for t in subfinder nuclei curl python3; do command -v "$t" >/dev/null && echo "OK:$t" || echo "MISSING:$t"; done; command -v httpx >/dev/null && echo "OK:httpx" || { [ -x ~/go/bin/httpx ] && echo "OK:httpx" || echo "MISSING:httpx"; }; command -v katana >/dev/null && echo "OK:katana" || { [ -x ~/go/bin/katana ] && echo "OK:katana" || echo "MISSING:katana"; }; JWT_TOOL="$(command -v jwt_tool 2>/dev/null || command -v jwt_tool.py 2>/dev/null || true)"; [ -z "$JWT_TOOL" ] && [ -x "$HOME/jwt_tool/jwt_tool.py" ] && JWT_TOOL="$HOME/jwt_tool/jwt_tool.py"; [ -n "$JWT_TOOL" ] && echo "OK:jwt_tool" || echo "MISSING:jwt_tool"; } > "[SESSION]/recon-tools.txt"
 ```
 2. Subdomain aggregation
 ```bash
@@ -56,11 +56,16 @@ PY
 HTTPX="$(command -v httpx 2>/dev/null || true)"; [ -z "$HTTPX" ] && [ -x ~/go/bin/httpx ] && HTTPX="$HOME/go/bin/httpx"
 if [ -s "[SESSION]/family_candidates.txt" ] && [ -n "$HTTPX" ]; then timeout 30 "$HTTPX" -l "[SESSION]/family_candidates.txt" -silent -follow-redirects -tech-detect -title -status-code -o "[SESSION]/family_live.txt" 2>/dev/null || true; else : > "[SESSION]/family_live.txt"; fi
 ```
-5. Archived URLs with CDX/Wayback
+5. URL discovery with CDX/Wayback and Katana
 ```bash
 { echo "[DOMAIN]"; awk '{print $1}' "[SESSION]/family_live.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##'; } | sort -u | head -n 3 > "[SESSION]/cdx_roots.txt"
 : > "[SESSION]/all_urls.txt"
 while read -r root; do timeout 30 curl -ks "https://web.archive.org/cdx/search/cdx?url=$root/*&output=text&fl=original&collapse=urlkey&limit=1500" 2>/dev/null >> "[SESSION]/all_urls.txt" || true; timeout 30 curl -ks "https://web.archive.org/cdx/search/cdx?url=*.$root/*&output=text&fl=original&collapse=urlkey&limit=1500" 2>/dev/null >> "[SESSION]/all_urls.txt" || true; done < "[SESSION]/cdx_roots.txt"
+{ printf "https://%s\nhttps://www.%s\n" "[DOMAIN]" "[DOMAIN]"; awk '{print $1}' "[SESSION]/live_hosts.txt" 2>/dev/null; awk '{print $1}' "[SESSION]/family_live.txt" 2>/dev/null; } | sort -u | head -n 20 > "[SESSION]/crawl_roots.txt"
+: > "[SESSION]/katana_urls.txt"
+KATANA="$(command -v katana 2>/dev/null || true)"; [ -z "$KATANA" ] && [ -x ~/go/bin/katana ] && KATANA="$HOME/go/bin/katana"
+if [ -n "$KATANA" ] && [ -s "[SESSION]/crawl_roots.txt" ]; then timeout 90 "$KATANA" -list "[SESSION]/crawl_roots.txt" -silent -d 2 -jc -fs rdn -rl 20 -timeout 8 -o "[SESSION]/katana_urls.txt" 2>/dev/null || true; fi
+cat "[SESSION]/katana_urls.txt" >> "[SESSION]/all_urls.txt" 2>/dev/null || true
 sort -u -o "[SESSION]/all_urls.txt" "[SESSION]/all_urls.txt"
 ```
 6. Safe nuclei pass
@@ -80,17 +85,19 @@ session = pathlib.Path(sys.argv[1])
 raw = (session / "js_raw.txt").read_text(errors="ignore")
 endpoints = sorted(set(re.findall(r'https?://[^\s"\'<>]+|/[A-Za-z0-9_./?=&%-]{4,}', raw)))
 secrets = sorted(set(s.strip() for s in re.findall(r'(?i)(?:api[_-]?key|token|secret|client[_-]?secret|authorization)[^,\n]{0,120}', raw) if len(s) < 180))
+jwt_candidates = sorted(set(re.findall(r'\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b', raw)))
 (session / "js_endpoints.txt").write_text("\n".join(endpoints[:400]) + ("\n" if endpoints else ""))
 (session / "js_secrets.txt").write_text("\n".join(secrets[:100]) + ("\n" if secrets else ""))
+(session / "jwt_candidates.txt").write_text("\n".join(jwt_candidates[:50]) + ("\n" if jwt_candidates else ""))
 counts = {}
-for name in ("subdomains.txt","live_hosts.txt","all_urls.txt","js_urls.txt","js_endpoints.txt","nuclei_results.txt"):
+for name in ("subdomains.txt","live_hosts.txt","all_urls.txt","katana_urls.txt","js_urls.txt","js_endpoints.txt","jwt_candidates.txt","nuclei_results.txt"):
     path = session / name
     counts[name[:-4] if name.endswith(".txt") else name] = sum(1 for _ in path.open(errors="ignore")) if path.exists() else 0
 (session / "recon-summary.json").write_text(json.dumps({"version": 1, "counts": counts}, indent=2) + "\n")
 PY
 ```
 
-Last step: build `[SESSION]/attack_surface.json` from `live_hosts.txt`, `family_live.txt`, `all_urls.txt`, `nuclei_results.txt`, `js_endpoints.txt`, `js_secrets.txt`, and `recon-summary.json`.
+Last step: build `[SESSION]/attack_surface.json` from `live_hosts.txt`, `family_live.txt`, `all_urls.txt`, `nuclei_results.txt`, `js_endpoints.txt`, `js_secrets.txt`, `jwt_candidates.txt`, and `recon-summary.json`.
 Do not make any additional Bash calls while building final JSON. Use collected files only.
 
 Use this backward-compatible schema:
@@ -118,7 +125,7 @@ Rules for `attack_surface.json`:
 - Required per-surface fields remain: `id`, `hosts`, `tech_stack`, `endpoints`, `interesting_params`, `nuclei_hits`, and `priority`.
 - Optional enrichment fields are additive: `surface_type`, `bug_class_hints`, `high_value_flows`, `evidence`, and `ranking`. Omit optional fields only without support.
 - Group by application/property, not only subdomain. Include first-party sibling or parent properties only when links, redirects, or hostnames suggest org ownership.
-- Pull endpoints from archived URLs and JS extraction so hunters do not rediscover them.
+- Pull endpoints from archived URLs, Katana crawl output, and JS extraction so hunters do not rediscover them.
 - Populate hints from evidence, not guesses: object IDs -> `idor`/`authz`; URL fetch/import/image params -> `ssrf`; upload/file paths -> `upload`; checkout/refund/coupon/plan flows -> `business_logic`; token/OAuth/JWKS/callback paths -> `jwt_oauth`; GraphQL endpoints -> `graphql`.
-- Prioritize auth flows, object IDs, admin/debug paths, uploads, GraphQL, payments, API/mobile backends, JS-disclosed key material, and nuclei hits.
+- Prioritize auth flows, object IDs, admin/debug paths, uploads, GraphQL, payments, API/mobile backends, JS-disclosed key material, JWT candidates, and nuclei hits.
 - Mark static/CDN-only/parked/WAF-only surfaces `LOW`.

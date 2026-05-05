@@ -244,6 +244,16 @@ function commandExists(command) {
   return result.status === 0;
 }
 
+function commandOrGoBinExists(command) {
+  return commandExists(command) || fs.existsSync(path.join(os.homedir(), "go", "bin", command));
+}
+
+function jwtToolExists() {
+  return commandExists("jwt_tool")
+    || commandExists("jwt_tool.py")
+    || fs.existsSync(path.join(os.homedir(), "jwt_tool", "jwt_tool.py"));
+}
+
 function patchrightAvailable(targetAbs, sourceRoot) {
   try {
     require.resolve("patchright", { paths: [targetAbs, sourceRoot] });
@@ -471,15 +481,20 @@ function printInstallSummary(summary) {
   }
   console.log("");
   console.log("Optional recon tools (hunting works without these, recon steps are skipped):");
-  for (const tool of ["subfinder", "nuclei"]) {
-    console.log(`  ${commandExists(tool) ? "OK" : "MISSING"}: ${tool}`);
+  for (const tool of ["subfinder", "httpx", "nuclei", "amass", "assetfinder", "chaos", "katana"]) {
+    console.log(`  ${commandOrGoBinExists(tool) ? "OK" : "MISSING"}: ${tool}`);
   }
-  console.log(`  ${commandExists("httpx") || fs.existsSync(path.join(os.homedir(), "go", "bin", "httpx")) ? "OK" : "MISSING"}: httpx`);
+  console.log(`  ${jwtToolExists() ? "OK" : "MISSING"}: jwt_tool`);
   console.log("");
   console.log("Install recon tools (optional):");
   console.log("  go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest");
   console.log("  go install github.com/projectdiscovery/httpx/cmd/httpx@latest");
   console.log("  go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest");
+  console.log("  go install github.com/owasp-amass/amass/v4/...@latest");
+  console.log("  go install github.com/tomnomnom/assetfinder@latest");
+  console.log("  go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest");
+  console.log("  go install github.com/projectdiscovery/katana/cmd/katana@latest");
+  console.log("  git clone https://github.com/ticarpi/jwt_tool ~/jwt_tool && python3 -m pip install -r ~/jwt_tool/requirements.txt");
   console.log("");
   if (summary.adapters.length === 1 && summary.adapters[0] === "claude") {
     console.log(`Done. Restart Claude Code in ${summary.targetAbs}, then run: /bob-hunt target.com`);

@@ -292,8 +292,18 @@ function addRuntimeResourceChecks(checks, targetAbs) {
   }
 }
 
+function commandOrGoBinAvailable(command) {
+  return commandExists(command) || fileExists(path.join(os.homedir(), "go", "bin", command));
+}
+
 function httpxAvailable() {
-  return commandExists("httpx") || fileExists(path.join(os.homedir(), "go", "bin", "httpx"));
+  return commandOrGoBinAvailable("httpx");
+}
+
+function jwtToolAvailable() {
+  return commandExists("jwt_tool")
+    || commandExists("jwt_tool.py")
+    || fileExists(path.join(os.homedir(), "jwt_tool", "jwt_tool.py"));
 }
 
 function doctorProject(projectDir, options = {}) {
@@ -369,8 +379,8 @@ function doctorProject(projectDir, options = {}) {
 
   addRuntimeResourceChecks(checks, targetAbs);
 
-  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos"]) {
-    if (commandExists(tool)) {
+  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos", "katana"]) {
+    if (commandOrGoBinAvailable(tool)) {
       addCheck(checks, "ok", `optional_tool_${tool}`, `${tool} is available`);
     } else {
       addCheck(checks, "warn", `optional_tool_${tool}`, `${tool} is missing; related recon steps will be skipped`);
@@ -381,6 +391,12 @@ function doctorProject(projectDir, options = {}) {
     addCheck(checks, "ok", "optional_tool_httpx", "httpx is available");
   } else {
     addCheck(checks, "warn", "optional_tool_httpx", "httpx is missing; related recon steps will be skipped");
+  }
+
+  if (jwtToolAvailable()) {
+    addCheck(checks, "ok", "optional_tool_jwt_tool", "jwt_tool is available");
+  } else {
+    addCheck(checks, "warn", "optional_tool_jwt_tool", "jwt_tool is missing; JWT candidate review helpers will be skipped");
   }
 
   if (patchrightAvailable(targetAbs, sourceRoot)) {

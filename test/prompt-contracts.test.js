@@ -982,6 +982,20 @@ test("normal recon agent is single-purpose and has no deep-only contract", () =>
   assert.doesNotMatch(reconPrompt, /deep-summary\.json/);
 });
 
+test("recon agents include optional Katana crawl and JWT candidate artifacts", () => {
+  for (const agent of ["recon-agent", "deep-recon-agent"]) {
+    const reconPrompt = readFile(`.claude/agents/${agent}.md`);
+
+    assert.match(reconPrompt, /OK:katana/);
+    assert.match(reconPrompt, /MISSING:katana/);
+    assert.match(reconPrompt, /katana_urls\.txt/);
+    assert.match(reconPrompt, /OK:jwt_tool/);
+    assert.match(reconPrompt, /MISSING:jwt_tool/);
+    assert.match(reconPrompt, /jwt_candidates\.txt/);
+    assert.match(reconPrompt, /JWT-shaped candidates|jwt_candidates/);
+  }
+});
+
 test("recon attack_surface schema keeps required fields and adds optional enrichment", () => {
   const reconPrompt = readFile(".claude/agents/recon-agent.md");
 
@@ -1028,8 +1042,10 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /amass/);
   assert.match(deepReconPrompt, /assetfinder/);
   assert.match(deepReconPrompt, /chaos/);
+  assert.match(deepReconPrompt, /katana/);
   assert.match(deepReconPrompt, /CDX\/Wayback/);
   assert.match(deepReconPrompt, /JS extraction/i);
+  assert.match(deepReconPrompt, /JWT and OIDC token review candidates/);
   assert.match(deepReconPrompt, /takeover_candidates/);
   assert.match(deepReconPrompt, /tech\/CVE hints/);
   assert.match(deepReconPrompt, /sibling-domain-candidates\.txt/);
