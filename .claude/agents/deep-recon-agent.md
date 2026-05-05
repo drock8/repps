@@ -22,7 +22,7 @@ Execution contract:
 
 1. Binary check and workspace setup
 ```bash
-mkdir -p "[SESSION]" "[SESSION]/raw" && { for t in subfinder amass assetfinder chaos curl python3 nuclei dig; do command -v "$t" >/dev/null && echo "OK:$t" || echo "MISSING:$t"; done; command -v httpx >/dev/null && echo "OK:httpx" || { [ -x ~/go/bin/httpx ] && echo "OK:httpx" || echo "MISSING:httpx"; }; command -v katana >/dev/null && echo "OK:katana" || { [ -x ~/go/bin/katana ] && echo "OK:katana" || echo "MISSING:katana"; }; JWT_TOOL="$(command -v jwt_tool 2>/dev/null || command -v jwt_tool.py 2>/dev/null || true)"; [ -z "$JWT_TOOL" ] && [ -x "$HOME/jwt_tool/jwt_tool.py" ] && JWT_TOOL="$HOME/jwt_tool/jwt_tool.py"; [ -n "$JWT_TOOL" ] && echo "OK:jwt_tool" || echo "MISSING:jwt_tool"; } > "[SESSION]/recon-tools.txt"
+mkdir -p "[SESSION]" "[SESSION]/raw" && { for t in subfinder amass assetfinder chaos curl python3 nuclei dig; do command -v "$t" >/dev/null && echo "OK:$t" || echo "MISSING:$t"; done; for t in dnsx tlsx subzy; do command -v "$t" >/dev/null && echo "OK:$t" || { [ -x "$HOME/go/bin/$t" ] && echo "OK:$t" || echo "MISSING:$t"; }; done; command -v httpx >/dev/null && echo "OK:httpx" || { [ -x ~/go/bin/httpx ] && echo "OK:httpx" || echo "MISSING:httpx"; }; command -v katana >/dev/null && echo "OK:katana" || { [ -x ~/go/bin/katana ] && echo "OK:katana" || echo "MISSING:katana"; }; JWT_TOOL="$(command -v jwt_tool 2>/dev/null || command -v jwt_tool.py 2>/dev/null || true)"; [ -z "$JWT_TOOL" ] && [ -x "$HOME/jwt_tool/jwt_tool.py" ] && JWT_TOOL="$HOME/jwt_tool/jwt_tool.py"; [ -n "$JWT_TOOL" ] && echo "OK:jwt_tool" || echo "MISSING:jwt_tool"; } > "[SESSION]/recon-tools.txt"
 ```
 2. Passive subdomain and CT aggregation
 ```bash
@@ -51,11 +51,14 @@ PY
 printf "%s\nwww.%s\n" "$DOMAIN" "$DOMAIN" >> "$SESSION/raw/subdomains-tools.txt"
 sort -u "$SESSION/raw/subdomains-tools.txt" | head -n 5000 > "$SESSION/subdomains.txt"
 ```
-3. Live hosts, DNS, CNAME, and tech hints
+3. Live hosts, DNS, CNAME, TLS, takeover, and tech hints
 ```bash
 DOMAIN="[DOMAIN]"; SESSION="[SESSION]"
 HTTPX="$(command -v httpx 2>/dev/null || true)"; [ -z "$HTTPX" ] && [ -x ~/go/bin/httpx ] && HTTPX="$HOME/go/bin/httpx"
-: > "$SESSION/raw/httpx.jsonl"; : > "$SESSION/live_hosts.txt"; : > "$SESSION/cname_records.txt"; : > "$SESSION/dns_records.txt"
+DNSX="$(command -v dnsx 2>/dev/null || true)"; [ -z "$DNSX" ] && [ -x ~/go/bin/dnsx ] && DNSX="$HOME/go/bin/dnsx"
+TLSX="$(command -v tlsx 2>/dev/null || true)"; [ -z "$TLSX" ] && [ -x ~/go/bin/tlsx ] && TLSX="$HOME/go/bin/tlsx"
+SUBZY="$(command -v subzy 2>/dev/null || true)"; [ -z "$SUBZY" ] && [ -x ~/go/bin/subzy ] && SUBZY="$HOME/go/bin/subzy"
+: > "$SESSION/raw/httpx.jsonl"; : > "$SESSION/raw/dnsx.jsonl"; : > "$SESSION/raw/tlsx.jsonl"; : > "$SESSION/live_hosts.txt"; : > "$SESSION/cname_records.txt"; : > "$SESSION/dns_records.txt"; : > "$SESSION/tlsx_sans.txt"; : > "$SESSION/takeover_probe_hosts.txt"; : > "$SESSION/subzy_takeovers.txt"
 if [ -n "$HTTPX" ]; then timeout 180 "$HTTPX" -l "$SESSION/subdomains.txt" -silent -follow-redirects -tech-detect -title -status-code -content-length -json -o "$SESSION/raw/httpx.jsonl" 2>/dev/null || true; fi
 python3 - "$SESSION" <<'PY'
 import json, pathlib, sys
@@ -77,6 +80,57 @@ for line in (session / "raw" / "httpx.jsonl").read_text(errors="ignore").splitli
 PY
 if [ ! -s "$SESSION/live_hosts.txt" ]; then printf "https://%s\nhttps://www.%s\n" "$DOMAIN" "$DOMAIN" > "$SESSION/live_hosts.txt"; fi
 if command -v dig >/dev/null; then awk '{print $1}' "$SESSION/subdomains.txt" | head -n 500 | while read -r h; do timeout 4 dig +short CNAME "$h" 2>/dev/null | sed "s#^#$h #" >> "$SESSION/cname_records.txt" || true; timeout 4 dig +short A "$h" 2>/dev/null | sed "s#^#$h A #" >> "$SESSION/dns_records.txt" || true; done; fi
+if [ -n "$DNSX" ]; then timeout 120 "$DNSX" -l "$SESSION/subdomains.txt" -silent -a -aaaa -cname -resp -json -o "$SESSION/raw/dnsx.jsonl" 2>/dev/null || true; fi
+python3 - "$DOMAIN" "$SESSION" <<'PY'
+import json, pathlib, re, sys
+domain, session = sys.argv[1].lower(), pathlib.Path(sys.argv[2])
+def as_list(value):
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item]
+    return [str(value)]
+cname_rows, dns_rows = [], []
+for line in (session / "raw" / "dnsx.jsonl").read_text(errors="ignore").splitlines():
+    try:
+        item = json.loads(line)
+    except Exception:
+        continue
+    host = str(item.get("host") or item.get("input") or "").lower().strip(".")
+    if not host:
+        continue
+    for key in ("cname", "cnames", "cname_record"):
+        for cname in as_list(item.get(key)):
+            cname = cname.lower().strip(".")
+            if cname:
+                cname_rows.append(f"{host} {cname}")
+    for key in ("a", "aaaa", "resp", "answers"):
+        for answer in as_list(item.get(key)):
+            answer = answer.strip()
+            if answer:
+                dns_rows.append(f"{host} {key.upper()} {answer}")
+(session / "cname_records.txt").write_text("\n".join(sorted(set((session / "cname_records.txt").read_text(errors="ignore").splitlines() + cname_rows))) + "\n")
+(session / "dns_records.txt").write_text("\n".join(sorted(set((session / "dns_records.txt").read_text(errors="ignore").splitlines() + dns_rows))) + "\n")
+PY
+awk '{print $1}' "$SESSION/cname_records.txt" 2>/dev/null | sort -u | head -n 200 > "$SESSION/takeover_probe_hosts.txt"
+if [ -n "$SUBZY" ] && [ -s "$SESSION/takeover_probe_hosts.txt" ]; then timeout 120 "$SUBZY" run --targets "$SESSION/takeover_probe_hosts.txt" --hide_fails --timeout 10 > "$SESSION/subzy_takeovers.txt" 2>/dev/null || true; fi
+{ awk '{print $1}' "$SESSION/live_hosts.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##'; awk '{print $1}' "$SESSION/subdomains.txt" 2>/dev/null; } | sort -u | head -n 500 > "$SESSION/tls_probe_hosts.txt"
+if [ -n "$TLSX" ] && [ -s "$SESSION/tls_probe_hosts.txt" ]; then timeout 120 "$TLSX" -l "$SESSION/tls_probe_hosts.txt" -silent -san -cn -json -o "$SESSION/raw/tlsx.jsonl" 2>/dev/null || true; fi
+python3 - "$DOMAIN" "$SESSION" <<'PY'
+import json, pathlib, re, sys
+domain, session = sys.argv[1].lower(), pathlib.Path(sys.argv[2])
+hosts = set()
+for line in (session / "raw" / "tlsx.jsonl").read_text(errors="ignore").splitlines():
+    try:
+        text = json.dumps(json.loads(line))
+    except Exception:
+        text = line
+    for host in re.findall(r'\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b', text.lower()):
+        host = host.strip("*. ")
+        if host == domain or host.endswith("." + domain):
+            hosts.add(host)
+(session / "tlsx_sans.txt").write_text("\n".join(sorted(hosts)) + ("\n" if hosts else ""))
+PY
 ```
 4. First-party family discovery
 Target-domain family probing remains bounded to `[DOMAIN]` and hosts ending in `.[DOMAIN]`. Also record compact sibling-domain candidates from linked hosts; do not probe the broad `sibling-domain-candidates.txt` set. Deep mode may run a tiny explicit liveness check only for brand-linked sibling hosts written to `brand-sibling-probe-candidates.txt`; same-TLD-only repeat evidence stays record-only.
@@ -127,7 +181,7 @@ if [ -s "$SESSION/brand-sibling-probe-candidates.txt" ] && [ -n "$HTTPX" ]; then
 5. Archived URLs with CDX/Wayback and Katana
 ```bash
 DOMAIN="[DOMAIN]"; SESSION="[SESSION]"
-{ echo "$DOMAIN"; awk '{print $1}' "$SESSION/family_live.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##'; awk '{print $1}' "$SESSION/live_hosts.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##' | head -n 8; } | sort -u | head -n 16 > "$SESSION/cdx_roots.txt"
+{ echo "$DOMAIN"; awk '{print $1}' "$SESSION/family_live.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##'; awk '{print $1}' "$SESSION/live_hosts.txt" 2>/dev/null | sed 's#^https\?://##; s#/.*##' | head -n 8; awk '{print $1}' "$SESSION/tlsx_sans.txt" 2>/dev/null | head -n 16; } | sort -u | head -n 16 > "$SESSION/cdx_roots.txt"
 : > "$SESSION/all_urls.txt"
 while read -r root; do timeout 50 curl -ks "https://web.archive.org/cdx/search/cdx?url=$root/*&output=text&fl=original&collapse=urlkey&limit=5000" 2>/dev/null >> "$SESSION/all_urls.txt" || true; timeout 50 curl -ks "https://web.archive.org/cdx/search/cdx?url=*.$root/*&output=text&fl=original&collapse=urlkey&limit=5000" 2>/dev/null >> "$SESSION/all_urls.txt" || true; done < "$SESSION/cdx_roots.txt"
 { awk '{print $1}' "$SESSION/live_hosts.txt" 2>/dev/null; awk '{print $1}' "$SESSION/family_live.txt" 2>/dev/null; } | sort -u | head -n 80 > "$SESSION/crawl_roots.txt"
@@ -214,12 +268,16 @@ js_secrets = lines("js_secrets.txt", 200)
 jwt_candidates = lines("jwt_candidates.txt", 100)
 nuclei = lines("nuclei_results.txt", 200)
 cname = lines("cname_records.txt", 200)
+dns_records = lines("dns_records.txt", 300)
+tlsx_sans = lines("tlsx_sans.txt", 200)
+subzy_takeovers = lines("subzy_takeovers.txt", 100)
 archive_paths = [re.sub(r'^\d+\s+', '', x) for x in lines("archive_path_summary.txt", 300)]
 archive_params = [re.sub(r'^\d+\s+', '', x) for x in lines("archive_param_summary.txt", 120)]
 tech_text = "\n".join(live + family + nuclei)
 tech_stack = uniq(re.findall(r'\[([A-Za-z0-9., _+-]{2,120})\]', tech_text), 20)
 takeover_patterns = ("github.io","herokuapp.com","azurewebsites.net","cloudapp.net","readme.io","surge.sh","pages.dev","pantheonsite.io","unbouncepages.com")
-takeovers = [line for line in cname if any(p in line.lower() for p in takeover_patterns)]
+pattern_takeovers = [line for line in cname if any(p in line.lower() for p in takeover_patterns)]
+takeovers = uniq(pattern_takeovers + subzy_takeovers, 200)
 sibling_candidates = lines("sibling-domain-candidates.txt", 50)
 brand_sibling_candidates = lines("brand-sibling-probe-candidates.txt", 20)
 brand_sibling_live = lines("brand_sibling_live.txt", 20)
@@ -252,9 +310,9 @@ def classify(text):
     if re.search(r'invite|team|organization', text_l): flows.append("invites")
     return uniq(hints, 12), uniq(flows, 12)
 base_hosts = uniq([row.split()[0] for row in live + family], 30)
-main_text = "\n".join(endpoint_pool + interesting + nuclei + js_secrets + jwt_candidates)
+main_text = "\n".join(endpoint_pool + interesting + nuclei + js_secrets + jwt_candidates + subzy_takeovers)
 bug_hints, flows = classify(main_text)
-score = 20 + min(25, len(endpoint_pool)//3) + (20 if interesting else 0) + (20 if nuclei else 0) + (15 if js_secrets else 0) + (10 if jwt_candidates else 0)
+score = 20 + min(25, len(endpoint_pool)//3) + (20 if interesting else 0) + (20 if nuclei else 0) + (15 if js_secrets else 0) + (10 if jwt_candidates else 0) + (10 if subzy_takeovers else 0) + (5 if tlsx_sans else 0)
 score = max(30, min(95, score))
 priority = "CRITICAL" if score >= 85 else "HIGH" if score >= 60 else "MEDIUM" if score >= 35 else "LOW"
 surfaces = [{
@@ -275,10 +333,12 @@ surfaces = [{
         f"{len(js_endpoints)} JS endpoints extracted",
         f"{len(js_secrets)} JS secret/key-material hints",
         f"{len(jwt_candidates)} JWT-shaped candidates",
+        f"{len(tlsx_sans)} TLS SAN first-party hostnames",
+        f"{len(subzy_takeovers)} Subzy takeover findings",
         f"{len(nuclei)} nuclei hits",
         *cve_hints[:5],
     ], 20),
-    "ranking": {"version": 1, "score": score, "priority": priority, "reasons": uniq(["archive_endpoint_density" if endpoint_pool else "", "object_identifier_params" if interesting else "", "js_secret_or_key_material" if js_secrets else "", "jwt_candidates" if jwt_candidates else "", "nuclei_hits" if nuclei else "", "tech_cve_hints" if cve_hints else ""], 10)}
+    "ranking": {"version": 1, "score": score, "priority": priority, "reasons": uniq(["archive_endpoint_density" if endpoint_pool else "", "object_identifier_params" if interesting else "", "js_secret_or_key_material" if js_secrets else "", "jwt_candidates" if jwt_candidates else "", "subzy_takeover" if subzy_takeovers else "", "tls_san_discovery" if tlsx_sans else "", "nuclei_hits" if nuclei else "", "tech_cve_hints" if cve_hints else ""], 10)}
 }]
 leads = []
 now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
@@ -321,9 +381,16 @@ if js_secrets:
 if jwt_candidates:
     add_lead("JWT and OIDC token review candidates", "deep-recon", base_hosts, [e for e in endpoint_pool if re.search(r'(?i)oauth|oidc|jwt|jwks|callback|token|sso', e)][:60], [], "auth", ["jwt_oauth"], [f"{len(jwt_candidates)} JWT-shaped candidates in jwt_candidates.txt for authorized jwt_tool review"], 78)
 if takeovers:
-    add_lead("Dangling CNAME takeover candidates", "deep-recon", [x.split()[0] for x in takeovers], [], [], "unknown", ["takeover"], takeovers[:10], 85)
+    takeover_hosts = []
+    for item in takeovers:
+        match = re.search(r'([a-z0-9.-]+\.' + re.escape(domain) + r')', item.lower())
+        takeover_hosts.append(match.group(1) if match else item.split()[0])
+    title = "Subzy takeover candidates" if subzy_takeovers else "Dangling CNAME takeover candidates"
+    add_lead(title, "deep-recon", takeover_hosts, [], [], "unknown", ["takeover"], takeovers[:10], 90 if subzy_takeovers else 85)
 if cve_hints:
     add_lead("Technology/CVE review candidates", "deep-recon", base_hosts, endpoint_pool[:40], [], "unknown", ["authz"], cve_hints, 68)
+if tlsx_sans:
+    add_lead("TLS certificate SAN first-party hosts recorded", "deep-recon", [f"https://{host}" for host in tlsx_sans[:20]], [], [], "unknown", [], [f"{len(tlsx_sans)} in-scope SAN hostnames recorded in tlsx_sans.txt; SAN hosts are not automatically promoted without liveness or endpoint evidence"], 38, promote=False)
 if brand_sibling_live:
     add_lead("Brand-linked sibling properties lightly probed", "deep-recon", [row.split()[0] for row in brand_sibling_live], [], [], "unknown", [], [f"{len(brand_sibling_live)} brand-linked sibling hosts checked with httpx; same-TLD-only candidates remain unprobed", *brand_sibling_live[:5]], 55, promote=True)
 elif brand_sibling_candidates:
@@ -339,6 +406,9 @@ counts = {
     "brand_sibling_live": len(brand_sibling_live),
     "archive_urls": len(urls),
     "katana_urls": len(katana_urls),
+    "dns_records": len(dns_records),
+    "tlsx_sans": len(tlsx_sans),
+    "subzy_takeovers": len(subzy_takeovers),
     "js_urls": len(lines("js_urls.txt")),
     "js_endpoints": len(js_endpoints),
     "secret_hints": len(js_secrets),

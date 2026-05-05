@@ -978,6 +978,9 @@ test("normal recon agent is single-purpose and has no deep-only contract", () =>
   assert.doesNotMatch(reconPrompt, /amass/);
   assert.doesNotMatch(reconPrompt, /assetfinder/);
   assert.doesNotMatch(reconPrompt, /chaos/);
+  assert.doesNotMatch(reconPrompt, /dnsx/);
+  assert.doesNotMatch(reconPrompt, /tlsx/);
+  assert.doesNotMatch(reconPrompt, /subzy/);
   assert.doesNotMatch(reconPrompt, /surface-leads\.json/);
   assert.doesNotMatch(reconPrompt, /deep-summary\.json/);
 });
@@ -1042,7 +1045,12 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /amass/);
   assert.match(deepReconPrompt, /assetfinder/);
   assert.match(deepReconPrompt, /chaos/);
+  assert.match(deepReconPrompt, /dnsx/);
+  assert.match(deepReconPrompt, /tlsx/);
   assert.match(deepReconPrompt, /katana/);
+  assert.match(deepReconPrompt, /subzy/);
+  assert.match(deepReconPrompt, /subzy_takeovers\.txt/);
+  assert.match(deepReconPrompt, /tlsx_sans\.txt/);
   assert.match(deepReconPrompt, /CDX\/Wayback/);
   assert.match(deepReconPrompt, /JS extraction/i);
   assert.match(deepReconPrompt, /JWT and OIDC token review candidates/);

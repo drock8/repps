@@ -379,7 +379,7 @@ function doctorProject(projectDir, options = {}) {
 
   addRuntimeResourceChecks(checks, targetAbs);
 
-  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos", "katana"]) {
+  for (const tool of ["subfinder", "nuclei", "amass", "assetfinder", "chaos", "dnsx", "tlsx", "katana", "subzy"]) {
     if (commandOrGoBinAvailable(tool)) {
       addCheck(checks, "ok", `optional_tool_${tool}`, `${tool} is available`);
     } else {

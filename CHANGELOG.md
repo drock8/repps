@@ -6,7 +6,8 @@
 
 - Added optional Katana integration to normal and deep recon so bounded in-scope crawling augments CDX/Wayback and JS extraction before `attack_surface.json` is built.
 - Added JWT-shaped candidate extraction from JavaScript artifacts plus `jwt_tool` availability checks for later authorized token review without adding automated cracking or token mutation.
-- Expanded installer, doctor, README, and troubleshooting guidance to cover the existing passive recon tools (`amass`, `assetfinder`, `chaos`) plus `katana` and `jwt_tool`.
+- Added optional deep-recon DNS/TLS enrichment with `dnsx` and `tlsx`, plus bounded `subzy` checks against CNAME takeover candidates.
+- Expanded installer, doctor, README, and troubleshooting guidance to cover the existing passive recon tools (`amass`, `assetfinder`, `chaos`) plus `dnsx`, `tlsx`, `katana`, `subzy`, and `jwt_tool`.
 
 ### Capability-pack routing for hunter dispatch
 

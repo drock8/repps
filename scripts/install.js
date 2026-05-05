@@ -481,7 +481,7 @@ function printInstallSummary(summary) {
   }
   console.log("");
   console.log("Optional recon tools (hunting works without these, recon steps are skipped):");
-  for (const tool of ["subfinder", "httpx", "nuclei", "amass", "assetfinder", "chaos", "katana"]) {
+  for (const tool of ["subfinder", "httpx", "nuclei", "amass", "assetfinder", "chaos", "dnsx", "tlsx", "katana", "subzy"]) {
     console.log(`  ${commandOrGoBinExists(tool) ? "OK" : "MISSING"}: ${tool}`);
   }
   console.log(`  ${jwtToolExists() ? "OK" : "MISSING"}: jwt_tool`);
@@ -493,7 +493,10 @@ function printInstallSummary(summary) {
   console.log("  go install github.com/owasp-amass/amass/v4/...@latest");
   console.log("  go install github.com/tomnomnom/assetfinder@latest");
   console.log("  go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest");
+  console.log("  go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest");
+  console.log("  go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest");
   console.log("  go install github.com/projectdiscovery/katana/cmd/katana@latest");
+  console.log("  go install -v github.com/PentestPad/subzy@latest");
   console.log("  git clone https://github.com/ticarpi/jwt_tool ~/jwt_tool && python3 -m pip install -r ~/jwt_tool/requirements.txt");
   console.log("");
   if (summary.adapters.length === 1 && summary.adapters[0] === "claude") {

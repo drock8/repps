@@ -162,7 +162,7 @@ In Codex, use `$bob-update`. In generic MCP hosts, run `hacker-bob update /path/
 RECON → AUTH → HUNT → CHAIN → VERIFY → GRADE → REPORT
 ```
 
-1. **RECON** — Bob sniffs around. Subdomains, live hosts, archived URLs, Katana crawl URLs, nuclei, JWT-shaped candidates, and JS secrets people forgot about. Add `--deep` for broader discovery, JS endpoint clustering, takeover/CVE-style lead hints, and promoted follow-up surfaces.
+1. **RECON** — Bob sniffs around. Subdomains, live hosts, archived URLs, Katana crawl URLs, DNS/TLS enrichment, Subzy takeover checks, nuclei, JWT-shaped candidates, and JS secrets people forgot about. Add `--deep` for broader discovery, JS endpoint clustering, takeover/CVE-style lead hints, and promoted follow-up surfaces.
 2. **AUTH** — Bob tries to sign up. If he can, he keeps a victim and an attacker account in his pocket. If he can't, he shrugs and hunts unauthenticated.
 3. **HUNT** — Parallel hunter agents fan out, one per attack surface. They are not gentle.
 4. **CHAIN** — Bob squints at the findings and asks "wait, can I combine these into something worse?"
@@ -187,7 +187,10 @@ go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install github.com/owasp-amass/amass/v4/...@latest
 go install github.com/tomnomnom/assetfinder@latest
 go install github.com/projectdiscovery/chaos-client/cmd/chaos@latest
+go install -v github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+go install github.com/projectdiscovery/tlsx/cmd/tlsx@latest
 go install github.com/projectdiscovery/katana/cmd/katana@latest
+go install -v github.com/PentestPad/subzy@latest
 git clone https://github.com/ticarpi/jwt_tool ~/jwt_tool
 python3 -m pip install -r ~/jwt_tool/requirements.txt
 ```
