@@ -10,6 +10,7 @@
   <a href="https://github.com/vmihalis/hacker-bob/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/vmihalis/hacker-bob/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://www.npmjs.com/package/hacker-bob"><img alt="hacker-bob on npm" src="https://img.shields.io/npm/v/hacker-bob?label=hacker-bob" /></a>
   <a href="https://www.npmjs.com/package/hacker-bob-cc"><img alt="hacker-bob-cc compatibility package on npm" src="https://img.shields.io/npm/v/hacker-bob-cc?label=hacker-bob-cc" /></a>
+  <a href="https://www.npmjs.com/package/hacker-bob-codex"><img alt="hacker-bob-codex compatibility package on npm" src="https://img.shields.io/npm/v/hacker-bob-codex?label=hacker-bob-codex" /></a>
   <a href="LICENSE"><img alt="Apache-2.0 license" src="https://img.shields.io/github/license/vmihalis/hacker-bob" /></a>
   <a href="https://securityscorecards.dev/viewer/?uri=github.com/vmihalis/hacker-bob"><img alt="OpenSSF Scorecard" src="https://api.securityscorecards.dev/projects/github.com/vmihalis/hacker-bob/badge" /></a>
 </p>
@@ -73,7 +74,7 @@ Recommended one-off Claude install:
 npx -y hacker-bob@latest install /path/to/your/project
 ```
 
-`hacker-bob` is the canonical npm package. The `hacker-bob-cc` package remains as a small compatibility wrapper that delegates to the matching `hacker-bob` version.
+`hacker-bob` is the canonical npm package. `hacker-bob-cc` and `hacker-bob-codex` are small compatibility wrappers that delegate to the matching `hacker-bob` version while pinning the Claude or Codex adapter by default.
 
 Adapter-specific installs:
 
@@ -97,11 +98,14 @@ hacker-bob install /path/to/your/project
 
 Global npm install only puts the `hacker-bob` command on your `PATH`; it does **not** install Bob into every directory. To use Bob in another project, run `hacker-bob install /path/to/that/project --adapter <adapter>` for that project too.
 
-The compatibility package also provides the same command:
+The adapter wrapper packages provide pinned entrypoints when you want the host choice encoded in the package name:
 
 ```bash
 npm install -g hacker-bob-cc
-hacker-bob install /path/to/your/project
+hacker-bob-cc install /path/to/your/project
+
+npm install -g hacker-bob-codex
+hacker-bob-codex install /path/to/your/project
 ```
 
 Source installs still work for contributors:
@@ -250,7 +254,7 @@ Bob logs and audits some activity, including local session artifacts and MCP HTT
 
 By default, Bob does not block localhost, private networks, internal hostnames, or cloud metadata-style hostnames. This keeps exploration flexible for local labs, VPN/internal scopes, SSRF chains, and user-authorized pivots. Supported MCP HTTP calls can reject those destinations when you pass `block_internal_hosts: true`.
 
-The npm packages are published through the GitHub release workflow with npm provenance. `hacker-bob` is the canonical package; `hacker-bob-cc` is a small compatibility package that depends on the matching canonical version.
+The npm packages are published through the GitHub release workflow with npm provenance. `hacker-bob` is the canonical package; `hacker-bob-cc` and `hacker-bob-codex` are small adapter wrapper packages that depend on the matching canonical version.
 
 Bob will scan the targets you provide and may touch other hosts during authorized chaining or proof-of-concept work. You are responsible for running it only against domains, applications, accounts, and infrastructure that you own or are explicitly authorized to test, and for following each program's scope and rules of engagement.
 
