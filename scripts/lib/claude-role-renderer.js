@@ -155,7 +155,7 @@ const CLAUDE_ROLE_SPECS = Object.freeze({
     kind: "agent",
     output_path: path.join(".claude", "agents", "deep-recon-agent.md"),
     name: "deep-recon-agent",
-    description: "Runs bounded passive discovery and produces compact attack_surface, deep-summary, and surface lead artifacts",
+    description: "Runs bounded deep recon and produces compact attack_surface, deep-summary, and surface lead artifacts",
     model: "opus",
     color: "cyan",
     local_tools: Object.freeze(["Bash", "Read", "Write", "Glob", "Grep"]),

@@ -1037,7 +1037,7 @@ test("deep recon agent preserves exactly seven Bash collection calls", () => {
   assert.match(deepReconPrompt, /Do not make any additional Bash calls/);
 });
 
-test("deep recon stays passive, broad, and writes compact ranked lead artifacts", () => {
+test("deep recon stays bounded, broad, and writes compact ranked lead artifacts", () => {
   const deepReconPrompt = readFile(".claude/agents/deep-recon-agent.md");
 
   assert.match(deepReconPrompt, /Passive subdomain and CT aggregation/i);
@@ -1064,6 +1064,8 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /surface-leads\.json/);
   assert.match(deepReconPrompt, /Do not duplicate every URL/);
   assert.match(deepReconPrompt, /Do not dump raw URLs, JavaScript bodies, or scanner output into prose/);
+  assert.match(deepReconPrompt, /Do not copy raw secrets, bearer values, or JWT-looking strings/);
+  assert.match(deepReconPrompt, /record counts and local artifact names only/);
 });
 
 test("deep recon target family probing stays bounded and sibling liveness is gated", () => {

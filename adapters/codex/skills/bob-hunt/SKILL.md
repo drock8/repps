@@ -283,6 +283,7 @@ Execution contract:
 - If a step fails, times out, or yields 0 rows: keep the empty output and continue.
 - Wrap network/recon commands in `timeout`; missing optional binaries are degraded mode, not failure.
 - Keep recon under 10 minutes and keep prompt-facing output compact.
+- Do not copy raw secrets, bearer values, or JWT-looking strings into `attack_surface.json` or prose. Use counts and local artifact names instead.
 
 1. Binary check
 ```bash
@@ -399,6 +400,7 @@ Rules for `attack_surface.json`:
 - Optional enrichment fields are additive: `surface_type`, `bug_class_hints`, `high_value_flows`, `evidence`, and `ranking`. Omit optional fields only without support.
 - Group by application/property, not only subdomain. Include first-party sibling or parent properties only when links, redirects, or hostnames suggest org ownership.
 - Pull endpoints from archived URLs, Katana crawl output, and JS extraction so hunters do not rediscover them.
+- Never copy raw secret values or JWT-looking strings from `js_secrets.txt` or `jwt_candidates.txt` into JSON; record counts and local artifact names only.
 - Populate hints from evidence, not guesses: object IDs -> `idor`/`authz`; URL fetch/import/image params -> `ssrf`; upload/file paths -> `upload`; checkout/refund/coupon/plan flows -> `business_logic`; token/OAuth/JWKS/callback paths -> `jwt_oauth`; GraphQL endpoints -> `graphql`.
 - Prioritize auth flows, object IDs, admin/debug paths, uploads, GraphQL, payments, API/mobile backends, JS-disclosed key material, JWT candidates, and nuclei hits.
 - Mark static/CDN-only/parked/WAF-only surfaces `LOW`.
@@ -412,13 +414,14 @@ The spawn prompt includes concrete `[DOMAIN]` and `[SESSION]` values for this ru
 Replace placeholders before each Bash call. Do not send literal `$DOMAIN` or `$SESSION` to Bash.
 
 Execution contract:
-- Passive discovery plus bounded in-scope liveness and crawling only: no brute forcing, credential attacks, form submission, destructive checks, or authenticated actions.
+- Passive discovery plus bounded in-scope liveness, crawling, and takeover fingerprint checks only: no brute forcing, credential attacks, form submission, destructive checks, or authenticated actions.
 - Collection uses Bash only; final review may use Read and Write if a generated JSON artifact needs a small correction.
 - Use exactly the 7 Bash calls below, in order. Do not make any additional Bash calls.
 - If a step fails, times out, or yields 0 rows: keep the empty output and continue.
 - Wrap network/recon commands in `timeout`; missing optional binaries are degraded mode, not failure.
 - Preserve raw files under `[SESSION]/raw`, but keep prompt-facing JSON compact.
 - Do not dump raw URLs, JavaScript bodies, or scanner output into prose.
+- Do not copy raw secrets, bearer values, or JWT-looking strings into `attack_surface.json`, `deep-summary.json`, `surface-leads.json`, or prose. Use counts and local artifact names instead.
 
 1. Binary check and workspace setup
 ```bash
@@ -864,6 +867,7 @@ Rules for `attack_surface.json`:
 - Required per-surface fields remain: `id`, `hosts`, `tech_stack`, `endpoints`, `interesting_params`, `nuclei_hits`, and `priority`.
 - Optional enrichment fields are additive: `surface_type`, `bug_class_hints`, `high_value_flows`, `evidence`, and `ranking`. Omit optional fields only without support.
 - Promote only evidence-backed surfaces; raw discovery noise belongs in files under `[SESSION]/raw`, not JSON.
+- Never copy raw secret values or JWT-looking strings from `js_secrets.txt` or `jwt_candidates.txt` into JSON; record counts and local artifact names only.
 - Populate hints from evidence, not guesses: object IDs -> `idor`/`authz`; URL fetch/import/image params -> `ssrf`; upload/file paths -> `upload`; checkout/refund/coupon/plan flows -> `business_logic`; token/OAuth/JWKS/callback paths and JWT-shaped candidates -> `jwt_oauth`; GraphQL endpoints -> `graphql`; dangling CNAME patterns -> `takeover`.
 - Prioritize auth flows, object IDs, admin/debug paths, uploads, GraphQL, payments, API/mobile backends, JS-disclosed key material, JWT candidates, takeover candidates, nuclei hits, and concrete tech/CVE leads.
 - Mark static/CDN-only/parked/WAF-only surfaces `LOW`.

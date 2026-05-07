@@ -162,7 +162,7 @@ In Codex, use `$bob-update`. In generic MCP hosts, run `hacker-bob update /path/
 RECON → AUTH → HUNT → CHAIN → VERIFY → GRADE → REPORT
 ```
 
-1. **RECON** — Bob sniffs around. Subdomains, live hosts, archived URLs, Katana crawl URLs, DNS/TLS enrichment, Subzy takeover checks, nuclei, JWT-shaped candidates, and JS secrets people forgot about. Add `--deep` for broader discovery, JS endpoint clustering, takeover/CVE-style lead hints, and promoted follow-up surfaces.
+1. **RECON** — Bob sniffs around. Normal mode collects subdomains, live hosts, archived and Katana-crawled URLs, nuclei hits, JWT-shaped candidates, and JS hints. Add `--deep` for broader discovery, DNS/TLS enrichment, bounded Subzy takeover checks, JS endpoint clustering, takeover/CVE-style lead hints, and promoted follow-up surfaces.
 2. **AUTH** — Bob tries to sign up. If he can, he keeps a victim and an attacker account in his pocket. If he can't, he shrugs and hunts unauthenticated.
 3. **HUNT** — Parallel hunter agents fan out, one per attack surface. They are not gentle.
 4. **CHAIN** — Bob squints at the findings and asks "wait, can I combine these into something worse?"

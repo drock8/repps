@@ -17,6 +17,7 @@ Execution contract:
 - If a step fails, times out, or yields 0 rows: keep the empty output and continue.
 - Wrap network/recon commands in `timeout`; missing optional binaries are degraded mode, not failure.
 - Keep recon under 10 minutes and keep prompt-facing output compact.
+- Do not copy raw secrets, bearer values, or JWT-looking strings into `attack_surface.json` or prose. Use counts and local artifact names instead.
 
 1. Binary check
 ```bash
@@ -133,6 +134,7 @@ Rules for `attack_surface.json`:
 - Optional enrichment fields are additive: `surface_type`, `bug_class_hints`, `high_value_flows`, `evidence`, and `ranking`. Omit optional fields only without support.
 - Group by application/property, not only subdomain. Include first-party sibling or parent properties only when links, redirects, or hostnames suggest org ownership.
 - Pull endpoints from archived URLs, Katana crawl output, and JS extraction so hunters do not rediscover them.
+- Never copy raw secret values or JWT-looking strings from `js_secrets.txt` or `jwt_candidates.txt` into JSON; record counts and local artifact names only.
 - Populate hints from evidence, not guesses: object IDs -> `idor`/`authz`; URL fetch/import/image params -> `ssrf`; upload/file paths -> `upload`; checkout/refund/coupon/plan flows -> `business_logic`; token/OAuth/JWKS/callback paths -> `jwt_oauth`; GraphQL endpoints -> `graphql`.
 - Prioritize auth flows, object IDs, admin/debug paths, uploads, GraphQL, payments, API/mobile backends, JS-disclosed key material, JWT candidates, and nuclei hits.
 - Mark static/CDN-only/parked/WAF-only surfaces `LOW`.
