@@ -978,8 +978,25 @@ test("normal recon agent is single-purpose and has no deep-only contract", () =>
   assert.doesNotMatch(reconPrompt, /amass/);
   assert.doesNotMatch(reconPrompt, /assetfinder/);
   assert.doesNotMatch(reconPrompt, /chaos/);
+  assert.doesNotMatch(reconPrompt, /dnsx/);
+  assert.doesNotMatch(reconPrompt, /tlsx/);
+  assert.doesNotMatch(reconPrompt, /subzy/);
   assert.doesNotMatch(reconPrompt, /surface-leads\.json/);
   assert.doesNotMatch(reconPrompt, /deep-summary\.json/);
+});
+
+test("recon agents include optional Katana crawl and JWT candidate artifacts", () => {
+  for (const agent of ["recon-agent", "deep-recon-agent"]) {
+    const reconPrompt = readFile(`.claude/agents/${agent}.md`);
+
+    assert.match(reconPrompt, /OK:katana/);
+    assert.match(reconPrompt, /MISSING:katana/);
+    assert.match(reconPrompt, /katana_urls\.txt/);
+    assert.match(reconPrompt, /OK:jwt_tool/);
+    assert.match(reconPrompt, /MISSING:jwt_tool/);
+    assert.match(reconPrompt, /jwt_candidates\.txt/);
+    assert.match(reconPrompt, /JWT-shaped candidates|jwt_candidates/);
+  }
 });
 
 test("recon attack_surface schema keeps required fields and adds optional enrichment", () => {
@@ -1020,7 +1037,7 @@ test("deep recon agent preserves exactly seven Bash collection calls", () => {
   assert.match(deepReconPrompt, /Do not make any additional Bash calls/);
 });
 
-test("deep recon stays passive, broad, and writes compact ranked lead artifacts", () => {
+test("deep recon stays bounded, broad, and writes compact ranked lead artifacts", () => {
   const deepReconPrompt = readFile(".claude/agents/deep-recon-agent.md");
 
   assert.match(deepReconPrompt, /Passive subdomain and CT aggregation/i);
@@ -1028,8 +1045,15 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /amass/);
   assert.match(deepReconPrompt, /assetfinder/);
   assert.match(deepReconPrompt, /chaos/);
+  assert.match(deepReconPrompt, /dnsx/);
+  assert.match(deepReconPrompt, /tlsx/);
+  assert.match(deepReconPrompt, /katana/);
+  assert.match(deepReconPrompt, /subzy/);
+  assert.match(deepReconPrompt, /subzy_takeovers\.txt/);
+  assert.match(deepReconPrompt, /tlsx_sans\.txt/);
   assert.match(deepReconPrompt, /CDX\/Wayback/);
   assert.match(deepReconPrompt, /JS extraction/i);
+  assert.match(deepReconPrompt, /JWT and OIDC token review candidates/);
   assert.match(deepReconPrompt, /takeover_candidates/);
   assert.match(deepReconPrompt, /tech\/CVE hints/);
   assert.match(deepReconPrompt, /sibling-domain-candidates\.txt/);
@@ -1040,6 +1064,8 @@ test("deep recon stays passive, broad, and writes compact ranked lead artifacts"
   assert.match(deepReconPrompt, /surface-leads\.json/);
   assert.match(deepReconPrompt, /Do not duplicate every URL/);
   assert.match(deepReconPrompt, /Do not dump raw URLs, JavaScript bodies, or scanner output into prose/);
+  assert.match(deepReconPrompt, /Do not copy raw secrets, bearer values, or JWT-looking strings/);
+  assert.match(deepReconPrompt, /record counts and local artifact names only/);
 });
 
 test("deep recon target family probing stays bounded and sibling liveness is gated", () => {
