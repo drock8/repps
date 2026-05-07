@@ -36,7 +36,9 @@ const {
 } = require("../scripts/generate-agent-tools.js");
 const {
   CAPABILITY_PACKS,
+  DEFAULT_CONTEXT_BUDGET,
   hunterAgentNamesForCapabilityPacks,
+  SMART_CONTRACT_CONTEXT_BUDGET,
 } = require("../mcp/lib/capability-packs.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -217,6 +219,7 @@ test("Codex plugin manifest and direct skills expose portable Bob contracts", ()
   assert.match(hunt, /BEGIN hunter CONTRACT/);
   assert.match(hunt, /spawn_agent/);
   assert.match(hunt, /agent_type: "worker"/);
+  assert.match(hunt, /bounty_read_hunter_brief\(\{ target_domain:[\s\S]*egress_profile:[\s\S]*block_internal_hosts: \[block_internal_hosts\]/);
   assert.match(hunt, /wait_agent/);
   assert.match(hunt, /close_agent/);
   assert.match(hunt, /host_agent_id -> w\[wave\]\/a\[agent\]\/surface_id/);
@@ -332,6 +335,10 @@ test("hunter frontmatter excludes Write and still exposes wave handoff MCP tools
   assert.ok(tools.includes("mcp__bountyagent__bounty_static_scan"));
   assert.ok(tools.includes("mcp__bountyagent__bounty_record_surface_leads"));
   assert.ok(tools.includes("mcp__bountyagent__bounty_read_surface_leads"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_get_context_budget"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_select_technique_packs"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_read_technique_pack"));
+  assert.ok(tools.includes("mcp__bountyagent__bounty_log_technique_attempt"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_import_http_traffic"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_public_intel"));
   assert.ok(!tools.includes("mcp__bountyagent__bounty_auth_manual"));
@@ -343,7 +350,10 @@ test("surface-router-agent is thin and cannot hunt or write directly", () => {
   const frontmatter = parseFrontmatter(document, "surface-router-agent.md");
   const tools = frontmatter.tools.split(/\s*,\s*/).filter(Boolean);
 
-  assert.deepEqual(tools, ["Read", "mcp__bountyagent__bounty_route_surfaces"]);
+  assert.deepEqual(tools, [
+    "Read",
+    "mcp__bountyagent__bounty_route_surfaces",
+  ]);
   assert.match(document, /mcpServers:\s*\n\s*-\s*bountyagent/);
   assert.match(document, /bounty_route_surfaces/);
   assert.match(document, /surface-routes\.json/);
@@ -405,6 +415,16 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.equal(TOOL_MANIFEST.bounty_read_surface_leads.global_preapproval, true);
   assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.global_preapproval, false);
   assert.equal(TOOL_MANIFEST.bounty_promote_surface_leads.mutating, true);
+  assert.deepEqual(TOOL_MANIFEST.bounty_get_context_budget.role_bundles, ["hunter-shared", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_select_technique_packs.role_bundles, ["hunter-web", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_technique_pack.role_bundles, ["hunter-web", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_log_technique_attempt.role_bundles, ["hunter-web", "orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_get_context_budget.mutating, false);
+  assert.equal(TOOL_MANIFEST.bounty_select_technique_packs.mutating, false);
+  assert.equal(TOOL_MANIFEST.bounty_read_technique_pack.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_log_technique_attempt.mutating, true);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_technique_pack.session_artifacts_written, ["technique-pack-reads.jsonl"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_log_technique_attempt.session_artifacts_written, ["technique-attempts.jsonl"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
   assert.ok(!sourceAllowed.has("bounty_merge_wave_handoffs"));
@@ -418,6 +438,10 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.ok(!sourceAllowed.has("bounty_promote_surface_leads"));
   assert.ok(sourceAllowed.has("bounty_record_surface_leads"));
   assert.ok(sourceAllowed.has("bounty_read_surface_leads"));
+  assert.ok(sourceAllowed.has("bounty_get_context_budget"));
+  assert.ok(sourceAllowed.has("bounty_select_technique_packs"));
+  assert.ok(sourceAllowed.has("bounty_read_technique_pack"));
+  assert.ok(sourceAllowed.has("bounty_log_technique_attempt"));
   assert.ok(sourceAllowed.has("bounty_wave_handoff_status"));
 
   const hookMatchers = settingsHookMatchers();
@@ -425,6 +449,12 @@ test("manifest, settings, and generated Claude config keep global MCP permission
     if (!metadata.hook_required) continue;
     assert.ok(hookMatchers.has(`mcp__bountyagent__${toolName}`), `${toolName} requires a scope hook`);
   }
+});
+
+test("standard hook test script runs both write and read guards", () => {
+  const packageJson = JSON.parse(readFile("package.json"));
+  assert.match(packageJson.scripts["test:hooks"], /test-write-guard\.py/);
+  assert.match(packageJson.scripts["test:hooks"], /test-read-guard\.py/);
 });
 
 test("MCP-dependent agents declare official mcpServers bountyagent metadata", () => {
@@ -505,6 +535,27 @@ test("hunting rules and hunter prompt encode the smart_contract anti-stop rule",
     /MCP server (also )?rejects `surface_status: complete`/i,
     "hunter prompt missing server-side rejection guidance",
   );
+});
+
+test("hunter prompt teaches the blocked_prereqs[] policy and orchestrator handles terminally_blocked surfaces", () => {
+  const hunterPrompt = readFile(".claude/agents/hunter-agent.md");
+  assert.match(hunterPrompt, /blocked_prereqs/, "hunter prompt missing blocked_prereqs policy");
+  assert.match(hunterPrompt, /auth_missing/, "hunter prompt missing auth_missing kind reference");
+  assert.match(hunterPrompt, /egress_unreachable/, "hunter prompt missing egress_unreachable kind reference");
+  assert.match(hunterPrompt, /bounty_clear_terminal_block/, "hunter prompt missing bounty_clear_terminal_block reference");
+
+  const orchestratorPrompt = readFile("prompts/roles/orchestrator.md");
+  assert.match(orchestratorPrompt, /terminally_blocked/, "orchestrator prompt missing terminally_blocked exclusion guidance");
+  assert.match(orchestratorPrompt, /bounty_clear_terminal_block/, "orchestrator prompt missing clear-block tool reference");
+  assert.match(
+    orchestratorPrompt,
+    /override_reason` is rejected outside/,
+    "orchestrator prompt missing override_reason scope warning",
+  );
+
+  const reporterPrompt = readFile("prompts/roles/reporter.md");
+  assert.match(reporterPrompt, /Blocked by missing prerequisites/, "reporter prompt missing blocked-prereqs section guidance");
+  assert.match(reporterPrompt, /bounty_report_written/, "reporter prompt missing bounty_report_written call");
 });
 
 test("bob-spec loader is wired into the hunter brief", () => {
@@ -1079,6 +1130,23 @@ test("SubagentStop hooks cover every routed capability-pack hunter agent", () =>
   assert.deepEqual(configuredHunters, expectedHunters);
 });
 
+test("capability packs expose versioned context budgets for routed hunters", () => {
+  for (const pack of Object.values(CAPABILITY_PACKS)) {
+    assert.equal(pack.capability_pack_version, 1);
+    assert.ok(pack.hunter_agent);
+    assert.ok(pack.brief_profile);
+    assert.deepEqual(
+      Object.keys(pack.context_budget).sort(),
+      ["attempt_log_required", "candidate_pack_limit", "full_pack_read_limit"].sort(),
+    );
+    if (pack.brief_profile === "web") {
+      assert.deepEqual(pack.context_budget, DEFAULT_CONTEXT_BUDGET);
+    } else {
+      assert.deepEqual(pack.context_budget, SMART_CONTRACT_CONTEXT_BUDGET);
+    }
+  }
+});
+
 test("no rendered prompt artifact leaks an unsubstituted {{...}} placeholder (renderer parity)", () => {
   // The {{CAPABILITY_PACK_VERIFIER_TABLE}} substitution lives in a
   // renderer-agnostic helper so both the Claude and Codex renderers run it.
@@ -1261,6 +1329,59 @@ test("BLOCKED_HARNESS_RUN_KINDS, schema enum, and waves.js normalizer all stay i
     "waves.js BLOCKED_HARNESS_KIND_VALUES must mirror BLOCKED_HARNESS_RUN_KINDS — runtime normalizer rejects schema-accepted kinds otherwise");
 });
 
+test("BLOCKED_PREREQ_KINDS, schema enum, and waves.js normalizer all stay in sync", () => {
+  // Same three-way mirror invariant as BLOCKED_HARNESS_RUN_KINDS. Adding a
+  // new prereq kind requires updating all three sites, otherwise hunters
+  // either get rejected by the schema or fail finalization in the runtime
+  // normalizer.
+  const { BLOCKED_PREREQ_KINDS } = require("../mcp/lib/capability-packs-rendering.js");
+  const schema = require("../mcp/lib/tools/write-wave-handoff.js").inputSchema;
+  const enumFromSchema = schema.properties.blocked_prereqs.items.properties.kind.enum;
+  const wavesSource = readFile("mcp/lib/waves.js");
+  const wavesEnumMatch = wavesSource.match(/BLOCKED_PREREQ_KIND_VALUES = Object\.freeze\(\[([^\]]+)\]\)/);
+  assert.ok(wavesEnumMatch, "could not locate BLOCKED_PREREQ_KIND_VALUES literal in waves.js");
+  const wavesKinds = Array.from(wavesEnumMatch[1].matchAll(/"([a-z_]+)"/g)).map((m) => m[1]);
+  const sorted = (arr) => [...arr].sort();
+  assert.deepEqual(sorted(BLOCKED_PREREQ_KINDS), sorted(enumFromSchema),
+    "BLOCKED_PREREQ_KINDS must mirror the write-wave-handoff schema enum");
+  assert.deepEqual(sorted(BLOCKED_PREREQ_KINDS), sorted(wavesKinds),
+    "waves.js BLOCKED_PREREQ_KIND_VALUES must mirror BLOCKED_PREREQ_KINDS — runtime normalizer rejects schema-accepted kinds otherwise");
+});
+
+test("blocked_prereqs identifier_hint pattern matches between schema and runtime normalizer", () => {
+  // The schema regex and the runtime normalizer must reject the same
+  // strings, otherwise hunters can submit secret-shaped values that pass
+  // one check and fail the other (or worse, leak through).
+  const schema = require("../mcp/lib/tools/write-wave-handoff.js").inputSchema;
+  const schemaPattern = schema.properties.blocked_prereqs.items.properties.identifier_hint.pattern;
+  const wavesSource = readFile("mcp/lib/waves.js");
+  const runtimeMatch = wavesSource.match(/BLOCKED_PREREQ_IDENTIFIER_HINT_PATTERN = (\/[^\n]+\/)/);
+  assert.ok(runtimeMatch, "could not locate BLOCKED_PREREQ_IDENTIFIER_HINT_PATTERN literal in waves.js");
+  // Strip leading and trailing /; runtime pattern is a JS regex literal,
+  // schema pattern is a JSON-schema string.
+  const runtimePattern = runtimeMatch[1].slice(1, -1);
+  assert.equal(runtimePattern, schemaPattern,
+    "blocked_prereqs[].identifier_hint pattern must be identical between the JSON schema and the waves.js runtime normalizer");
+});
+
+test("rendered hunter prompts include blocked_prereqs handoff field limits", () => {
+  // The placeholder substitution in capability-packs-rendering.js writes
+  // limits for blocked_prereqs[] into every hunter prompt. Without this,
+  // hunters learn the constraints by rejection.
+  const { renderHandoffFieldLimits, BLOCKED_PREREQ_KINDS } = require("../mcp/lib/capability-packs-rendering.js");
+  const limits = renderHandoffFieldLimits();
+  assert.match(limits, /blocked_prereqs\[\]\.kind/,
+    "renderHandoffFieldLimits must surface blocked_prereqs[].kind for hunter prompts");
+  for (const kind of BLOCKED_PREREQ_KINDS) {
+    assert.ok(limits.includes(kind),
+      `renderHandoffFieldLimits must list every BLOCKED_PREREQ_KIND in the rendered limits — missing ${kind}`);
+  }
+  assert.match(limits, /blocked_prereqs\[\]\.identifier_hint/,
+    "renderHandoffFieldLimits must surface blocked_prereqs[].identifier_hint with its lowercase-handle constraint");
+  assert.match(limits, /no secrets/,
+    "renderHandoffFieldLimits must remind hunters that identifier_hint cannot hold secret-shaped values");
+});
+
 test("rendered orchestrator catalogue lists every smart-contract pack exactly once", () => {
   // Adding a new SC pack auto-extends the catalogue. The test enforces the
   // 1:1 pack -> catalogue line invariant so a renderer regression that
@@ -1395,10 +1516,8 @@ test("renderer source files contain no per-chain workflow strings (pack.spawn is
 });
 
 test("hunter agent tool counts stay bounded under capability packs (anti-cruft budget)", () => {
-  // Cap each routed hunter at 16 MCP tools. Crossing the cap means new tools
-  // were added to hunter-shared (or a chain bundle) without justification —
-  // the path of least resistance that would re-create the legacy 38-tool
-  // monolith. Forces a code review conversation.
+  // Cap routed hunters tightly. The web hunter has explicit web-only technique
+  // pack tools; smart-contract hunters stay on the stricter pack budget.
   const HUNTER_MCP_TOOL_BUDGET = 16;
   const agentNameToRoleId = {};
   for (const [roleId, spec] of Object.entries(CLAUDE_ROLE_SPECS)) {
@@ -1410,9 +1529,10 @@ test("hunter agent tool counts stay bounded under capability packs (anti-cruft b
   for (const pack of Object.values(CAPABILITY_PACKS)) {
     const roleId = agentNameToRoleId[pack.hunter_agent];
     const tools = mcpToolNamesForRole(roleId);
+    const budget = pack.brief_profile === "web" ? 18 : HUNTER_MCP_TOOL_BUDGET;
     assert.ok(
-      tools.length <= HUNTER_MCP_TOOL_BUDGET,
-      `pack ${pack.id} hunter ${pack.hunter_agent} has ${tools.length} MCP tools (budget ${HUNTER_MCP_TOOL_BUDGET}); justify or split before raising the cap`,
+      tools.length <= budget,
+      `pack ${pack.id} hunter ${pack.hunter_agent} has ${tools.length} MCP tools (budget ${budget}); justify or split before raising the cap`,
     );
   }
 });
@@ -2202,7 +2322,24 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(orchestratorPrompt, /surface_type[\s\S]*bug_class_hints[\s\S]*high_value_flows/);
   assert.match(hunterPrompt, /traffic_summary[\s\S]*audit_summary[\s\S]*circuit_breaker_summary[\s\S]*ranking_summary[\s\S]*intel_hints[\s\S]*static_scan_hints/);
   assert.match(hunterPrompt, /run_context/);
+  assert.match(hunterPrompt, /run_context\.context_budget/);
+  assert.match(hunterPrompt, /technique_packs\.selected/);
+  assert.match(hunterPrompt, /technique_packs\.selected` as the primary technique context/);
+  assert.match(hunterPrompt, /top-level `techniques` and `payload_hints` fields are smaller legacy compatibility summaries/);
+  assert.match(hunterPrompt, /bounty_read_technique_pack/);
+  assert.match(hunterPrompt, /full_pack_read_limit/);
+  assert.match(hunterPrompt, /bounty_log_technique_attempt/);
+  assert.match(hunterPrompt, /Every call requires a valid `status` and non-empty `evidence`; include `outcome` when the attempt has a concrete result/);
+  assert.match(hunterPrompt, /technique-pack-reads\.jsonl/);
+  assert.match(hunterPrompt, /never write `technique-attempts\.jsonl` or `technique-pack-reads\.jsonl` through Bash/);
   assert.match(orchestratorPrompt, /bounty_read_hunter_brief\(\{ target_domain:[\s\S]*egress_profile:[\s\S]*block_internal_hosts/);
+  assert.match(orchestratorPrompt, /block_internal_hosts: \[block_internal_hosts\]/);
+  assert.doesNotMatch(orchestratorPrompt, /block_internal_hosts: false/);
+  assert.match(orchestratorPrompt, /Egress profile: \[egress_profile\]\. Block internal hosts: \[block_internal_hosts\]/);
+  assert.match(orchestratorPrompt, /Context budget: \[assignment\.context_budget\]/);
+  assert.match(orchestratorPrompt, /technique_packs\.selected/);
+  assert.match(orchestratorPrompt, /registry warnings, and small legacy technique summaries/);
+  assert.match(orchestratorPrompt, /bounty_read_technique_pack[\s\S]*bounty_log_technique_attempt/);
   assert.match(hunterPrompt, /Prefer real observed authenticated endpoints from `traffic_summary`/);
   assert.match(hunterPrompt, /Log coverage before switching away from a promising traffic-derived endpoint|log coverage before switching away from promising traffic-derived endpoints/i);
   assert.match(orchestratorPrompt, /traffic_summary[\s\S]*audit_summary[\s\S]*circuit_breaker_summary[\s\S]*ranking_summary[\s\S]*intel_hints[\s\S]*static_scan_hints/);
@@ -2220,7 +2357,7 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(hunterPrompt, /surface-leads\.json/);
   assert.match(hunterPrompt, /bounty_log_coverage/);
   assert.match(hunterPrompt, /never write `coverage\.jsonl` through Bash/);
-  assert.match(hunterPrompt, /Never create or backfill[\s\S]*http-audit\.jsonl[\s\S]*traffic\.jsonl[\s\S]*public-intel\.json[\s\S]*static-artifacts\.jsonl[\s\S]*static-scan-results\.jsonl/);
+  assert.match(hunterPrompt, /Never create or backfill[\s\S]*technique-attempts\.jsonl[\s\S]*technique-pack-reads\.jsonl[\s\S]*http-audit\.jsonl[\s\S]*traffic\.jsonl[\s\S]*public-intel\.json[\s\S]*static-artifacts\.jsonl[\s\S]*static-scan-results\.jsonl/);
   assert.match(hunterPrompt, /status` \(`tested`, `blocked`, `promising`, `needs_auth`, or `requeue`\)/);
   assert.match(orchestratorPrompt, /MCP-owned JSON artifacts are authoritative for orchestration\./);
   assert.match(orchestratorPrompt, /must never call `bounty_write_wave_handoff`/);
@@ -2228,6 +2365,39 @@ test("hunter and orchestrator prompts keep the structured handoff contract expli
   assert.match(orchestratorPrompt, /Missing structured handoffs resolve only through `pending` or explicit `force-merge`\./);
   assert.match(orchestratorPrompt, /bounty_log_coverage/);
   assert.match(orchestratorPrompt, /never write `coverage\.jsonl` through Bash/);
+  assert.match(orchestratorPrompt, /technique-pack-reads\.jsonl/);
+});
+
+test("replay prompts preserve technique-pack priority and MCP-owned artifact prohibitions", () => {
+  const replayPrompts = [
+    "scripts/replay-prompts/00-baseline.md",
+    "scripts/replay-prompts/01-scope-anchor.md",
+    "testing/policy-replay/prompts/00-baseline.md",
+    "testing/policy-replay/prompts/01-scope-anchor.md",
+  ];
+
+  for (const promptPath of replayPrompts) {
+    const prompt = readFile(promptPath);
+    assert.match(prompt, /technique_packs\.selected/);
+    assert.match(prompt, /Prefer `technique_packs\.selected` as the primary technique context/);
+    assert.match(prompt, /top-level `techniques` and `payload_hints` fields are smaller legacy compatibility summaries/);
+    assert.match(prompt, /Never create or backfill[\s\S]*technique-attempts\.jsonl[\s\S]*technique-pack-reads\.jsonl/);
+  }
+});
+
+test("context scaling architecture doc is durable and matches enforced budget contract", () => {
+  assert.equal(fs.existsSync(path.join(ROOT, "docs/context-scaling-and-platform-adapters.md")), false);
+  const doc = readFile("docs/context-scaling-architecture.md");
+
+  assert.match(doc, /^# Context Scaling Architecture/m);
+  assert.match(doc, /candidate_pack_limit/);
+  assert.match(doc, /full_pack_read_limit/);
+  assert.match(doc, /attempt_log_required/);
+  assert.match(doc, /technique_packs\.selected` is the canonical web-hunter context/);
+  assert.match(doc, /Smart-contract hunters currently set `attempt_log_required: false`/);
+  assert.doesNotMatch(doc, /Eric['’]s agent/i);
+  assert.doesNotMatch(doc, /rebase/i);
+  assert.doesNotMatch(doc, /brief_max_tokens|team_escalation_allowed/);
 });
 
 // ----------------------------------------------------------------------
@@ -2252,6 +2422,7 @@ test("bob-hunt routes surfaces after recon and spawns returned hunter agents", (
   assert.match(orchestratorPrompt, /assignments\[\]\.hunter_agent/);
   assert.match(orchestratorPrompt, /subagent_type: "\[assignment\.hunter_agent\]"/);
   assert.match(orchestratorPrompt, /Capability pack: \[assignment\.capability_pack\]\. Brief profile: \[assignment\.brief_profile\]/);
+  assert.match(orchestratorPrompt, /Context budget: \[assignment\.context_budget\]/);
 });
 
 test("post-report evidence hunters are explicit and do not masquerade as wave handoffs", () => {

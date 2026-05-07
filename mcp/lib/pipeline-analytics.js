@@ -9,6 +9,7 @@ const {
   GRADE_VERDICT_VALUES,
   PHASE_VALUES,
   SEVERITY_VALUES,
+  TECHNIQUE_ATTEMPT_STATUS_VALUES,
   VERIFICATION_ROUND_VALUES,
 } = require("./constants.js");
 const {
@@ -30,6 +31,8 @@ const {
   sessionDir,
   sessionsRoot,
   statePath,
+  techniqueAttemptsJsonlPath,
+  techniquePackReadsJsonlPath,
   verificationRoundPaths,
 } = require("./paths.js");
 const {
@@ -72,10 +75,14 @@ const PIPELINE_EVENT_TYPES = Object.freeze([
   "wave_merge_pending",
   "wave_merged",
   "coverage_logged",
+  "technique_attempt_logged",
   "finding_recorded",
   "verification_written",
   "evidence_written",
   "grade_written",
+  "surface_terminally_blocked",
+  "terminal_block_cleared",
+  "report_written",
 ]);
 
 function pipelineAnalyticsEnabled(env = process.env) {
@@ -187,12 +194,22 @@ function normalizePipelineEvent(targetDomain, type, fields = {}) {
   const blockCode = capString(fields.block_code, 120);
   const source = capString(fields.source, 120);
   const counts = normalizeCounts(fields.counts);
+  // surface_terminally_blocked / terminal_block_cleared carry structured
+  // prereq metadata. Kept short and bounded; identifier_hint is the
+  // schema-validated handle (lowercase + ._-, <= 64 chars), kind is an
+  // enum value. No free-text reasons — those go in state-side artifacts
+  // (state.terminal_block_clear_history) so the event stream stays
+  // free of secret-shaped strings.
+  const kind = capString(fields.kind, 64);
+  const identifierHint = capString(fields.identifier_hint, 64);
   if (agent) event.agent = agent;
   if (surfaceId) event.surface_id = surfaceId;
   if (status) event.status = status;
   if (blockCode) event.block_code = blockCode;
   if (counts) event.counts = counts;
   if (source) event.source = source;
+  if (kind) event.kind = kind;
+  if (identifierHint) event.identifier_hint = identifierHint;
   if (typeof fields.force_merge === "boolean") event.force_merge = fields.force_merge;
   const forceMergeReason = capString(fields.force_merge_reason, 1000);
   if (forceMergeReason) event.force_merge_reason = forceMergeReason;
@@ -310,8 +327,8 @@ function normalizePipelineEventForRead(record, expectedDomain) {
     target_domain: targetDomain,
     type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source"]) {
-    const safe = capString(record[field], field === "surface_id" ? 200 : 120);
+  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source", "kind", "identifier_hint"]) {
+    const safe = capString(record[field], field === "surface_id" ? 200 : (field === "kind" || field === "identifier_hint" ? 64 : 120));
     if (safe) event[field] = safe;
   }
   const waveNumber = normalizeWaveNumber(record.wave_number);
@@ -463,6 +480,80 @@ function summarizeCoverageJsonl(targetDomain) {
     surface_count: surfaces.size,
     by_status: byStatus,
     malformed_lines: read.malformed_lines,
+    error: read.error,
+    mtime: read.mtime,
+  };
+}
+
+function summarizeTechniqueAttemptsJsonl(targetDomain) {
+  const read = readJsonlSafe(techniqueAttemptsJsonlPath(targetDomain), "technique-attempts.jsonl");
+  const byStatus = TECHNIQUE_ATTEMPT_STATUS_VALUES.reduce((result, status) => {
+    result[status] = 0;
+    return result;
+  }, {});
+  const surfaces = new Set();
+  const packs = new Set();
+  let total = 0;
+  let invalidRecords = 0;
+
+  for (const record of read.records) {
+    const status = capString(record.status, 40);
+    const surfaceId = capString(record.surface_id, 200);
+    const packId = capString(record.pack_id, 128);
+    if (
+      record.target_domain !== targetDomain ||
+      !TECHNIQUE_ATTEMPT_STATUS_VALUES.includes(status) ||
+      !surfaceId ||
+      !packId
+    ) {
+      invalidRecords += 1;
+      continue;
+    }
+    total += 1;
+    byStatus[status] += 1;
+    surfaces.add(surfaceId);
+    packs.add(packId);
+  }
+
+  return {
+    exists: read.exists,
+    total_records: total,
+    surface_count: surfaces.size,
+    pack_count: packs.size,
+    by_status: byStatus,
+    malformed_lines: read.malformed_lines + invalidRecords,
+    error: read.error,
+    mtime: read.mtime,
+  };
+}
+
+function summarizeTechniquePackReadsJsonl(targetDomain) {
+  const read = readJsonlSafe(techniquePackReadsJsonlPath(targetDomain), "technique-pack-reads.jsonl");
+  const surfaces = new Set();
+  const packs = new Set();
+  let fullReads = 0;
+  let invalidRecords = 0;
+
+  for (const record of read.records) {
+    const mode = capString(record.mode, 40);
+    const surfaceId = capString(record.surface_id, 200);
+    const packId = capString(record.pack_id, 128);
+    if (record.target_domain !== targetDomain || mode !== "full" || !surfaceId || !packId) {
+      invalidRecords += 1;
+      continue;
+    }
+    fullReads += 1;
+    surfaces.add(surfaceId);
+    packs.add(packId);
+  }
+
+  return {
+    exists: read.exists,
+    total_records: fullReads,
+    full_reads: fullReads,
+    surface_count: surfaces.size,
+    pack_count: packs.size,
+    malformed_lines: read.malformed_lines + invalidRecords,
     error: read.error,
     mtime: read.mtime,
   };
@@ -742,24 +833,42 @@ function summarizeAttackSurfaceCoverage(targetDomain, state) {
       total_surfaces: 0,
       non_low_total: 0,
       non_low_explored: 0,
+      non_low_terminally_blocked: 0,
       coverage_pct: null,
+      closed_pct: null,
       unexplored_high: 0,
+      blocked_high: 0,
       mtime: read.mtime,
     };
   }
   const exploredSet = new Set(Array.isArray(state?.explored) ? state.explored : []);
+  const terminallyBlockedSet = new Set(
+    Array.isArray(state?.terminally_blocked)
+      ? state.terminally_blocked.map((entry) => entry && typeof entry.surface_id === "string" ? entry.surface_id : null).filter(Boolean)
+      : [],
+  );
   const surfaces = read.document.surfaces.filter((surface) => isPlainObject(surface) && typeof surface.id === "string");
   const nonLowSurfaces = surfaces.filter((surface) => (surface.priority || "HIGH").toUpperCase() !== "LOW");
   const highSurfaces = surfaces.filter((surface) => ["CRITICAL", "HIGH"].includes((surface.priority || "HIGH").toUpperCase()));
   const exploredNonLow = nonLowSurfaces.filter((surface) => exploredSet.has(surface.id)).length;
+  const blockedNonLow = nonLowSurfaces.filter((surface) => terminallyBlockedSet.has(surface.id)).length;
+  const closedNonLow = exploredNonLow + blockedNonLow;
   return {
     exists: true,
     error: null,
     total_surfaces: surfaces.length,
     non_low_total: nonLowSurfaces.length,
     non_low_explored: exploredNonLow,
+    non_low_terminally_blocked: blockedNonLow,
+    // coverage_pct keeps the explored-only meaning for back-compat with
+    // existing dashboards. closed_pct is the post-Cycle-2 measure that
+    // also counts terminally_blocked surfaces (classified blocked, not
+    // neglected). low_coverage analytics fires on closed_pct so blocked
+    // surfaces correctly count as "off the queue".
     coverage_pct: nonLowSurfaces.length ? Math.round((exploredNonLow / nonLowSurfaces.length) * 100) : 100,
-    unexplored_high: highSurfaces.filter((surface) => !exploredSet.has(surface.id)).length,
+    closed_pct: nonLowSurfaces.length ? Math.round((closedNonLow / nonLowSurfaces.length) * 100) : 100,
+    unexplored_high: highSurfaces.filter((surface) => !exploredSet.has(surface.id) && !terminallyBlockedSet.has(surface.id)).length,
+    blocked_high: highSurfaces.filter((surface) => terminallyBlockedSet.has(surface.id)).length,
     mtime: read.mtime,
   };
 }
@@ -777,6 +886,8 @@ function readSessionArtifactSummary(targetDomain) {
   const waves = waveNumbers.map((waveNumber) => readWaveReadiness(targetDomain, waveNumber));
   const findings = summarizeFindingsJsonl(targetDomain);
   const coverage = summarizeCoverageJsonl(targetDomain);
+  const techniqueAttempts = summarizeTechniqueAttemptsJsonl(targetDomain);
+  const techniquePackReads = summarizeTechniquePackReadsJsonl(targetDomain);
   const httpAudit = summarizeHttpAuditJsonl(targetDomain);
   const chainAttempts = summarizeChainAttemptsJsonl(targetDomain);
   const chainHandoffs = summarizeStructuredHandoffChainNotes(targetDomain);
@@ -792,6 +903,8 @@ function readSessionArtifactSummary(targetDomain) {
     stateRead.mtime,
     findings.mtime,
     coverage.mtime,
+    techniqueAttempts.mtime,
+    techniquePackReads.mtime,
     httpAudit.mtime,
     chainAttempts.mtime,
     attackSurfaceCoverage.mtime,
@@ -808,10 +921,14 @@ function readSessionArtifactSummary(targetDomain) {
   if (stateRead.error) artifactErrors.push(stateRead.error);
   if (findings.error) artifactErrors.push(findings.error);
   if (coverage.error) artifactErrors.push(coverage.error);
+  if (techniqueAttempts.error) artifactErrors.push(techniqueAttempts.error);
+  if (techniquePackReads.error) artifactErrors.push(techniquePackReads.error);
   if (httpAudit.error) artifactErrors.push(httpAudit.error);
   if (chainAttempts.error) artifactErrors.push(chainAttempts.error);
   if (findings.malformed_lines > 0) artifactErrors.push(`Malformed findings.jsonl lines: ${findings.malformed_lines}`);
   if (coverage.malformed_lines > 0) artifactErrors.push(`Malformed coverage.jsonl lines: ${coverage.malformed_lines}`);
+  if (techniqueAttempts.malformed_lines > 0) artifactErrors.push(`Malformed technique-attempts.jsonl lines: ${techniqueAttempts.malformed_lines}`);
+  if (techniquePackReads.malformed_lines > 0) artifactErrors.push(`Malformed technique-pack-reads.jsonl lines: ${techniquePackReads.malformed_lines}`);
   if (chainAttempts.malformed_lines > 0) artifactErrors.push(`Malformed chain-attempts.jsonl lines: ${chainAttempts.malformed_lines}`);
   if (chainHandoffs.malformed_files > 0) artifactErrors.push(`Malformed chain handoff files: ${chainHandoffs.malformed_files}`);
   for (const wave of waves) {
@@ -838,6 +955,8 @@ function readSessionArtifactSummary(targetDomain) {
     waves,
     findings,
     coverage,
+    technique_attempts: techniqueAttempts,
+    technique_pack_reads: techniquePackReads,
     http_audit: httpAudit,
     chain_attempts: chainAttempts,
     chain_handoffs: chainHandoffs,
@@ -912,6 +1031,18 @@ function buildBackfillEvents(targetDomain, artifacts) {
       ts: artifacts.coverage.mtime || ts,
       status: "backfilled",
       counts: { records: artifacts.coverage.total_records, surfaces: artifacts.coverage.surface_count },
+      source,
+    }));
+  }
+  if (artifacts.technique_attempts.total_records > 0) {
+    events.push(normalizePipelineEvent(targetDomain, "technique_attempt_logged", {
+      ts: artifacts.technique_attempts.mtime || ts,
+      status: "backfilled",
+      counts: {
+        records: artifacts.technique_attempts.total_records,
+        surfaces: artifacts.technique_attempts.surface_count,
+        packs: artifacts.technique_attempts.pack_count,
+      },
       source,
     }));
   }
@@ -993,6 +1124,12 @@ function latestEvent(events) {
   return events.length ? events[events.length - 1] : null;
 }
 
+function latestActivityTimestamp(events, artifacts) {
+  const latest = latestEvent(events);
+  const latestMs = Math.max(timestampMs(latest?.ts), timestampMs(artifacts.latest_artifact_ts));
+  return latestMs > 0 ? new Date(latestMs).toISOString() : null;
+}
+
 function compactEvent(event) {
   if (!event) return null;
   const compact = {
@@ -1000,7 +1137,7 @@ function compactEvent(event) {
     target_domain: event.target_domain,
     type: event.type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason"]) {
+  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason", "kind", "identifier_hint"]) {
     if (event[field] != null) compact[field] = event[field];
   }
   return compact;
@@ -1231,14 +1368,17 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
   if (
     phaseAtLeast(artifacts.state.phase, "CHAIN") &&
     coverage.non_low_total > 0 &&
-    Number.isFinite(coverage.coverage_pct) &&
-    coverage.coverage_pct < 100
+    Number.isFinite(coverage.closed_pct) &&
+    coverage.closed_pct < 100
   ) {
-    issues.push(issue("low_coverage", "needs_attention", "Non-low attack surface coverage is below the wave policy target.", {
+    issues.push(issue("low_coverage", "needs_attention", "Non-low attack surface coverage is below the wave policy target — this counts BOTH explored AND terminally_blocked as closed; the gap is genuinely unexplored.", {
       coverage_pct: coverage.coverage_pct,
+      closed_pct: coverage.closed_pct,
       non_low_explored: coverage.non_low_explored,
+      non_low_terminally_blocked: coverage.non_low_terminally_blocked,
       non_low_total: coverage.non_low_total,
       unexplored_high: coverage.unexplored_high,
+      blocked_high: coverage.blocked_high,
     }));
   }
 
@@ -1283,10 +1423,14 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
   }
 
   const latest = latestEvent(allEvents);
-  if (pendingWave != null && latest && Date.now() - timestampMs(latest.ts) > STALE_PENDING_WAVE_MS) {
+  const latestActivityTs = latestActivityTimestamp(allEvents, artifacts);
+  const latestActivityMs = timestampMs(latestActivityTs);
+  if (pendingWave != null && latestActivityMs > 0 && Date.now() - latestActivityMs > STALE_PENDING_WAVE_MS) {
     issues.push(issue("stale_pending_wave", "needs_attention", "Pending wave has not advanced recently.", {
       wave_number: pendingWave,
       latest_event: compactEvent(latest),
+      latest_artifact_ts: artifacts.latest_artifact_ts,
+      latest_activity_ts: latestActivityTs,
     }));
   }
 
@@ -1313,6 +1457,18 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
     },
     chain_attempts_count: artifacts.chain_attempts.total,
     chain_attempts_by_outcome: artifacts.chain_attempts.by_outcome,
+    technique_attempts: {
+      total: artifacts.technique_attempts.total_records,
+      by_status: artifacts.technique_attempts.by_status,
+      surface_count: artifacts.technique_attempts.surface_count,
+      pack_count: artifacts.technique_attempts.pack_count,
+    },
+    technique_pack_reads: {
+      total: artifacts.technique_pack_reads.total_records,
+      full_reads: artifacts.technique_pack_reads.full_reads,
+      surface_count: artifacts.technique_pack_reads.surface_count,
+      pack_count: artifacts.technique_pack_reads.pack_count,
+    },
     chain_phase_duration_ms: computeChainPhaseDurationMs(allEvents),
     final_verification_count: artifacts.verification.final_results_count,
     final_reportable_count: artifacts.verification.final_reportable_count,
@@ -1335,6 +1491,7 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
     grade_verdict: artifacts.grade.verdict,
     report_present: artifacts.report.present,
     latest_event: compactEvent(latest),
+    latest_activity_ts: latestActivityTs,
     health: {
       status: healthStatus,
       reasons: issues.map((item) => item.code),

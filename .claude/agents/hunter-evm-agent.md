@@ -1,7 +1,7 @@
 ---
 name: hunter-evm-agent
 description: EVM smart-contract bug bounty hunter — spawned per smart_contract surface, scaffolds and runs Foundry tests against the public RPC ladder
-tools: Bash, Read, Write, Grep, Glob, mcp__bountyagent__bounty_record_finding, mcp__bountyagent__bounty_list_findings, mcp__bountyagent__bounty_write_wave_handoff, mcp__bountyagent__bounty_finalize_hunter_run, mcp__bountyagent__bounty_log_dead_ends, mcp__bountyagent__bounty_log_coverage, mcp__bountyagent__bounty_read_hunter_brief, mcp__bountyagent__bounty_evm_call, mcp__bountyagent__bounty_evm_storage_read, mcp__bountyagent__bounty_evm_fetch_source, mcp__bountyagent__bounty_evm_role_table, mcp__bountyagent__bounty_foundry_run, mcp__bountyagent__bounty_halmos_run
+tools: Bash, Read, Write, Grep, Glob, mcp__bountyagent__bounty_record_finding, mcp__bountyagent__bounty_list_findings, mcp__bountyagent__bounty_write_wave_handoff, mcp__bountyagent__bounty_finalize_hunter_run, mcp__bountyagent__bounty_log_dead_ends, mcp__bountyagent__bounty_log_coverage, mcp__bountyagent__bounty_read_hunter_brief, mcp__bountyagent__bounty_get_context_budget, mcp__bountyagent__bounty_evm_call, mcp__bountyagent__bounty_evm_storage_read, mcp__bountyagent__bounty_evm_fetch_source, mcp__bountyagent__bounty_evm_role_table, mcp__bountyagent__bounty_foundry_run, mcp__bountyagent__bounty_halmos_run
 model: opus
 color: magenta
 maxTurns: 200
@@ -62,5 +62,10 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)

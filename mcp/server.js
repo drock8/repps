@@ -22,7 +22,9 @@
 //           bounty_record_surface_leads, bounty_read_surface_leads,
 //           bounty_read_session_summary, bounty_set_operator_note,
 //           bounty_clear_operator_note,
-//           bounty_promote_surface_leads, bounty_route_surfaces
+//           bounty_promote_surface_leads, bounty_route_surfaces,
+//           bounty_get_context_budget, bounty_select_technique_packs,
+//           bounty_read_technique_pack, bounty_log_technique_attempt
 
 const { redactUrlSensitiveValues } = require("./redaction.js");
 const {
@@ -71,6 +73,8 @@ const {
   statePath,
   surfaceLeadsPath,
   surfaceRoutesPath,
+  techniqueAttemptsJsonlPath,
+  techniquePackReadsJsonlPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,
@@ -85,9 +89,11 @@ const {
 const {
   compactSessionState,
   clearOperatorNote,
+  clearTerminalBlock,
   initSession,
   normalizeSessionStateDocument,
   readSessionState,
+  reportWritten,
   setOperatorNote,
   readStateSummary,
   transitionPhase,
@@ -158,6 +164,17 @@ const {
   resolveHunterKnowledge,
 } = require("./lib/hunter-brief.js");
 const {
+  getContextBudget,
+} = require("./lib/context-budget.js");
+const {
+  loadTechniqueRegistry,
+  logTechniqueAttempt,
+  readTechniqueAttemptRecordsFromJsonl,
+  readTechniquePack,
+  readTechniquePackReadRecordsFromJsonl,
+  selectTechniquePacks,
+} = require("./lib/technique-packs.js");
+const {
   authStore,
   buildHeaderProfile,
   listAuthProfiles,
@@ -218,13 +235,16 @@ module.exports = {
   coverageJsonlPath,
   evidencePackPaths,
   gradeArtifactPaths,
+  getContextBudget,
   httpAuditJsonlPath,
   importStaticArtifact,
   importHttpTraffic,
   initSession,
   listFindings,
   listAuthProfiles,
+  loadTechniqueRegistry,
   logCoverage,
+  logTechniqueAttempt,
   mergeWaveHandoffs,
   migrateAuthJson,
   normalizeCoverageRecord,
@@ -255,6 +275,8 @@ module.exports = {
   staticScanResultsJsonlPath,
   surfaceLeadsPath,
   surfaceRoutesPath,
+  techniqueAttemptsJsonlPath,
+  techniquePackReadsJsonlPath,
   startWave,
   findingsJsonlPath,
   findingsMarkdownPath,
@@ -273,6 +295,9 @@ module.exports = {
   readPipelineAnalytics,
   readPipelineEvents,
   readSurfaceLeads,
+  readTechniqueAttemptRecordsFromJsonl,
+  readTechniquePack,
+  readTechniquePackReadRecordsFromJsonl,
   readWaveHandoffs,
   rankAttackSurfaces,
   resolveHunterKnowledge,
@@ -283,6 +308,7 @@ module.exports = {
   readSessionSummary,
   readStateSummary,
   setOperatorNote,
+  selectTechniquePacks,
   compactSessionState,
   readVerificationRound,
   recordFinding,
@@ -309,6 +335,8 @@ module.exports = {
   writeFileAtomic,
   writeChainAttempt,
   clearOperatorNote,
+  clearTerminalBlock,
+  reportWritten,
   executeTool,
   finalizeHunterRun,
   startServer,

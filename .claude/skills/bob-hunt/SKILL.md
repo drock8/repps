@@ -29,6 +29,12 @@ allowed-tools:
   - mcp__bountyagent__bounty_read_session_summary
   - mcp__bountyagent__bounty_set_operator_note
   - mcp__bountyagent__bounty_clear_operator_note
+  - mcp__bountyagent__bounty_clear_terminal_block
+  - mcp__bountyagent__bounty_report_written
+  - mcp__bountyagent__bounty_get_context_budget
+  - mcp__bountyagent__bounty_select_technique_packs
+  - mcp__bountyagent__bounty_read_technique_pack
+  - mcp__bountyagent__bounty_log_technique_attempt
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
   - mcp__bountyagent__bounty_record_surface_leads
@@ -56,6 +62,7 @@ If no checkpoint flag is supplied, use `--normal`. Accept at most one checkpoint
 - The orchestrator must never call `bounty_write_wave_handoff`, must never write handoff JSON directly, and must never synthesize or repair authoritative handoff JSON from markdown or `SESSION_HANDOFF.md`. Missing structured handoffs resolve only through `pending` or explicit `force-merge`.
 - Hunter completion correctness is MCP-owned through `bounty_finalize_hunter_run`; Claude `SubagentStop` is only an adapter guardrail.
 - Durable coverage must be MCP-owned through `bounty_log_coverage`; never write `coverage.jsonl` through Bash.
+- Technique-pack full-read history and attempt history must be MCP-owned through `bounty_read_technique_pack(mode: "full")` and `bounty_log_technique_attempt`; never write `technique-pack-reads.jsonl` or `technique-attempts.jsonl` through Bash.
 
 ## FSM
 ```text
@@ -78,7 +85,8 @@ MCP-owned session artifacts:
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
 - `bounty_write_chain_attempt` writes CHAIN-phase evidence to `chain-attempts.jsonl`; `bounty_read_chain_attempts` is the only machine-readable chain source.
 - `bounty_write_evidence_packs` writes formal pre-grade evidence to `evidence-packs.json`; `bounty_read_evidence_packs` validates final-reportable coverage.
-- `bounty_read_hunter_brief` returns the assigned surface, exclusions, coverage, ranking, and a profile-specific context block — web profile carries traffic, audit, circuit-breaker, intel, static scan, bypass table, and curated techniques; smart-contract profiles carry `bob_spec_status` and the chain `rpc_pool` instead.
+- `bounty_read_hunter_brief` returns the assigned surface, exclusions, coverage, ranking, run context budget, and a profile-specific context block — web profile carries traffic, audit, circuit-breaker, intel, static scan, bypass table, bounded `technique_packs.selected`, registry warnings, and small legacy technique summaries; smart-contract profiles carry `bob_spec_status` and the chain `rpc_pool` instead.
+- `bounty_read_technique_pack` in `mode: "full"` writes full-read history to `technique-pack-reads.jsonl` and enforces the assignment's `context_budget.full_pack_read_limit`.
 - `bounty_record_surface_leads`, `bounty_read_surface_leads`, and `bounty_promote_surface_leads` own compact `surface-leads.json` and promotion into `attack_surface.json`.
 - `bounty_read_pipeline_analytics` is the metadata-only dashboard for debugging stuck sessions and recent cross-session pipeline health.
 - `bounty_set_operator_note` stores one bounded non-secret operator instruction in state; `bounty_clear_operator_note` removes it.
@@ -148,7 +156,7 @@ Wave policy:
 Before spawning a wave:
 1. If `state.pending_wave` is non-null, stop and require `/bob-hunt resume [domain]`.
 2. Compute assignments from requeue plus wave policy.
-3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`, and MCP returns each assignment's capability routing.
+3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`, and MCP returns each assignment's capability routing and context budget.
 4. Spawn hunters only after `bounty_start_wave` succeeds. Use each returned `result.data.assignments[].hunter_agent` as the subagent type and that assignment's `handoff_token` only in its spawn prompt. The MCP capability router has already chosen the correct hunter family per surface; do not branch by `chain_family` in the orchestrator.
 
 Generic hunter spawn template (uses the routed `assignment.hunter_agent`; the brief itself carries chain-specific context):
@@ -158,10 +166,11 @@ Domain: [domain]
 Wave: w[wave]
 Agent: a[agent]
 Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]
-Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent].
-First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: false }) and use .data, including run_context.
-Use surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, and static_scan_hints as prioritization inputs for this one assigned surface.
-Egress profile: [egress_profile]. Pass this exact value as egress_profile on every bounty_http_scan call.
+Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent]. Context budget: [assignment.context_budget].
+First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }) and use .data, including run_context.context_budget and technique_packs.selected.
+Use surface_type, bug_class_hints, high_value_flows, evidence, surface_limits, coverage_summary, traffic_summary, audit_summary, circuit_breaker_summary, ranking_summary, intel_hints, static_scan_hints, and technique_packs.selected as prioritization inputs for this one assigned surface.
+Call bounty_read_technique_pack(mode="full") only with target_domain/wave/agent/surface_id for relevant selected summaries, and bounty_log_technique_attempt for selections, skips, attempts, and outcomes.
+Egress profile: [egress_profile]. Block internal hosts: [block_internal_hosts]. Pass these exact values as egress_profile and block_internal_hosts on every bounty_http_scan call.
 Prefer traffic_summary endpoints, replay through bounty_http_scan with target_domain and egress_profile, log bounty_log_coverage after meaningful tests, and log before switching away from promising traffic-derived endpoints.
 New token-contract scans must use bounty_import_static_artifact then bounty_static_scan; never scan arbitrary paths.
 Checkpoint mode: [normal|paranoid|yolo].
@@ -182,8 +191,8 @@ Domain: [domain]
 Wave: w[wave]
 Agent: a[agent]
 Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]
-Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent].
-First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.
+Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent]. Context budget: [assignment.context_budget].
+First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }) and use .data, including run_context.context_budget.
 Confirm surface_type is smart_contract AND surface.chain_family matches the catalogue line's chain_family for [assignment.capability_pack]; surface.chain_id matches the catalogue line's chain_id description.
 Use bob_spec_status for trust_assumptions, invariants, known_issues, and severity_system metadata. Use rpc_pool.endpoints for non-MCP reads.
 Workflow: <copy verbatim from the catalogue line for [assignment.capability_pack]>.
@@ -216,8 +225,9 @@ Wave reconciliation:
 4. If status is `"pending"`, report the pending count and stop.
 5. If status is `"merged"`, use returned `state`, `merge`, `findings`, and `readiness`.
 6. `bounty_apply_wave_merge` owns reconciliation-side state mutation.
-7. Use `merge.requeue_surface_ids` for the next wave; surface `unexpected_agents` in output only.
-8. After merge, continue automatically to the next wave decision or CHAIN.
+7. Use `merge.requeue_surface_ids` for the next wave (already excludes terminally-blocked surfaces); surface `unexpected_agents` in output only.
+8. If `merge.terminally_blocked_promoted` is non-empty, report the promoted surfaces and the blocker tuples to the operator before the next wave — these are classified blocked, not neglected. Do not include them in the next `bounty_start_wave` assignments; `bounty_start_wave` will hard-reject them. When the operator confirms the missing prerequisite material is now registered, call `bounty_clear_terminal_block({ target_domain, surface_id, reason })` (>= 20 char reason) before assigning the surface again.
+9. After merge, continue automatically to the next wave decision or CHAIN.
 
 Wave decisions use `bounty_wave_status({ target_domain }).data`:
 - `wave < 2` → run another wave.
@@ -234,7 +244,7 @@ Spawn:
 ```
 Agent(subagent_type: "chain-builder", name: "chain", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Read findings, wave handoffs, auth profiles, HTTP audit, and prior chain attempts through MCP. Test plausible chains with bounty_http_scan as needed, passing egress_profile on every scan, and write every outcome through bounty_write_chain_attempt. Do not read findings.md, chains.md, or markdown handoffs.")
 ```
-After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence.
+After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn.
 
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.

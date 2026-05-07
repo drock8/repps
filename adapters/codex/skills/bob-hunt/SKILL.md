@@ -24,6 +24,7 @@ If no checkpoint flag is supplied, use `--normal`. Accept at most one checkpoint
 - The orchestrator must never call `bounty_write_wave_handoff`, must never write handoff JSON directly, and must never synthesize or repair authoritative handoff JSON from markdown or `SESSION_HANDOFF.md`. Missing structured handoffs resolve only through `pending` or explicit `force-merge`.
 - Hunter completion correctness is MCP-owned through `bounty_finalize_hunter_run`; Codex has no Bob stop hook; MCP finalization is the correctness boundary.
 - Durable coverage must be MCP-owned through `bounty_log_coverage`; never write `coverage.jsonl` through Bash.
+- Technique-pack full-read history and attempt history must be MCP-owned through `bounty_read_technique_pack(mode: "full")` and `bounty_log_technique_attempt`; never write `technique-pack-reads.jsonl` or `technique-attempts.jsonl` through Bash.
 
 ## FSM
 ```text
@@ -46,7 +47,8 @@ MCP-owned session artifacts:
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
 - `bounty_write_chain_attempt` writes CHAIN-phase evidence to `chain-attempts.jsonl`; `bounty_read_chain_attempts` is the only machine-readable chain source.
 - `bounty_write_evidence_packs` writes formal pre-grade evidence to `evidence-packs.json`; `bounty_read_evidence_packs` validates final-reportable coverage.
-- `bounty_read_hunter_brief` returns the assigned surface, exclusions, coverage, ranking, and a profile-specific context block — web profile carries traffic, audit, circuit-breaker, intel, static scan, bypass table, and curated techniques; smart-contract profiles carry `bob_spec_status` and the chain `rpc_pool` instead.
+- `bounty_read_hunter_brief` returns the assigned surface, exclusions, coverage, ranking, run context budget, and a profile-specific context block — web profile carries traffic, audit, circuit-breaker, intel, static scan, bypass table, bounded `technique_packs.selected`, registry warnings, and small legacy technique summaries; smart-contract profiles carry `bob_spec_status` and the chain `rpc_pool` instead.
+- `bounty_read_technique_pack` in `mode: "full"` writes full-read history to `technique-pack-reads.jsonl` and enforces the assignment's `context_budget.full_pack_read_limit`.
 - `bounty_record_surface_leads`, `bounty_read_surface_leads`, and `bounty_promote_surface_leads` own compact `surface-leads.json` and promotion into `attack_surface.json`.
 - `bounty_read_pipeline_analytics` is the metadata-only dashboard for debugging stuck sessions and recent cross-session pipeline health.
 - `bounty_set_operator_note` stores one bounded non-secret operator instruction in state; `bounty_clear_operator_note` removes it.
@@ -125,7 +127,7 @@ Wave policy:
 Before spawning a wave:
 1. If `state.pending_wave` is non-null, stop and require `$bob-hunt resume [domain]`.
 2. Compute assignments from requeue plus wave policy.
-3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`, and MCP returns each assignment's capability routing.
+3. Call `bounty_start_wave({ target_domain, wave_number: N, assignments })`; assignment agent IDs must be short `aN`, and MCP returns each assignment's capability routing and context budget.
 4. Spawn hunters only after `bounty_start_wave` succeeds. Use each returned `result.data.assignments[].hunter_agent` as the subagent type and that assignment's `handoff_token` only in its spawn prompt. The MCP capability router has already chosen the correct hunter family per surface; do not branch by `chain_family` in the orchestrator.
 
 Generic hunter spawn template (uses the routed `assignment.hunter_agent`; the brief itself carries chain-specific context):
@@ -133,8 +135,9 @@ Generic hunter spawn template (uses the routed `assignment.hunter_agent`; the br
 For each assignment, use Codex spawn_agent for the hunter family chosen by the MCP capability router (`assignment.hunter_agent` from bounty_start_wave.data.assignments[] — one of hunter-agent or any of the per-pack hunters listed in the smart-contract pack catalogue: hunter-evm-agent, hunter-svm-agent, hunter-move-agent, hunter-substrate-agent, hunter-cosmwasm-agent).
 - agent_type: "worker"
 - message: include the compact run header below plus the full contract for `assignment.hunter_agent` from Codex Worker Role Contracts.
-- Header fields: Domain: [domain]; Wave: w[wave]; Agent: a[agent]; Surface: [surface_id]; Capability pack: [assignment.capability_pack]; Brief profile: [assignment.brief_profile]; Hunter agent: [assignment.hunter_agent]; Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]; Checkpoint mode: [normal|paranoid|yolo].
-- First action inside the worker: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.
+- Header fields: Domain: [domain]; Wave: w[wave]; Agent: a[agent]; Surface: [surface_id]; Capability pack: [assignment.capability_pack]; Brief profile: [assignment.brief_profile]; Hunter agent: [assignment.hunter_agent]; Context budget: [assignment.context_budget]; Egress profile: [egress_profile]; Block internal hosts: [block_internal_hosts]; Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]; Checkpoint mode: [normal|paranoid|yolo].
+- First action inside the worker: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }) and use .data.run_context.context_budget plus .data.technique_packs.selected when present.
+- For web hunters, call bounty_read_technique_pack(mode="full") only with target_domain/wave/agent/surface_id for relevant selected summaries, and bounty_log_technique_attempt for selections, skips, attempts, and outcomes.
 - Track the local mapping `host_agent_id -> w[wave]/a[agent]/surface_id`; Bob's `aN` value is authoritative even if Codex displays a different nickname.
 - Respect Codex capacity. Launch only as many workers as the host accepts, keep the rest queued, and start queued assignments only after completed agents are closed.
 - Do not set `fork_context: true` when also setting `agent_type`; use a direct worker spawn unless Codex requires a different host default.
@@ -147,7 +150,7 @@ Smart-contract spawn dispatch:
 
 Pack metadata is the source of truth in `mcp/lib/capability-packs.js`; adding a chain pack auto-extends the catalogue at next prompt regeneration.
 ```text
-For each smart-contract assignment, use Codex spawn_agent with `agent_type: "worker"` and a message that: (1) includes the run header (Domain, Wave, Agent, Surface, Capability pack, Brief profile, Hunter agent, Handoff token, Checkpoint mode), (2) inlines the workflow summary, CLI dependency, and blocked_harness_runs[] kind copied verbatim from the catalogue line for [assignment.capability_pack], and (3) includes the worker contract for [assignment.hunter_agent] from Codex Worker Role Contracts.
+For each smart-contract assignment, use Codex spawn_agent with `agent_type: "worker"` and a message that: (1) includes the run header (Domain, Wave, Agent, Surface, Capability pack, Brief profile, Hunter agent, Context budget, Egress profile, Block internal hosts, Handoff token, Checkpoint mode), (2) instructs the first action to call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }), (3) inlines the workflow summary, CLI dependency, and blocked_harness_runs[] kind copied verbatim from the catalogue line for [assignment.capability_pack], and (4) includes the worker contract for [assignment.hunter_agent] from Codex Worker Role Contracts.
 ```
 
 Pack catalogue (lookup by `assignment.capability_pack`):
@@ -173,8 +176,9 @@ Wave reconciliation:
 4. If status is `"pending"`, report the pending count and stop.
 5. If status is `"merged"`, use returned `state`, `merge`, `findings`, and `readiness`.
 6. `bounty_apply_wave_merge` owns reconciliation-side state mutation.
-7. Use `merge.requeue_surface_ids` for the next wave; surface `unexpected_agents` in output only.
-8. After merge, continue automatically to the next wave decision or CHAIN.
+7. Use `merge.requeue_surface_ids` for the next wave (already excludes terminally-blocked surfaces); surface `unexpected_agents` in output only.
+8. If `merge.terminally_blocked_promoted` is non-empty, report the promoted surfaces and the blocker tuples to the operator before the next wave — these are classified blocked, not neglected. Do not include them in the next `bounty_start_wave` assignments; `bounty_start_wave` will hard-reject them. When the operator confirms the missing prerequisite material is now registered, call `bounty_clear_terminal_block({ target_domain, surface_id, reason })` (>= 20 char reason) before assigning the surface again.
+9. After merge, continue automatically to the next wave decision or CHAIN.
 
 Wave decisions use `bounty_wave_status({ target_domain }).data`:
 - `wave < 2` → run another wave.
@@ -194,7 +198,7 @@ Use Codex spawn_agent for chain-builder -> Codex worker.
 - message: `Bob role: chain-builder. Domain: [domain]. Session: ~/bounty-agent-sessions/[domain].` Include the full `chain` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, validate expected output, then `close_agent`.
 ```
-After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence.
+After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn.
 
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.
@@ -788,7 +792,7 @@ END surface-router CONTRACT
 BEGIN hunter CONTRACT
 You are a bug bounty hunter agent. Test one surface only.
 
-The orchestrator injects your wave/agent ID, target domain, capability pack, handoff token, egress profile, deep-mode flag, and internal-host blocking setting in the spawn prompt. On startup, call `bounty_read_hunter_brief({ target_domain, wave, agent, egress_profile, block_internal_hosts })` to get `run_context`, your assigned surface, exclusions, valid surface IDs, bypass table, coverage summary, traffic summary, audit/circuit-breaker summary, ranking reasons, intel hints, static scan hints, and curated `techniques` / `payload_hints` in one call.
+The orchestrator injects your wave/agent ID, target domain, capability pack, context budget, handoff token, egress profile, deep-mode flag, and internal-host blocking setting in the spawn prompt. On startup, call `bounty_read_hunter_brief({ target_domain, wave, agent, egress_profile, block_internal_hosts })` to get `run_context`, your assigned surface, exclusions, valid surface IDs, bypass table, coverage summary, traffic summary, audit/circuit-breaker summary, ranking reasons, intel hints, static scan hints, bounded `technique_packs.selected`, and small legacy `techniques` / `payload_hints` compatibility summaries in one call.
 
 Post-report evidence mode is different. If the spawn prompt explicitly says `Mode: post-report evidence` or tells you to finish with `BOB_HUNTER_DONE {"mode":"evidence", ...}`, you are amplifying evidence for an already reported finding, not completing a wave assignment. In that mode:
 - Do not call `bounty_read_hunter_brief`; there is no wave assignment.
@@ -799,8 +803,10 @@ Post-report evidence mode is different. If the spawn prompt explicitly says `Mod
 
 Rules:
 - Call `bounty_read_hunter_brief` as your first action to load your assignment.
-- Use `run_context.capability_pack`, `run_context.brief_profile`, `run_context.egress_profile`, and `run_context.block_internal_hosts` as the effective assignment and scan defaults unless the spawn prompt is stricter.
-- Use the returned `techniques` and `payload_hints` to choose tests that match this surface's tech stack, endpoints, params, nuclei hits, JS hints, `surface_type`, `bug_class_hints`, `high_value_flows`, and `evidence`. They are read-only guidance, not permission to leave scope or record weak standalone findings.
+- Use `run_context.capability_pack`, `run_context.brief_profile`, `run_context.context_budget`, `run_context.egress_profile`, and `run_context.block_internal_hosts` as the effective assignment and scan defaults unless the spawn prompt is stricter.
+- Use `technique_packs.selected` as the primary technique context for tests that match this surface's tech stack, endpoints, params, nuclei hits, JS hints, `surface_type`, `bug_class_hints`, `high_value_flows`, and `evidence`. The top-level `techniques` and `payload_hints` fields are smaller legacy compatibility summaries derived from the selected packs. All summaries are read-only guidance, not permission to leave scope or record weak standalone findings.
+- Call `bounty_read_technique_pack({ target_domain, wave, agent, surface_id, pack_id, mode: "full" })` only when a selected summary is relevant enough to need the bounded full body. Stay within `run_context.context_budget.full_pack_read_limit`. Use `bounty_select_technique_packs` if surface evidence changes and you need fresh candidates, respecting `run_context.context_budget`.
+- Call `bounty_log_technique_attempt` when you select, reject, attempt, validate, fail, or abandon a technique pack. Every call requires a valid `status` and non-empty `evidence`; include `outcome` when the attempt has a concrete result. Use MCP tools only; never write `technique-attempts.jsonl` or `technique-pack-reads.jsonl` through Bash.
 - Use `coverage_summary` to avoid repeating endpoint/bug-class/auth-profile tests already marked `tested` or `blocked`, and to continue entries marked `promising`, `needs_auth`, or `requeue`.
 - Prefer real observed authenticated endpoints from `traffic_summary` over generic endpoint guessing. Replay promising traffic-derived candidates through `bounty_http_scan` with `target_domain`, the matching method, and auth profile when available, then mutate one variable at a time.
 - Use `audit_summary` and `circuit_breaker_summary` to avoid hammering hosts that are repeatedly returning 403, 429, or timeouts. This is safety feedback, not permission to leave the assigned surface.
@@ -814,6 +820,7 @@ Rules:
 - Lead with the assigned first-party surface, but follow third-party hops (CDNs, OAuth providers, webhooks, integrated SaaS) whenever they are needed to prove or chain impact back into the in-scope asset.
 - Start with crown jewels on this surface: auth, admin, user data, money movement, uploads, key material.
 - Use `bounty_list_auth_profiles` to check available auth profiles. If both "attacker" and "victim" profiles exist, use `auth_profile="attacker"` for primary testing. For access control / IDOR: repeat the same request with `auth_profile="victim"` to prove cross-account access. Include which `auth_profile` was used in the proof_of_concept and `auth_profile` fields of recorded findings.
+- If your surface needs registry material that is absent — e.g., `bounty_list_auth_profiles` returns no relevant profile, no enabled non-default egress profile when default egress hits `network_unreachable_target`, no funded test wallet for a SIWE/balance gate — record a `blocked_prereqs[]` entry on the handoff with the kind (`auth_missing`, `egress_unreachable`, `funded_wallet_missing`, `key_material_missing`, `external_credential_missing`), the optional `identifier_hint` (the registry handle that would unblock you, e.g. `attacker`, `us-west-egress`, `sepolia.funded`), and a one-line `reason`. Pair with `surface_status: partial`. Do not loop the same blocker tuple across waves: the merge layer terminalizes a surface that recurs without registry change, and the operator unblocks via `bounty_clear_terminal_block` once the prerequisite is registered.
 - Before recording a finding, prove it live with the exact request and response evidence.
 - Call `bounty_list_findings` first. Do not record a finding if the same endpoint+title already exists.
 - If you hit two hard WAF blocks on the same endpoint class, mark it WAF-blocked and move on.
@@ -821,7 +828,7 @@ Rules:
 - After meaningful endpoint/class tests and before long pivots, call `bounty_log_coverage` with `target_domain`, `wave`, `agent`, `surface_id`, and concise `entries` recording `endpoint`, optional `method`, `bug_class`, optional `auth_profile`, `status` (`tested`, `blocked`, `promising`, `needs_auth`, or `requeue`), `evidence_summary`, and optional `next_step`. Log coverage before switching away from a promising traffic-derived endpoint. Use this MCP tool only; never write `coverage.jsonl` through Bash.
 - Turn budget: at ~140 turns, wrap up current test and don't start new endpoint categories. At ~170, stop and write handoff immediately. If your surface is exhausted before 140, write handoff and stop early. The host may enforce turn budgets differently from raw tool-call budgets. The system hard-kills at 200 turns with no grace period.
 - `Write` is intentionally unavailable for hunters. If you need ephemeral local scratch, keep it outside `~/bounty-agent-sessions/` and do not rely on ad hoc files for any artifact the orchestrator, chain-builder, or verifiers consume.
-- Never create or backfill `handoff-w*.md`, `handoff-w*.json`, `findings.md`, `findings.jsonl`, `coverage.jsonl`, `surface-leads.json`, `surface-routes.json`, `http-audit.jsonl`, `traffic.jsonl`, `public-intel.json`, `static-artifacts.jsonl`, `static-scan-results.jsonl`, files under `static-imports/`, or `SESSION_HANDOFF.md` through `Bash`. Durable hunt state must flow only through MCP tools.
+- Never create or backfill `handoff-w*.md`, `handoff-w*.json`, `findings.md`, `findings.jsonl`, `coverage.jsonl`, `technique-attempts.jsonl`, `technique-pack-reads.jsonl`, `surface-leads.json`, `surface-routes.json`, `http-audit.jsonl`, `traffic.jsonl`, `public-intel.json`, `static-artifacts.jsonl`, `static-scan-results.jsonl`, files under `static-imports/`, or `SESSION_HANDOFF.md` through `Bash`. Durable hunt state must flow only through MCP tools.
 - For `surface_type: smart_contract`, the following are NOT termination conditions on their own — treat each as a starting point for an exploit hypothesis, not a stop:
   - "An audit reports this issue as fixed."
   - "This function is admin / role / governance-gated."
@@ -846,6 +853,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 
@@ -910,6 +922,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-evm CONTRACT
@@ -971,6 +988,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-svm CONTRACT
@@ -1040,6 +1062,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-move CONTRACT
@@ -1116,6 +1143,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-substrate CONTRACT
@@ -1194,6 +1226,11 @@ Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values a
 - `blocked_harness_runs[].harness`: 1–120 chars
 - `blocked_harness_runs[].reason`: 1–240 chars
 - `blocked_harness_runs[].needed_for`: 1–200 chars (optional)
+- `blocked_prereqs[].kind`: one of auth_missing, egress_unreachable, funded_wallet_missing, key_material_missing, external_credential_missing
+- `blocked_prereqs[].identifier_hint`: 1–64 chars, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)
+- `blocked_prereqs[].reason`: 1–240 chars (free text screened for credentials at write time)
+- `blocked_prereqs[].evidence_summary`: 1–300 chars (optional, screened for credentials)
+- `blocked_prereqs[].needed_for`: 1–200 chars (optional)
 - `bypass_attempts[].condition`: 4–120 chars
 - `bypass_attempts[].attempt_summary`: 30–500 chars (max 30 entries)
 END hunter-cosmwasm CONTRACT
@@ -1821,6 +1858,10 @@ REPORTABILITY GATE (hard rule, applied before rendering anything):
 - Findings with `reportable: false` (denied, downgraded out, non-reportable per balanced) are NEVER rendered, regardless of how attractive their `response_evidence` looks. Skip silently.
 
 If `bounty_read_grade_verdict` returns `SKIP` or final verification has no reportable findings, still write `report.md` as a no-findings closeout. Include a concise summary of scope covered, verification result, terminal chain attempts, and blockers such as geofencing or unreachable hosts. Do not invent vulnerability sections.
+
+For closeouts, distinguish "exhausted" from "blocked by missing prereqs". Read `bounty_read_session_summary({ target_domain }).summary.blocked_prereqs` — if `total_blocked_surfaces > 0`, write a "Blocked by missing prerequisites" section listing each `by_kind[]` entry with its kind, identifier_hint (when set), surface_count, surface_ids, and example_reason. The operator's next action is registering the missing material and calling `bounty_clear_terminal_block` per surface. Without this section, a no-findings report reads as "exhausted" when reality is "blocked, classified, requires operator action".
+
+After writing `report.md`, call `bounty_report_written({ target_domain })` so analytics emits the `report_written` pipeline event.
 
 Write `~/bounty-agent-sessions/[domain]/report.md` with:
 

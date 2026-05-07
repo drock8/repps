@@ -106,6 +106,19 @@ const BLOCKED_HARNESS_RUN_KINDS = Object.freeze([
   "other",
 ]);
 
+// JSON-schema enum for blocked_prereqs[].kind. Same three-way mirror as
+// BLOCKED_HARNESS_RUN_KINDS: schema enum, this constant, and waves.js
+// runtime normalizer must agree. Bounded set rather than free-form so the
+// merge layer can group blockers and operators get a finite menu of
+// registry kinds to satisfy.
+const BLOCKED_PREREQ_KINDS = Object.freeze([
+  "auth_missing",
+  "egress_unreachable",
+  "funded_wallet_missing",
+  "key_material_missing",
+  "external_credential_missing",
+]);
+
 function assertBlockedHarnessKindOptions(pack) {
   const raw = assertSpawnField(pack, "blocked_harness_kind_options");
   // Accept "foo" or "foo or bar" — split on " or " and validate each piece.
@@ -153,8 +166,8 @@ function renderClaudeSmartContractCanonicalSpawn() {
     "Wave: w[wave]",
     "Agent: a[agent]",
     "Handoff token: [only this agent's handoff_token from bounty_start_wave.data.assignments]",
-    "Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent].",
-    "First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]' }) and use .data.",
+    "Capability pack: [assignment.capability_pack]. Brief profile: [assignment.brief_profile]. Hunter agent: [assignment.hunter_agent]. Context budget: [assignment.context_budget].",
+    "First action: call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }) and use .data, including run_context.context_budget.",
     "Confirm surface_type is smart_contract AND surface.chain_family matches the catalogue line's chain_family for [assignment.capability_pack]; surface.chain_id matches the catalogue line's chain_id description.",
     "Use bob_spec_status for trust_assumptions, invariants, known_issues, and severity_system metadata. Use rpc_pool.endpoints for non-MCP reads.",
     "Workflow: <copy verbatim from the catalogue line for [assignment.capability_pack]>.",
@@ -189,7 +202,7 @@ function renderCodexHunterPackCatalogue(codexWorkerLabelFor) {
   return [
     renderHunterPackCataloguePreamble(),
     "```text",
-    "For each smart-contract assignment, use Codex spawn_agent with `agent_type: \"worker\"` and a message that: (1) includes the run header (Domain, Wave, Agent, Surface, Capability pack, Brief profile, Hunter agent, Handoff token, Checkpoint mode), (2) inlines the workflow summary, CLI dependency, and blocked_harness_runs[] kind copied verbatim from the catalogue line for [assignment.capability_pack], and (3) includes the worker contract for [assignment.hunter_agent] from Codex Worker Role Contracts.",
+    "For each smart-contract assignment, use Codex spawn_agent with `agent_type: \"worker\"` and a message that: (1) includes the run header (Domain, Wave, Agent, Surface, Capability pack, Brief profile, Hunter agent, Context budget, Egress profile, Block internal hosts, Handoff token, Checkpoint mode), (2) instructs the first action to call bounty_read_hunter_brief({ target_domain: '[domain]', wave: 'w[wave]', agent: 'a[agent]', egress_profile: '[egress_profile]', block_internal_hosts: [block_internal_hosts] }), (3) inlines the workflow summary, CLI dependency, and blocked_harness_runs[] kind copied verbatim from the catalogue line for [assignment.capability_pack], and (4) includes the worker contract for [assignment.hunter_agent] from Codex Worker Role Contracts.",
     "```",
     "",
     "Pack catalogue (lookup by `assignment.capability_pack`):",
@@ -230,6 +243,7 @@ function describeStringLimits(propertySchema) {
 function renderHandoffFieldLimits() {
   const props = writeWaveHandoffTool.inputSchema.properties;
   const blockedHarnessProps = props.blocked_harness_runs.items.properties;
+  const blockedPrereqProps = props.blocked_prereqs.items.properties;
   const bypassAttemptProps = props.bypass_attempts.items.properties;
   const lines = [
     "Handoff field limits (enforced by `bounty_write_wave_handoff`; oversize values are rejected):",
@@ -238,6 +252,11 @@ function renderHandoffFieldLimits() {
     `- \`blocked_harness_runs[].harness\`: ${describeStringLimits(blockedHarnessProps.harness)}`,
     `- \`blocked_harness_runs[].reason\`: ${describeStringLimits(blockedHarnessProps.reason)}`,
     `- \`blocked_harness_runs[].needed_for\`: ${describeStringLimits(blockedHarnessProps.needed_for)} (optional)`,
+    `- \`blocked_prereqs[].kind\`: one of ${BLOCKED_PREREQ_KINDS.join(", ")}`,
+    `- \`blocked_prereqs[].identifier_hint\`: ${describeStringLimits(blockedPrereqProps.identifier_hint)}, lowercase alphanumeric + ._- only (optional, no secrets — registry handle when known)`,
+    `- \`blocked_prereqs[].reason\`: ${describeStringLimits(blockedPrereqProps.reason)} (free text screened for credentials at write time)`,
+    `- \`blocked_prereqs[].evidence_summary\`: ${describeStringLimits(blockedPrereqProps.evidence_summary)} (optional, screened for credentials)`,
+    `- \`blocked_prereqs[].needed_for\`: ${describeStringLimits(blockedPrereqProps.needed_for)} (optional)`,
     `- \`bypass_attempts[].condition\`: ${describeStringLimits(bypassAttemptProps.condition)}`,
     `- \`bypass_attempts[].attempt_summary\`: ${describeStringLimits(bypassAttemptProps.attempt_summary)} (max ${props.bypass_attempts.maxItems} entries)`,
   ];
@@ -251,6 +270,7 @@ function substituteHandoffFieldLimits(document) {
 
 module.exports = {
   BLOCKED_HARNESS_RUN_KINDS,
+  BLOCKED_PREREQ_KINDS,
   CAPABILITY_PACK_VERIFIER_TABLE_PLACEHOLDER,
   HANDOFF_FIELD_LIMITS_PLACEHOLDER,
   HUNTER_PACK_CATALOGUE_PLACEHOLDER,
