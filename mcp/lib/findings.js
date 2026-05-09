@@ -939,6 +939,9 @@ function normalizeVerificationRoundDocument(document, { expectedDomain, expected
   };
 
   if (version === 2) {
+    if (document.plan_hash != null) {
+      throw new Error("plan_hash is not supported; use adjudication_plan_hash");
+    }
     normalized.verification_attempt_id = assertNonEmptyString(document.verification_attempt_id, "verification_attempt_id");
     normalized.verification_snapshot_hash = assertNonEmptyString(document.verification_snapshot_hash, "verification_snapshot_hash");
     normalized.round_profile = assertRequiredText(document.round_profile, "round_profile");
@@ -1076,11 +1079,14 @@ function writeVerificationRound(args) {
       }
     }
   } else {
+    if (args.plan_hash != null) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "plan_hash is not supported; use adjudication_plan_hash");
+    }
     verificationLib().assertExactFindingCoverage(results, v2Snapshot.finding_ids, round);
     if (round === "final") {
-      const planHash = assertNonEmptyString(args.adjudication_plan_hash, "adjudication_plan_hash");
+      const adjudicationPlanHash = assertNonEmptyString(args.adjudication_plan_hash, "adjudication_plan_hash");
       v2Adjudication = verificationLib().requireCurrentAdjudication(domain, {
-        planHash,
+        adjudicationPlanHash,
         state: v2State,
         snapshot: v2Snapshot,
       });
@@ -1103,7 +1109,7 @@ function writeVerificationRound(args) {
       ? round
       : assertRequiredText(args.round_profile, "round_profile");
     if (round === "final") {
-      document.adjudication_plan_hash = v2Adjudication.plan_hash;
+      document.adjudication_plan_hash = v2Adjudication.adjudication_plan_hash;
       document.final_verification_hash = verificationLib().finalVerificationHash(document);
       verificationLib().validateFinalAgainstAdjudication(domain, document, v2Adjudication);
     }
@@ -1121,6 +1127,7 @@ function writeVerificationRound(args) {
   if (schemaVersion === 2) {
     response.verification_attempt_id = v2State.verification_attempt_id;
     response.verification_snapshot_hash = v2State.verification_snapshot_hash;
+    if (document.adjudication_plan_hash) response.adjudication_plan_hash = document.adjudication_plan_hash;
     if (document.final_verification_hash) response.final_verification_hash = document.final_verification_hash;
   }
   writeMarkdownMirror(paths.markdown, renderVerificationRoundMarkdown(document), response);
@@ -1130,6 +1137,7 @@ function writeVerificationRound(args) {
     source: "bounty_write_verification_round",
     verification_attempt_id: schemaVersion === 2 ? v2State.verification_attempt_id : undefined,
     verification_snapshot_hash: schemaVersion === 2 ? v2State.verification_snapshot_hash : undefined,
+    adjudication_plan_hash: schemaVersion === 2 && round === "final" ? document.adjudication_plan_hash : undefined,
     final_verification_hash: schemaVersion === 2 && round === "final" ? document.final_verification_hash : undefined,
     counts: {
       results: results.length,
@@ -1137,6 +1145,7 @@ function writeVerificationRound(args) {
       confirmed: results.filter((result) => result.disposition === "confirmed").length,
     },
   });
+  if (schemaVersion === 2) verificationLib().refreshVerificationManifest(domain);
   return JSON.stringify(response);
 }
 

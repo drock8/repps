@@ -577,6 +577,9 @@ function transitionPhase(args) {
     };
 
     writeSessionStateDocument(domain, raw, nextState);
+    if (verificationEntry && verificationEntry.schema_version === 2) {
+      verificationLib().refreshVerificationManifest(domain);
+    }
     const eventFields = {
       from_phase: fromPhase,
       to_phase: toPhase,

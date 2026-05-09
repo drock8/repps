@@ -165,8 +165,8 @@ If `schema_version === 2`, use the attempt-scoped independent flow:
 {{SPAWN_BRUTALIST_VERIFIER}}
 {{SPAWN_BALANCED_VERIFIER}}
 3. After both complete, call `bounty_read_verification_context({ target_domain })` again. Require brutalist and balanced statuses to be `current: true`; retry a missing/invalid worker once.
-4. Call `bounty_build_verification_adjudication({ target_domain })`. Use only its returned `.data.plan_hash` and adjudication payload; do not compute diffs in prose or ask the final verifier to compute diffs.
-5. Launch the final verifier with current attempt ID, snapshot hash, and `plan_hash`. The final verifier must consume the adjudication plan hash and write `round="final"` with `adjudication_plan_hash`.
+4. Call `bounty_build_verification_adjudication({ target_domain })`. Use only its returned `.data.adjudication_plan_hash` and adjudication payload; do not compute diffs in prose or ask the final verifier to compute diffs.
+5. Launch the final verifier with current attempt ID, snapshot hash, and `adjudication_plan_hash`. The final verifier must consume the adjudication plan hash and write `round="final"` with `adjudication_plan_hash`.
 {{SPAWN_FINAL_VERIFIER}}
 
 After final verification in either branch, read `bounty_read_verification_round(round='final').data`. For v2, require `.data.current === true` and no `stale` flag. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:

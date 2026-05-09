@@ -115,6 +115,24 @@ function safeReadJson(filePath) {
   }
 }
 
+function readJsonArtifact(filePath, label) {
+  const result = {
+    exists: fs.existsSync(filePath),
+    path: filePath,
+    document: null,
+    artifact_hash: null,
+    error: null,
+  };
+  if (!result.exists) return result;
+  try {
+    result.document = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    result.artifact_hash = hashCanonicalJson(result.document);
+  } catch (error) {
+    result.error = `Malformed ${label}: ${error.message || String(error)}`;
+  }
+  return result;
+}
+
 function readStateSafe(domain) {
   try {
     return sessionStateLib().readSessionStateStrict(domain).state;
@@ -333,6 +351,7 @@ function pruneOldVerificationArchives(domain) {
 
 function archiveCurrentV2Attempt(domain, { attemptId, snapshotHash }) {
   if (!attemptId && !hasCurrentV2Files(domain)) return null;
+  refreshVerificationManifest(domain);
   const archivedAt = new Date().toISOString();
   const archiveDir = path.join(verificationAttemptsDir(domain), `attempt-${sanitizeAttemptId(attemptId || "unknown")}`);
   if (fs.existsSync(archiveDir)) {
@@ -341,7 +360,7 @@ function archiveCurrentV2Attempt(domain, { attemptId, snapshotHash }) {
 
   const files = {};
   const missingFiles = [];
-  let planHash = null;
+  let adjudicationPlanHash = null;
   let finalVerificationHash = null;
   try {
     fs.mkdirSync(archiveDir, { recursive: true });
@@ -355,7 +374,9 @@ function archiveCurrentV2Attempt(domain, { attemptId, snapshotHash }) {
       files[name] = hashFile(targetPath);
       if (name === "verification-adjudication.json") {
         const doc = safeReadJson(targetPath);
-        if (doc && typeof doc.plan_hash === "string") planHash = doc.plan_hash;
+        if (doc && typeof doc.adjudication_plan_hash === "string") {
+          adjudicationPlanHash = doc.adjudication_plan_hash;
+        }
       }
       if (name === "verified-final.json") {
         const doc = safeReadJson(targetPath);
@@ -369,7 +390,7 @@ function archiveCurrentV2Attempt(domain, { attemptId, snapshotHash }) {
       attempt_id: attemptId || "unknown",
       archived_at: archivedAt,
       snapshot_hash: snapshotHash || null,
-      ...(planHash ? { plan_hash: planHash } : {}),
+      ...(adjudicationPlanHash ? { adjudication_plan_hash: adjudicationPlanHash } : {}),
       ...(finalVerificationHash ? { final_verification_hash: finalVerificationHash } : {}),
       files,
       missing_files: missingFiles,
@@ -381,7 +402,7 @@ function archiveCurrentV2Attempt(domain, { attemptId, snapshotHash }) {
       source: "verification_v2",
       verification_attempt_id: attemptId || "unknown",
       verification_snapshot_hash: snapshotHash || undefined,
-      plan_hash: planHash || undefined,
+      adjudication_plan_hash: adjudicationPlanHash || undefined,
       final_verification_hash: finalVerificationHash || undefined,
       counts: {
         files: Object.keys(files).length,
@@ -426,14 +447,6 @@ function prepareVerificationEntry(domain, state, { now = new Date() } = {}) {
   const attemptId = verificationAttemptId(now);
   const snapshot = buildVerificationSnapshot(domain, { attemptId, createdAt: enteredAt });
   writeFileAtomic(verificationSnapshotPath(domain), `${JSON.stringify(snapshot, null, 2)}\n`);
-  writeFileAtomic(verificationManifestPath(domain), `${JSON.stringify({
-    version: 1,
-    schema_version: VERIFICATION_SCHEMA_V2,
-    target_domain: domain,
-    attempt_id: attemptId,
-    snapshot_hash: snapshot.snapshot_hash,
-    entered_at: enteredAt,
-  }, null, 2)}\n`);
   safeAppendPipelineEvent(domain, "verification_snapshot_created", {
     phase: "VERIFY",
     status: "created",
@@ -605,7 +618,7 @@ function deterministicQaSample(targetDomain, state, snapshot, candidates) {
 
 function adjudicationHashPayload(document) {
   const clone = cloneJson(document);
-  delete clone.plan_hash;
+  delete clone.adjudication_plan_hash;
   delete clone.built_at;
   return clone;
 }
@@ -715,11 +728,11 @@ function buildVerificationAdjudication(args) {
       qa_sampled: qaSampledIds.length,
     },
   };
-  const planHash = computeAdjudicationPlanHash(payload);
+  const adjudicationPlanHash = computeAdjudicationPlanHash(payload);
   const document = {
     ...payload,
     built_at: new Date().toISOString(),
-    plan_hash: planHash,
+    adjudication_plan_hash: adjudicationPlanHash,
   };
   writeFileAtomic(verificationAdjudicationPath(domain), `${JSON.stringify(document, null, 2)}\n`);
   safeAppendPipelineEvent(domain, "verification_adjudication_built", {
@@ -728,7 +741,7 @@ function buildVerificationAdjudication(args) {
     source: "bounty_build_verification_adjudication",
     verification_attempt_id: state.verification_attempt_id,
     verification_snapshot_hash: state.verification_snapshot_hash,
-    plan_hash: planHash,
+    adjudication_plan_hash: adjudicationPlanHash,
     counts: {
       agreed: agreed.length,
       disagreements: disagreements.length,
@@ -736,20 +749,24 @@ function buildVerificationAdjudication(args) {
       qa_sampled: qaSampledIds.length,
     },
   });
+  refreshVerificationManifest(domain);
   return JSON.stringify({
     version: 1,
     target_domain: domain,
     verification_attempt_id: state.verification_attempt_id,
     verification_snapshot_hash: state.verification_snapshot_hash,
-    plan_hash: planHash,
+    adjudication_plan_hash: adjudicationPlanHash,
     counts: document.counts,
     written_json: verificationAdjudicationPath(domain),
   });
 }
 
-function requireCurrentAdjudication(domain, { planHash = null, state = null, snapshot = null } = {}) {
+function requireCurrentAdjudication(domain, { adjudicationPlanHash = null, state = null, snapshot = null } = {}) {
   const effective = state && snapshot ? { state, snapshot } : requireV2State(domain);
   const document = loadJsonDocumentStrict(verificationAdjudicationPath(domain), "verification adjudication JSON");
+  if (Object.prototype.hasOwnProperty.call(document, "plan_hash")) {
+    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "verification adjudication must not contain plan_hash; use adjudication_plan_hash");
+  }
   if (document.version !== 1 || document.schema_version !== VERIFICATION_SCHEMA_V2) {
     throw new ToolError(ERROR_CODES.STATE_CONFLICT, "verification adjudication artifact is not v2");
   }
@@ -760,11 +777,11 @@ function requireCurrentAdjudication(domain, { planHash = null, state = null, sna
     throw new ToolError(ERROR_CODES.STATE_CONFLICT, "verification adjudication is stale: snapshot mismatch");
   }
   const recomputed = computeAdjudicationPlanHash(document);
-  if (document.plan_hash !== recomputed) {
-    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "verification adjudication plan_hash mismatch");
+  if (document.adjudication_plan_hash !== recomputed) {
+    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "verification adjudication adjudication_plan_hash mismatch");
   }
-  if (planHash != null && planHash !== document.plan_hash) {
-    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "final verification plan_hash does not match the current adjudication plan");
+  if (adjudicationPlanHash != null && adjudicationPlanHash !== document.adjudication_plan_hash) {
+    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "final verification adjudication_plan_hash does not match the current adjudication plan");
   }
   return document;
 }
@@ -782,8 +799,8 @@ function validateFinalAgainstAdjudication(domain, finalDocument, adjudication) {
       throw new ToolError(ERROR_CODES.STATE_CONFLICT, `final verification cannot downgrade state_sensitive=false for ${result.finding_id}`);
     }
   }
-  if (finalDocument.adjudication_plan_hash !== adjudication.plan_hash) {
-    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "final verification must reference the current adjudication plan_hash");
+  if (finalDocument.adjudication_plan_hash !== adjudication.adjudication_plan_hash) {
+    throw new ToolError(ERROR_CODES.STATE_CONFLICT, "final verification must reference the current adjudication_plan_hash");
   }
 }
 
@@ -1018,12 +1035,17 @@ function adjudicationStatus(domain, state) {
     current: false,
     stale: false,
     blocker_reason: null,
-    plan_hash: null,
+    adjudication_plan_hash: null,
   };
   if (!status.exists) return status;
   try {
     const doc = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    status.plan_hash = typeof doc.plan_hash === "string" ? doc.plan_hash : null;
+    if (Object.prototype.hasOwnProperty.call(doc, "plan_hash")) {
+      status.stale = true;
+      status.blocker_reason = "plan_hash is not supported; use adjudication_plan_hash";
+      return status;
+    }
+    status.adjudication_plan_hash = typeof doc.adjudication_plan_hash === "string" ? doc.adjudication_plan_hash : null;
     if (!state || state.verification_schema_version !== VERIFICATION_SCHEMA_V2) {
       status.stale = true;
       status.blocker_reason = "no current v2 verification attempt is active";
@@ -1033,9 +1055,9 @@ function adjudicationStatus(domain, state) {
     } else if (doc.verification_snapshot_hash !== state.verification_snapshot_hash) {
       status.stale = true;
       status.blocker_reason = "snapshot mismatch";
-    } else if (computeAdjudicationPlanHash(doc) !== doc.plan_hash) {
+    } else if (computeAdjudicationPlanHash(doc) !== doc.adjudication_plan_hash) {
       status.stale = true;
-      status.blocker_reason = "plan_hash mismatch";
+      status.blocker_reason = "adjudication_plan_hash mismatch";
     } else {
       status.current = true;
     }
@@ -1070,13 +1092,235 @@ function evidenceMatchStatus(domain) {
   }
 }
 
+function missingBlocker(status, label) {
+  if (!status.exists && !status.blocker_reason) {
+    status.blocker_reason = `missing ${label}`;
+  }
+  return status;
+}
+
+function snapshotManifestStatus(domain, state) {
+  const read = readJsonArtifact(verificationSnapshotPath(domain), "verification input snapshot JSON");
+  const status = {
+    exists: read.exists,
+    current: false,
+    stale: false,
+    artifact_hash: read.artifact_hash,
+    attempt_id: null,
+    snapshot_hash: null,
+    input_hashes: null,
+    blocker_reason: null,
+    error: read.error,
+  };
+  if (!status.exists) return missingBlocker(status, "verification-input-snapshot.json");
+  if (read.error) {
+    status.stale = true;
+    status.blocker_reason = read.error;
+    return status;
+  }
+  const doc = read.document;
+  if (!isPlainObject(doc)) {
+    status.stale = true;
+    status.blocker_reason = "verification input snapshot JSON must be an object";
+    return status;
+  }
+  status.attempt_id = typeof doc.verification_attempt_id === "string" ? doc.verification_attempt_id : null;
+  status.snapshot_hash = typeof doc.snapshot_hash === "string" ? doc.snapshot_hash : null;
+  status.input_hashes = isPlainObject(doc.input_hashes) ? cloneJson(doc.input_hashes) : null;
+  if (!state || state.verification_schema_version !== VERIFICATION_SCHEMA_V2) {
+    status.stale = true;
+    status.blocker_reason = "no current v2 verification attempt is active";
+    return status;
+  }
+  if (doc.verification_attempt_id !== state.verification_attempt_id) {
+    status.stale = true;
+    status.blocker_reason = "attempt mismatch";
+    return status;
+  }
+  if (doc.snapshot_hash !== state.verification_snapshot_hash) {
+    status.stale = true;
+    status.blocker_reason = "snapshot mismatch";
+    return status;
+  }
+  try {
+    if (recomputeSnapshotHash(domain, doc) !== state.verification_snapshot_hash) {
+      status.stale = true;
+      status.blocker_reason = VERIFICATION_INPUT_CHANGED_MESSAGE;
+      return status;
+    }
+  } catch (error) {
+    status.stale = true;
+    status.blocker_reason = error.message || String(error);
+    return status;
+  }
+  status.current = true;
+  return status;
+}
+
+function adjudicationManifestStatus(domain, state) {
+  const read = readJsonArtifact(verificationAdjudicationPath(domain), "verification adjudication JSON");
+  const status = {
+    ...adjudicationStatus(domain, state),
+    artifact_hash: read.artifact_hash,
+    input_round_hashes: null,
+    error: read.error,
+  };
+  if (!status.exists) return missingBlocker(status, "verification-adjudication.json");
+  if (read.error) {
+    status.stale = true;
+    status.blocker_reason = read.error;
+    return status;
+  }
+  if (isPlainObject(read.document) && isPlainObject(read.document.input_round_hashes)) {
+    status.input_round_hashes = cloneJson(read.document.input_round_hashes);
+  }
+  return status;
+}
+
+function roundManifestStatus(domain, round, state) {
+  const status = roundStatus(domain, round, state);
+  const paths = verificationRoundPaths(domain, round);
+  const read = readJsonArtifact(paths.json, `${round} verification round JSON`);
+  status.artifact_hash = read.artifact_hash;
+  status.final_verification_hash = isPlainObject(read.document)
+    ? (typeof read.document.final_verification_hash === "string" ? read.document.final_verification_hash : null)
+    : null;
+  status.adjudication_plan_hash = isPlainObject(read.document)
+    ? (typeof read.document.adjudication_plan_hash === "string" ? read.document.adjudication_plan_hash : null)
+    : null;
+  status.error = read.error;
+  if (!status.exists) return missingBlocker(status, `${path.basename(paths.json)}`);
+  if (read.error && !status.blocker_reason) status.blocker_reason = read.error;
+  return status;
+}
+
+function evidenceManifestStatus(domain) {
+  const paths = evidencePackPaths(domain);
+  const read = readJsonArtifact(paths.json, "evidence packs JSON");
+  const match = evidenceMatchStatus(domain);
+  const status = {
+    exists: match.exists,
+    current: match.valid === true,
+    valid: match.valid === true,
+    skipped: match.skipped === true,
+    artifact_hash: read.artifact_hash,
+    verification_attempt_id: isPlainObject(read.document) && typeof read.document.verification_attempt_id === "string"
+      ? read.document.verification_attempt_id
+      : null,
+    verification_snapshot_hash: isPlainObject(read.document) && typeof read.document.verification_snapshot_hash === "string"
+      ? read.document.verification_snapshot_hash
+      : null,
+    final_verification_hash: isPlainObject(read.document) && typeof read.document.final_verification_hash === "string"
+      ? read.document.final_verification_hash
+      : null,
+    final_reportable_count: Number.isInteger(match.final_reportable_count) ? match.final_reportable_count : null,
+    packs_count: Number.isInteger(match.packs_count) ? match.packs_count : 0,
+    missing_finding_ids: Array.isArray(match.missing_finding_ids) ? match.missing_finding_ids.slice() : [],
+    blocker_reason: match.blocker_reason || null,
+    error: read.error,
+  };
+  if (status.skipped) {
+    status.exists = false;
+    status.current = true;
+    status.valid = true;
+    status.blocker_reason = null;
+    return status;
+  }
+  if (read.error && !status.blocker_reason) status.blocker_reason = read.error;
+  if (!status.exists && !status.blocker_reason) {
+    status.blocker_reason = "missing evidence-packs.json";
+  }
+  return status;
+}
+
+function appendManifestBlocker(blockers, artifact, status) {
+  if (!status) return;
+  const reason = status.blocker_reason || status.error;
+  if (!reason) return;
+  blockers.push({ artifact, reason });
+}
+
+function manifestBlockers(domain, snapshot, rounds, adjudication, evidence) {
+  const blockers = [];
+  appendManifestBlocker(blockers, "verification-input-snapshot.json", snapshot);
+  for (const round of VERIFICATION_ROUND_VALUES) {
+    const paths = verificationRoundPaths(domain, round);
+    appendManifestBlocker(blockers, path.basename(paths.json), rounds[round]);
+  }
+  appendManifestBlocker(blockers, "verification-adjudication.json", adjudication);
+  appendManifestBlocker(blockers, "evidence-packs.json", evidence);
+  return blockers;
+}
+
+function refreshVerificationManifest(domain, opts = {}) {
+  try {
+    const targetDomain = assertNonEmptyString(domain, "target_domain");
+    const state = readStateSafe(targetDomain);
+    const schemaVersion = schemaVersionForContext(targetDomain);
+    const snapshot = snapshotManifestStatus(targetDomain, state);
+    const rounds = Object.fromEntries(
+      VERIFICATION_ROUND_VALUES.map((round) => [round, roundManifestStatus(targetDomain, round, state)]),
+    );
+    const adjudication = adjudicationManifestStatus(targetDomain, state);
+    const evidence = evidenceManifestStatus(targetDomain);
+    const finalVerificationHash = rounds.final && rounds.final.final_verification_hash
+      ? rounds.final.final_verification_hash
+      : evidence.final_verification_hash;
+    const blockers = manifestBlockers(targetDomain, snapshot, rounds, adjudication, evidence);
+    const chainComplete = (
+      schemaVersion === VERIFICATION_SCHEMA_V2 &&
+      snapshot.current === true &&
+      rounds.brutalist.current === true &&
+      rounds.balanced.current === true &&
+      adjudication.current === true &&
+      rounds.final.current === true &&
+      evidence.current === true
+    );
+    const manifest = {
+      version: 1,
+      schema_version: schemaVersion,
+      target_domain: targetDomain,
+      generated_at: new Date().toISOString(),
+      current_attempt_id: state ? state.verification_attempt_id || null : null,
+      attempt_id: state ? state.verification_attempt_id || null : null,
+      snapshot_hash: state ? state.verification_snapshot_hash || null : null,
+      adjudication_plan_hash: adjudication.adjudication_plan_hash || null,
+      final_verification_hash: finalVerificationHash || null,
+      chain_hashes: {
+        verification_snapshot_hash: state ? state.verification_snapshot_hash || null : null,
+        input_hashes: snapshot.input_hashes || null,
+        input_round_hashes: adjudication.input_round_hashes || null,
+        adjudication_plan_hash: adjudication.adjudication_plan_hash || null,
+        final_verification_hash: finalVerificationHash || null,
+      },
+      chain_complete: chainComplete,
+      blockers,
+      artifacts: {
+        snapshot,
+        rounds,
+        adjudication,
+        evidence,
+      },
+    };
+    const filePath = verificationManifestPath(targetDomain);
+    writeFileAtomic(filePath, `${JSON.stringify(manifest, null, 2)}\n`);
+    return { ok: true, written_json: filePath, manifest };
+  } catch (error) {
+    if (opts.throw_on_error) throw error;
+    return {
+      ok: false,
+      error: error.message || String(error),
+    };
+  }
+}
+
 function nextVerificationAction({ schemaVersion, state, rounds, adjudication, evidence, staleBlockers }) {
   if (schemaVersion === VERIFICATION_SCHEMA_V1) return "continue v1 sequential verification cascade";
   if (!state || !state.verification_attempt_id) return "transition CHAIN -> VERIFY to create v2 verification attempt";
   if (staleBlockers.length > 0) return "restart VERIFY/adjudication";
   if (!rounds.brutalist.current || !rounds.balanced.current) return "run independent brutalist and balanced verifier rounds";
   if (!adjudication.current) return "call bounty_build_verification_adjudication";
-  if (!rounds.final.current) return "run final verifier with the current adjudication plan_hash";
+  if (!rounds.final.current) return "run final verifier with the current adjudication_plan_hash";
   if (!evidence.valid) return "write or repair evidence packs for current final verification";
   return "transition VERIFY -> GRADE";
 }
@@ -1146,6 +1390,7 @@ module.exports = {
   readVerificationContext,
   requireCurrentAdjudication,
   requireV2State,
+  refreshVerificationManifest,
   runWithReplaySafety,
   selectVerificationWriteSchemaVersion,
   validateCurrentAttemptArgs,

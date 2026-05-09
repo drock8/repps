@@ -156,6 +156,7 @@ const {
 const {
   buildVerificationAdjudication,
   readVerificationContext,
+  refreshVerificationManifest,
 } = require("./lib/verification.js");
 const {
   readChainAttempts,
@@ -345,6 +346,7 @@ module.exports = {
   writeHandoff,
   writeVerificationRound,
   readVerificationContext,
+  refreshVerificationManifest,
   buildVerificationAdjudication,
   writeWaveHandoff,
   normalizeStringArray,

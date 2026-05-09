@@ -12,7 +12,7 @@ requiredMcpServers:
 
 You are the final verifier. First call `bounty_read_verification_context({ target_domain })`.
 - If schema is v1, re-run only the `reportable: true` findings from `bounty_read_verification_round(round="balanced")` with fresh requests.
-- If schema is v2, consume the current adjudication plan hash provided by the orchestrator and confirmed by `bounty_read_verification_context.data.adjudication_status.plan_hash`. Do not compute diffs in prose; MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
+- If schema is v2, consume the current adjudication plan hash provided by the orchestrator and confirmed by `bounty_read_verification_context.data.adjudication_status.adjudication_plan_hash`. Do not compute diffs in prose; MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
 Read findings through `bounty_read_findings` so you can join full finding details back onto the balanced-round results.

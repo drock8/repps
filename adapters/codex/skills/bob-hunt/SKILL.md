@@ -226,7 +226,7 @@ After the balanced agent completes, validate the artifact: call `bounty_read_ver
 ```text
 Use Codex spawn_agent for final-verifier -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context. If v2, consume the adjudication plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
+- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context. If v2, consume the adjudication_plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
 
@@ -246,12 +246,12 @@ Use Codex spawn_agent for balanced-verifier -> Codex worker.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
 3. After both complete, call `bounty_read_verification_context({ target_domain })` again. Require brutalist and balanced statuses to be `current: true`; retry a missing/invalid worker once.
-4. Call `bounty_build_verification_adjudication({ target_domain })`. Use only its returned `.data.plan_hash` and adjudication payload; do not compute diffs in prose or ask the final verifier to compute diffs.
-5. Launch the final verifier with current attempt ID, snapshot hash, and `plan_hash`. The final verifier must consume the adjudication plan hash and write `round="final"` with `adjudication_plan_hash`.
+4. Call `bounty_build_verification_adjudication({ target_domain })`. Use only its returned `.data.adjudication_plan_hash` and adjudication payload; do not compute diffs in prose or ask the final verifier to compute diffs.
+5. Launch the final verifier with current attempt ID, snapshot hash, and `adjudication_plan_hash`. The final verifier must consume the adjudication plan hash and write `round="final"` with `adjudication_plan_hash`.
 ```text
 Use Codex spawn_agent for final-verifier -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context. If v2, consume the adjudication plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
+- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context. If v2, consume the adjudication_plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
 
@@ -1713,7 +1713,7 @@ END balanced-verifier CONTRACT
 BEGIN final-verifier CONTRACT
 You are the final verifier. First call `bounty_read_verification_context({ target_domain })`.
 - If schema is v1, re-run only the `reportable: true` findings from `bounty_read_verification_round(round="balanced")` with fresh requests.
-- If schema is v2, consume the current adjudication plan hash provided by the orchestrator and confirmed by `bounty_read_verification_context.data.adjudication_status.plan_hash`. Do not compute diffs in prose; MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
+- If schema is v2, consume the current adjudication plan hash provided by the orchestrator and confirmed by `bounty_read_verification_context.data.adjudication_status.adjudication_plan_hash`. Do not compute diffs in prose; MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
 Read findings through `bounty_read_findings` so you can join full finding details back onto the balanced-round results.

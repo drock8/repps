@@ -88,7 +88,7 @@ const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
   ].join("\n"),
   "{{SPAWN_FINAL_VERIFIER}}": [
     "```",
-    "Agent(subagent_type: \"final-verifier\", name: \"final-verify\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v2, consume the current adjudication plan_hash from the orchestrator/context, do not compute diffs, pass verification_replay context on replay tools, and write round='final' with verification_attempt_id, verification_snapshot_hash, and adjudication_plan_hash. If v1, read balanced and use the legacy final cascade.\")",
+    "Agent(subagent_type: \"final-verifier\", name: \"final-verify\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v2, consume the current adjudication_plan_hash from the orchestrator/context, do not compute diffs, pass verification_replay context on replay tools, and write round='final' with verification_attempt_id, verification_snapshot_hash, and adjudication_plan_hash. If v1, read balanced and use the legacy final cascade.\")",
     "```",
   ].join("\n"),
   "{{SPAWN_EVIDENCE_AGENT}}": [

@@ -232,7 +232,7 @@ function normalizePipelineEvent(targetDomain, type, fields = {}) {
   for (const [sourceField, maxChars] of [
     ["verification_attempt_id", 120],
     ["verification_snapshot_hash", 128],
-    ["plan_hash", 128],
+    ["adjudication_plan_hash", 128],
     ["final_verification_hash", 128],
     ["capability_pack", 128],
     ["lease_scope", 80],
@@ -353,7 +353,7 @@ function normalizePipelineEventForRead(record, expectedDomain) {
     target_domain: targetDomain,
     type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
+  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "adjudication_plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
     const safe = capString(record[field], field === "surface_id" ? 200 : (field === "kind" || field === "identifier_hint" ? 64 : 120));
     if (safe) event[field] = safe;
   }
@@ -732,7 +732,7 @@ function summarizeVerificationArtifacts(targetDomain) {
     exists: adjudicationRead.exists,
     current_attempt_id: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.verification_attempt_id, 120) : null,
     snapshot_hash: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.verification_snapshot_hash, 128) : null,
-    plan_hash: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.plan_hash, 128) : null,
+    adjudication_plan_hash: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.adjudication_plan_hash, 128) : null,
     agreed_count: isPlainObject(adjudicationRead.document) && Array.isArray(adjudicationRead.document.agreed)
       ? adjudicationRead.document.agreed.length
       : 0,
@@ -816,7 +816,7 @@ function summarizeArchivedVerificationAttempts(targetDomain) {
         archive_dir: archiveDir,
         archived_at: isPlainObject(manifestRead.document) ? capString(manifestRead.document.archived_at, 80) : null,
         snapshot_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.snapshot_hash, 128) : null,
-        plan_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.plan_hash, 128) : null,
+        adjudication_plan_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.adjudication_plan_hash, 128) : null,
         final_verification_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.final_verification_hash, 128) : null,
         files_count: isPlainObject(manifestRead.document) && isPlainObject(manifestRead.document.files)
           ? Object.keys(manifestRead.document.files).length
@@ -1255,7 +1255,7 @@ function compactEvent(event) {
     target_domain: event.target_domain,
     type: event.type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
+  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "adjudication_plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
     if (event[field] != null) compact[field] = event[field];
   }
   return compact;

@@ -450,6 +450,7 @@ function writeEvidencePacks(args) {
         reportable_findings_covered: reportableIds.length,
       },
     });
+    if (verificationBinding) verificationLib().refreshVerificationManifest(domain);
     return JSON.stringify(response);
   });
 }

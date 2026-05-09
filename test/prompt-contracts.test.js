@@ -464,6 +464,15 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.equal(TOOL_MANIFEST.bounty_log_technique_attempt.mutating, true);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_technique_pack.session_artifacts_written, ["technique-pack-reads.jsonl"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_log_technique_attempt.session_artifacts_written, ["technique-attempts.jsonl"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_transition_phase.session_artifacts_written, [
+    "state.json",
+    "verification-input-snapshot.json",
+    "verification-manifest.json",
+    "verification-attempts/attempt-*/",
+  ]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_verification_round.session_artifacts_written, ["brutalist.json", "balanced.json", "verified-final.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.session_artifacts_written, ["verification-adjudication.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.session_artifacts_written, ["evidence-packs.json", "evidence-packs.md", "verification-manifest.json"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_verification_context.role_bundles, ["orchestrator", "verifier", "evidence", "grader", "reporter"]);
@@ -676,7 +685,8 @@ test("v2 verification prompt contracts use context, independent rounds, adjudica
   assert.match(orchestrator, /bounty_read_verification_context/);
   assert.match(orchestrator, /schema_version === 2/);
   assert.match(orchestrator, /bounty_build_verification_adjudication/);
-  assert.match(orchestrator, /plan_hash/);
+  assert.match(orchestrator, /adjudication_plan_hash/);
+  assert.doesNotMatch(orchestrator.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
   assert.match(orchestrator, /replay_execution_policy/);
 
   assert.match(brutalist, /verification_attempt_id/);
@@ -691,6 +701,7 @@ test("v2 verification prompt contracts use context, independent rounds, adjudica
   assert.match(balanced, /round: "balanced"/);
 
   assert.match(final, /adjudication_plan_hash/);
+  assert.doesNotMatch(final.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
   assert.match(final, /do not compute diffs/i);
   assert.match(final, /inherited_confidence_reasons/);
   assert.match(final, /resolved_confidence_reasons/);

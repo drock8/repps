@@ -12,6 +12,9 @@ const os = require("os");
 const path = require("path");
 const serverModule = require("../mcp/server.js");
 const {
+  computeAdjudicationPlanHash,
+} = require("../mcp/lib/verification.js");
+const {
   TECHNIQUE_FULL_ITEM_MAX_CHARS,
   TECHNIQUE_FULL_ITEMS_PER_KIND,
   TECHNIQUE_SELECTION_MAX_CHARS,
@@ -143,6 +146,7 @@ const {
   readGradeVerdict,
   readVerificationRound,
   readVerificationContext,
+  refreshVerificationManifest,
   readWaveHandoffs,
   recordFinding,
   recordSurfaceLeads,
@@ -673,7 +677,7 @@ function seedVerificationPipeline(domain, results) {
       verification_attempt_id: context.current_attempt_id,
       verification_snapshot_hash: context.snapshot_hash,
       round_profile: "final",
-      adjudication_plan_hash: adjudication.plan_hash,
+      adjudication_plan_hash: adjudication.adjudication_plan_hash,
       results: v2Results,
     });
     return;
@@ -928,6 +932,7 @@ test("mcp server public exports remain stable", () => {
     "recordFinding",
     "recordSurfaceLeads",
     "redactUrlSensitiveValues",
+    "refreshVerificationManifest",
     "renderEvidencePacksMarkdown",
     "renderFindingMarkdownEntry",
     "renderGradeVerdictMarkdown",
@@ -1045,7 +1050,16 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
   assert.deepEqual(TOOL_MANIFEST.bounty_read_chain_attempts.role_bundles, ["chain", "verifier", "grader", "reporter", "orchestrator"]);
   assert.equal(byName.get("bounty_write_evidence_packs").inputSchema.properties.packs.items.properties.finding_id.pattern, "^F-[1-9][0-9]*$");
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.session_artifacts_written, ["evidence-packs.json", "evidence-packs.md", "verification-manifest.json"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_transition_phase.session_artifacts_written, [
+    "state.json",
+    "verification-input-snapshot.json",
+    "verification-manifest.json",
+    "verification-attempts/attempt-*/",
+  ]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_verification_round.session_artifacts_written, ["brutalist.json", "balanced.json", "verified-final.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.session_artifacts_written, ["verification-adjudication.json", "verification-manifest.json"]);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.global_preapproval, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_start_wave.session_artifacts_written, [
@@ -1816,6 +1830,12 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
     ]));
     assert.equal(rows.every((row) => row.target_domain === domain), true);
     assert.equal(rows.some((row) => row.type === "finding_recorded" && row.counts.findings === 1), true);
+    const adjudicationEvent = rows.find((row) => row.type === "verification_adjudication_built");
+    assert.match(adjudicationEvent.adjudication_plan_hash, /^[a-f0-9]{64}$/);
+    assert.equal(Object.hasOwn(adjudicationEvent, "plan_hash"), false);
+    const finalVerificationEvent = rows.find((row) => row.type === "verification_written" && row.status === "final");
+    assert.equal(finalVerificationEvent.adjudication_plan_hash, adjudicationEvent.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(finalVerificationEvent, "plan_hash"), false);
 
     const analyticsText = readPipelineAnalytics({ target_domain: domain, include_events: true, limit: 100 });
     const analytics = JSON.parse(analyticsText);
@@ -1833,6 +1853,7 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
     assert.equal(analytics.sessions[0].technique_attempts.pack_count, 1);
     assert.equal(typeof analytics.sessions[0].chain_phase_duration_ms, "number");
     assert.equal(analytics.sessions[0].final_verification_count, 1);
+    assert.equal(readSessionArtifactSummary(domain).verification.adjudication.adjudication_plan_hash, adjudicationEvent.adjudication_plan_hash);
     assert.equal(analytics.sessions[0].evidence.valid, true);
     assert.equal(analytics.sessions[0].evidence.packs_count, 1);
     assert.equal(analytics.sessions[0].grade_verdict, "SUBMIT");
@@ -1840,6 +1861,9 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
     assert.equal(analytics.funnel.reached.REPORT, 1);
     assert.equal(analytics.bottlenecks.length, 0);
     assert.equal(analytics.events.every((event) => event.bob_version === PACKAGE_VERSION), true);
+    const normalizedAdjudicationEvent = analytics.events.find((event) => event.type === "verification_adjudication_built");
+    assert.equal(normalizedAdjudicationEvent.adjudication_plan_hash, adjudicationEvent.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(normalizedAdjudicationEvent, "plan_hash"), false);
 
     for (const forbidden of [rawPocSecret, rawHandoffSecret, rawCoverageSecret, rawTechniqueSecret, "metadata-only analytics must not copy this evidence", rawEvidenceText]) {
       assert.equal(analyticsText.includes(forbidden), false, `${forbidden} leaked into pipeline analytics`);
@@ -9862,6 +9886,10 @@ test("verification v2 supports independent round order, deterministic adjudicati
     enterVerifyV2(domain);
     const context = JSON.parse(readVerificationContext({ target_domain: domain }));
     const result = v2VerificationResult("F-1");
+    const initialManifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(initialManifest.artifacts.snapshot.current, true);
+    assert.equal(initialManifest.artifacts.rounds.brutalist.exists, false);
+    assert.equal(initialManifest.chain_complete, false);
 
     assert.throws(() => writeVerificationRound({
       target_domain: domain,
@@ -9883,6 +9911,11 @@ test("verification v2 supports independent round order, deterministic adjudicati
       results: [result],
     }));
     assert.equal(balanced.schema_version, 2);
+    let manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.artifacts.rounds.balanced.current, true);
+    assert.equal(manifest.artifacts.rounds.brutalist.exists, false);
+    assert.equal(manifest.chain_complete, false);
+    assert.doesNotMatch(JSON.stringify(manifest), /\.md/);
 
     const brutalist = JSON.parse(writeVerificationRound({
       target_domain: domain,
@@ -9894,10 +9927,15 @@ test("verification v2 supports independent round order, deterministic adjudicati
       results: [result],
     }));
     assert.equal(brutalist.schema_version, 2);
+    manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.artifacts.rounds.brutalist.current, true);
+    assert.equal(manifest.artifacts.adjudication.exists, false);
+    assert.equal(manifest.chain_complete, false);
 
     const adjudication = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
     const adjudicationAgain = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
-    assert.equal(adjudication.plan_hash, adjudicationAgain.plan_hash);
+    assert.equal(adjudication.adjudication_plan_hash, adjudicationAgain.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(adjudication, "plan_hash"), false);
     assert.deepEqual(adjudication.counts, {
       findings: 1,
       agreed: 1,
@@ -9906,6 +9944,34 @@ test("verification v2 supports independent round order, deterministic adjudicati
       replay_required: 1,
       qa_sampled: 0,
     });
+    const adjudicationDoc = JSON.parse(fs.readFileSync(verificationAdjudicationPath(domain), "utf8"));
+    assert.equal(adjudicationDoc.adjudication_plan_hash, adjudication.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(adjudicationDoc, "plan_hash"), false);
+    assert.equal(
+      computeAdjudicationPlanHash({
+        ...adjudicationDoc,
+        built_at: "changed",
+        adjudication_plan_hash: "changed",
+      }),
+      adjudication.adjudication_plan_hash,
+    );
+    manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.adjudication_plan_hash, adjudication.adjudication_plan_hash);
+    assert.equal(manifest.artifacts.adjudication.current, true);
+    assert.equal(manifest.chain_hashes.adjudication_plan_hash, adjudication.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(manifest, "plan_hash"), false);
+
+    assert.throws(() => writeVerificationRound({
+      target_domain: domain,
+      round: "final",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "final",
+      plan_hash: adjudication.adjudication_plan_hash,
+      adjudication_plan_hash: adjudication.adjudication_plan_hash,
+      results: [result],
+    }), /plan_hash is not supported/);
 
     assert.throws(() => writeVerificationRound({
       target_domain: domain,
@@ -9916,7 +9982,7 @@ test("verification v2 supports independent round order, deterministic adjudicati
       round_profile: "final",
       adjudication_plan_hash: "wrong",
       results: [result],
-    }), /plan_hash does not match/);
+    }), /adjudication_plan_hash does not match/);
 
     const final = JSON.parse(writeVerificationRound({
       target_domain: domain,
@@ -9925,10 +9991,15 @@ test("verification v2 supports independent round order, deterministic adjudicati
       verification_attempt_id: context.current_attempt_id,
       verification_snapshot_hash: context.snapshot_hash,
       round_profile: "final",
-      adjudication_plan_hash: adjudication.plan_hash,
+      adjudication_plan_hash: adjudication.adjudication_plan_hash,
       results: [result],
     }));
     assert.match(final.final_verification_hash, /^[a-f0-9]{64}$/);
+    manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.artifacts.rounds.final.current, true);
+    assert.equal(manifest.artifacts.rounds.final.adjudication_plan_hash, adjudication.adjudication_plan_hash);
+    assert.equal(manifest.artifacts.evidence.current, false);
+    assert.equal(manifest.chain_complete, false);
 
     const evidence = JSON.parse(writeEvidencePacks({
       target_domain: domain,
@@ -9937,10 +10008,59 @@ test("verification v2 supports independent round order, deterministic adjudicati
     assert.equal(evidence.verification_attempt_id, context.current_attempt_id);
     assert.equal(evidence.verification_snapshot_hash, context.snapshot_hash);
     assert.equal(evidence.final_verification_hash, final.final_verification_hash);
+    manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.artifacts.evidence.current, true);
+    assert.equal(manifest.artifacts.evidence.exists, true);
+    assert.equal(manifest.chain_complete, true);
 
     const evidenceDoc = JSON.parse(readEvidencePacks({ target_domain: domain }));
     assert.equal(evidenceDoc.final_verification_hash, final.final_verification_hash);
     assert.doesNotThrow(() => transitionPhase({ target_domain: domain, to_phase: "GRADE" }));
+  });
+});
+
+test("verification v2 manifest treats no-reportable final evidence as skipped without materializing evidence", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const result = v2VerificationResult("F-1", {
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Fresh replay denied the finding.",
+    });
+    for (const round of ["brutalist", "balanced"]) {
+      writeVerificationRound({
+        target_domain: domain,
+        round,
+        notes: null,
+        verification_attempt_id: context.current_attempt_id,
+        verification_snapshot_hash: context.snapshot_hash,
+        round_profile: round,
+        results: [result],
+      });
+    }
+    const adjudication = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
+    writeVerificationRound({
+      target_domain: domain,
+      round: "final",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "final",
+      adjudication_plan_hash: adjudication.adjudication_plan_hash,
+      results: [result],
+    });
+
+    const evidencePaths = evidencePackPaths(domain);
+    assert.equal(fs.existsSync(evidencePaths.json), false);
+    const manifest = JSON.parse(fs.readFileSync(verificationManifestPath(domain), "utf8"));
+    assert.equal(manifest.artifacts.evidence.exists, false);
+    assert.equal(manifest.artifacts.evidence.skipped, true);
+    assert.equal(manifest.artifacts.evidence.current, true);
+    assert.equal(manifest.chain_complete, true);
+    assert.equal(fs.existsSync(evidencePaths.json), false);
   });
 });
 
@@ -9964,8 +10084,13 @@ test("verification v2 archives previous current attempts and stale old artifacts
     assert.equal(fs.existsSync(path.join(archiveDir, "manifest.json")), true);
     const manifest = JSON.parse(fs.readFileSync(path.join(archiveDir, "manifest.json"), "utf8"));
     assert.equal(manifest.attempt_id, context.current_attempt_id);
+    assert.equal(typeof manifest.adjudication_plan_hash, "string");
+    assert.equal(Object.hasOwn(manifest, "plan_hash"), false);
     assert.ok(manifest.files["verified-final.json"]);
     assert.ok(manifest.files["evidence-packs.json"]);
+    const archivedActiveManifest = JSON.parse(fs.readFileSync(path.join(archiveDir, "verification-manifest.json"), "utf8"));
+    assert.equal(archivedActiveManifest.adjudication_plan_hash, manifest.adjudication_plan_hash);
+    assert.equal(Object.hasOwn(archivedActiveManifest, "plan_hash"), false);
 
     const staleFinal = JSON.parse(readVerificationRound({ target_domain: domain, round: "final" }));
     assert.equal(staleFinal.current, false);
