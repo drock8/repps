@@ -357,6 +357,22 @@ test("shared orchestrator keeps launch mechanics adapter-owned", () => {
   assert.doesNotMatch(body, /Agent\(subagent_type|subagent_type|run_in_background|SubagentStop|Claude Code/);
 });
 
+test("orchestrator playbook documents the doc-vs-behavior differential workflow", () => {
+  const body = readFile("prompts/roles/orchestrator.md");
+  assert.match(body, /Doc-vs-Behavior Differential/);
+  assert.match(body, /bounty_ingest_schema_doc/);
+  assert.match(body, /bounty_query_schema_contracts/);
+  assert.match(body, /bounty_run_doc_delta/);
+  assert.match(body, /OpenAPI 3.*GraphQL SDL.*Postman v2\.1|GraphQL SDL.*Postman v2\.1/);
+  assert.match(body, /severity_class.*security/);
+  assert.match(body, /schema_slice/);
+  // Rendered surfaces must carry the same workflow.
+  const claudeSkill = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const codexSkill = readFile("adapters/codex/skills/bob-hunt/SKILL.md");
+  assert.match(claudeSkill, /Doc-vs-Behavior Differential/);
+  assert.match(codexSkill, /Doc-vs-Behavior Differential/);
+});
+
 test("hunter frontmatter excludes Write and still exposes wave handoff MCP tools", () => {
   const document = readFile(".claude/agents/hunter-agent.md");
   const frontmatter = parseFrontmatter(document, "hunter-agent.md");

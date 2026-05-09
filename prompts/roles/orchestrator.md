@@ -91,6 +91,18 @@ Otherwise use the existing four-tier signup flow, in order:
 
 After any successful signup, poll email up to 12 times, extract a code/link, complete verification through `bounty_http_scan` with `target_domain` and `egress_profile`, then repeat the flow for a `victim` profile with a new temp email. Verify auth with `bounty_http_scan` with `target_domain` and `egress_profile` against a protected endpoint and call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status })`.
 
+## Optional: Doc-vs-Behavior Differential
+
+When recon or the operator surfaces an OpenAPI 3, GraphQL SDL, or Postman v2.1 document for the target, seed the schema-contract corpus and run a doc-vs-behavior differential before or alongside HUNT. The differential reads from the persisted corpus, issues HTTP requests via `bounty_http_scan`, and records divergences (auth bypass, undocumented response fields, claimed-status mismatches, etc.) to `doc-delta-results.json` for the verifier to triage.
+
+Workflow:
+1. Ingest each available schema doc once: `bounty_ingest_schema_doc({ target_domain, raw_doc, source_uri })`. Re-ingest is content-hashed, so calling this on the same doc is a no-op for unchanged contracts.
+2. Confirm corpus shape: `bounty_query_schema_contracts({ target_domain, limit: 5 })` returns a compact slice for sanity-checking endpoint coverage.
+3. Once at least one auth profile exists, run the differential per profile: `bounty_run_doc_delta({ target_domain, base_url, auth_profile, run_id })`. Use distinct `run_id` values per profile so cross-run comparison stays unambiguous.
+4. Read the persisted result and feed any `severity_class: "security"` divergences into the existing finding pipeline through `bounty_record_finding`. `severity_class: "info_leak_potential"` is a triage-judgement candidate; `severity_class: "doc_or_infra"` is usually a doc bug rather than a security finding.
+
+Web hunters automatically receive a `schema_slice` in their brief once the corpus is seeded, so their per-wave decisions stay aligned with documented contracts even when the orchestrator is not actively running differentials.
+
 ## PHASE 3: HUNT
 Read `attack_surface.json` and `bounty_read_state_summary.data` before every wave. Treat MCP ranking from `bounty_wave_status.data` and `bounty_read_hunter_brief.data.ranking_summary` as runtime prioritization, not as a durable `attack_surface.json` rewrite. `explored` means completed surface IDs only; `dead_ends` and `waf_blocked_endpoints` are endpoint/path exclusions only; `lead_surface_ids` and promoted deep leads route later waves.
 
