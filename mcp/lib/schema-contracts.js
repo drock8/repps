@@ -1,6 +1,7 @@
 "use strict";
 
 const { hashCanonicalJson } = require("./verification.js");
+const { parseGraphqlSdl, looksLikeGraphqlSdl } = require("./graphql-sdl-parser.js");
 
 const HTTP_METHODS = Object.freeze([
   "get",
@@ -295,33 +296,41 @@ function parseSchemaDoc(rawDoc) {
   if (typeof rawDoc !== "string") {
     throw new TypeError("rawDoc must be a string");
   }
-  let parsed;
+  let parsedJson = null;
+  let jsonError = null;
   try {
-    parsed = JSON.parse(rawDoc);
+    parsedJson = JSON.parse(rawDoc);
   } catch (err) {
+    jsonError = err;
+  }
+  if (parsedJson != null) {
+    if (
+      isPlainObject(parsedJson)
+      && typeof parsedJson.openapi === "string"
+      && parsedJson.openapi.startsWith("3.")
+    ) {
+      return parseOpenApi3(parsedJson);
+    }
     return {
       schema_format: null,
       contracts: [],
       source_doc_hash: null,
-      parser_warnings: [`json_parse_failed:${err.message}`],
+      parser_warnings: ["unsupported_format"],
     };
   }
-  if (
-    isPlainObject(parsed)
-    && typeof parsed.openapi === "string"
-    && parsed.openapi.startsWith("3.")
-  ) {
-    return parseOpenApi3(parsed);
+  if (looksLikeGraphqlSdl(rawDoc)) {
+    return parseGraphqlSdl(rawDoc);
   }
   return {
     schema_format: null,
     contracts: [],
     source_doc_hash: null,
-    parser_warnings: ["unsupported_format"],
+    parser_warnings: [`json_parse_failed:${jsonError ? jsonError.message : "unknown"}`],
   };
 }
 
 module.exports = {
   parseSchemaDoc,
   parseOpenApi3,
+  parseGraphqlSdl,
 };
