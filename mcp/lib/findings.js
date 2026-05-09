@@ -864,6 +864,7 @@ function normalizeStringEnumArray(value, fieldName, allowedValues, { required = 
       normalized.push(text);
     }
   }
+  normalized.sort();
   return normalized;
 }
 
@@ -873,9 +874,9 @@ function normalizeArtifactHashes(value, fieldName = "artifact_hashes") {
     throw new Error(`${fieldName} must be an object`);
   }
   const normalized = {};
-  for (const [key, hash] of Object.entries(value)) {
+  for (const key of Object.keys(value).sort()) {
     const safeKey = assertNonEmptyString(key, `${fieldName} key`);
-    normalized[safeKey] = assertNonEmptyString(hash, `${fieldName}.${safeKey}`);
+    normalized[safeKey] = assertNonEmptyString(value[key], `${fieldName}.${safeKey}`);
   }
   return normalized;
 }
@@ -967,6 +968,9 @@ function normalizeVerificationRoundDocument(document, { expectedDomain, expected
     }
     seenIds.add(normalizedResult.finding_id);
     normalized.results.push(normalizedResult);
+  }
+  if (version === 2) {
+    normalized.results.sort((a, b) => a.finding_id.localeCompare(b.finding_id));
   }
 
   if (expectedDomain != null && normalized.target_domain !== expectedDomain) {
@@ -1064,6 +1068,9 @@ function writeVerificationRound(args) {
     seenIds.add(normalizedResult.finding_id);
     return normalizedResult;
   });
+  if (schemaVersion === 2) {
+    results.sort((a, b) => a.finding_id.localeCompare(b.finding_id));
+  }
 
   if (schemaVersion === 1) {
     const priorDocument = requirePriorVerificationRound(domain, round, findingIdSet);

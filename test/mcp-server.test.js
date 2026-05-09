@@ -9929,6 +9929,110 @@ test("verification v2 attempt is created only on CHAIN -> VERIFY and context rep
   });
 });
 
+test("verification v2 round and final hashes are stable across confidence_reasons and artifact_hashes ordering", () => {
+  withTempHome(() => {
+    const domain = "determinism.example.com";
+    enterVerifyV2(domain);
+    const ctx = JSON.parse(readVerificationContext({ target_domain: domain }));
+
+    const reasonsA = ["fresh_replay_passed", "auth_expired", "tooling_blocked"];
+    const reasonsB = ["tooling_blocked", "fresh_replay_passed", "auth_expired"];
+    const hashesA = { foundry_run: "h1", http_audit: "h2", roast: "h3" };
+    const hashesB = { roast: "h3", foundry_run: "h1", http_audit: "h2" };
+
+    const writeOnce = (reasons, hashes) => {
+      const result = v2VerificationResult("F-1", {
+        confidence_reasons: reasons,
+        artifact_hashes: hashes,
+      });
+      for (const round of ["brutalist", "balanced"]) {
+        writeVerificationRound({
+          target_domain: domain,
+          round,
+          notes: null,
+          verification_attempt_id: ctx.current_attempt_id,
+          verification_snapshot_hash: ctx.snapshot_hash,
+          round_profile: round,
+          results: [result],
+        });
+      }
+      const adj = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
+      const final = JSON.parse(writeVerificationRound({
+        target_domain: domain,
+        round: "final",
+        notes: null,
+        verification_attempt_id: ctx.current_attempt_id,
+        verification_snapshot_hash: ctx.snapshot_hash,
+        round_profile: "final",
+        adjudication_plan_hash: adj.adjudication_plan_hash,
+        results: [result],
+      }));
+      const onDisk = JSON.parse(fs.readFileSync(verificationRoundPaths(domain, "brutalist").json, "utf8"));
+      return {
+        adjudicationPlanHash: adj.adjudication_plan_hash,
+        finalHash: final.final_verification_hash,
+        brutalistOnDisk: onDisk,
+      };
+    };
+
+    const baseline = writeOnce(reasonsA, hashesA);
+    const permuted = writeOnce(reasonsB, hashesB);
+
+    assert.equal(permuted.adjudicationPlanHash, baseline.adjudicationPlanHash);
+    assert.equal(permuted.finalHash, baseline.finalHash);
+    assert.deepEqual(
+      permuted.brutalistOnDisk.results[0].confidence_reasons,
+      baseline.brutalistOnDisk.results[0].confidence_reasons,
+    );
+    assert.deepEqual(
+      Object.keys(permuted.brutalistOnDisk.results[0].artifact_hashes),
+      Object.keys(baseline.brutalistOnDisk.results[0].artifact_hashes),
+    );
+  });
+});
+
+test("verification v2 round results sort deterministically across multi-finding writes", () => {
+  withTempHome(() => {
+    const domain = "multi-finding.example.com";
+    seedSessionState(domain, { phase: "CHAIN" });
+    seedFinding(domain, { title: "First" });
+    seedFinding(domain, { title: "Second" });
+    seedFinding(domain, { title: "Third" });
+    JSON.parse(transitionPhase({
+      target_domain: domain,
+      to_phase: "VERIFY",
+      override_reason: "deterministic-results-ordering smoke fixture",
+    }));
+    const ctx = JSON.parse(readVerificationContext({ target_domain: domain }));
+
+    const ordered = ["F-1", "F-2", "F-3"].map((id) => v2VerificationResult(id));
+    const reversed = [...ordered].reverse();
+
+    const hashFor = (results) => {
+      writeVerificationRound({
+        target_domain: domain,
+        round: "brutalist",
+        notes: null,
+        verification_attempt_id: ctx.current_attempt_id,
+        verification_snapshot_hash: ctx.snapshot_hash,
+        round_profile: "brutalist",
+        results,
+      });
+      const onDisk = JSON.parse(fs.readFileSync(verificationRoundPaths(domain, "brutalist").json, "utf8"));
+      return {
+        ids: onDisk.results.map((r) => r.finding_id),
+        artifact_hash: require("crypto").createHash("sha256").update(JSON.stringify(onDisk)).digest("hex"),
+      };
+    };
+
+    const a = hashFor(ordered);
+    const b = hashFor(reversed);
+    assert.deepEqual(a.ids, ["F-1", "F-2", "F-3"]);
+    assert.deepEqual(b.ids, ["F-1", "F-2", "F-3"]);
+    assert.equal(a.artifact_hash, b.artifact_hash);
+  });
+});
+
 test("verification v2 supports independent round order, deterministic adjudication, final hash, and evidence binding", () => {
   withTempHome(() => {
     const domain = "example.com";
