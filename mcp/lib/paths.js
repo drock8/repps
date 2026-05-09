@@ -138,6 +138,10 @@ function findingsIndexJsonlPath(domain) {
   return path.join(sessionDir(domain), "findings-index.jsonl");
 }
 
+function surfaceGraphJsonlPath(domain) {
+  return path.join(sessionDir(domain), "surface-graph.jsonl");
+}
+
 function staticScanResultsJsonlPath(domain) {
   return path.join(sessionDir(domain), "static-scan-results.jsonl");
 }
@@ -221,6 +225,7 @@ module.exports = {
   docDeltaResultsPath,
   findingsIndexJsonlPath,
   schemaContractsJsonlPath,
+  surfaceGraphJsonlPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,
