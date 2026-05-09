@@ -83,6 +83,8 @@ Each index is a pre-computed structure that turns one or more capabilities into 
 
 ### I2 — Schema-contract corpus
 
+**Status.** In progress — OpenAPI 3 parser + contract canonicalization shipped (`mcp/lib/schema-contracts.js`); persistence layer (`schema-contracts.jsonl`), MCP query tool, and GraphQL/Postman parsers pending.
+
 **What it holds.** Parsed contracts from OpenAPI / GraphQL / Postman collections. Each contract is `(endpoint, method, claimed_auth, claimed_params, claimed_response_shape, source_doc_hash)`.
 
 **Failure mode it prevents.** Treating prose docs as opaque text. Forces the doc into a deterministic, diffable shape so differential testing can run without LLM in the inner loop.
@@ -253,7 +255,7 @@ Each index is a pre-computed structure that turns one or more capabilities into 
 | ID  | Path                                          | Status            | Feeds            |
 | --- | --------------------------------------------- | ----------------- | ---------------- |
 | IP1 | JS extraction (current recon pipeline)        | Existing, partial | `I1`             |
-| IP2 | OpenAPI / GraphQL / Postman ingestion         | New               | `I2`             |
+| IP2 | OpenAPI / GraphQL / Postman ingestion         | In progress       | `I2`             |
 | IP3 | Public-repo watcher with diff dispatch        | New               | `I3` (via `I1`)  |
 | IP4 | Audit report ingestion (PDF, markdown, HTML)  | New               | `I5`             |
 | IP5 | CVE / advisory feed ingestion                 | New               | `I8`             |
@@ -498,6 +500,12 @@ For every work item in this hypergraph:
 3. **Audit ingestion format coverage for `IP4`.** PDF parsing is hard. Start with markdown + HTML; add PDF when a target requires it.
 4. **CVE feed source for `IP5`.** NVD lags; vendor advisories are heterogeneous. Likely composite ingestion.
 5. **Program negotiation strategy for `C8`.** Out of scope for this doc; but the negotiation must precede the engineering.
+
+## Progress log
+
+Append-only, newest first. Each entry: date, item, slice, commit ref, parishioner-review status.
+
+- **2026-05-10** · IP2 / I2 · OpenAPI 3 parser + contract canonicalization · `mcp/lib/schema-contracts.js` + `test/schema-contracts.test.js` (13 tests passing) · *engineering review complete; persistence + tool wrappers pending; parishioner gate not yet reachable.*
 
 ## Glossary
 
