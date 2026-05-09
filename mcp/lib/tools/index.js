@@ -24,6 +24,7 @@ const TOOL_MODULES = Object.freeze([
   require("./write-verification-round.js"),
   require("./read-verification-round.js"),
   require("./read-verification-context.js"),
+  require("./diff-verification-attempts.js"),
   require("./build-verification-adjudication.js"),
   require("./write-evidence-packs.js"),
   require("./read-evidence-packs.js"),

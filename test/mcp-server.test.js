@@ -225,6 +225,7 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_write_verification_round",
   "bounty_read_verification_round",
   "bounty_read_verification_context",
+  "bounty_diff_verification_attempts",
   "bounty_build_verification_adjudication",
   "bounty_write_evidence_packs",
   "bounty_read_evidence_packs",

@@ -32,6 +32,7 @@ const READ_ONLY_DEBUG_TOOLS = Object.freeze([
   "bounty_read_findings",
   "bounty_read_verification_context",
   "bounty_read_verification_round",
+  "bounty_diff_verification_attempts",
   "bounty_read_evidence_packs",
   "bounty_read_grade_verdict",
 ]);
