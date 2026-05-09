@@ -466,6 +466,8 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.deepEqual(TOOL_MANIFEST.bounty_log_technique_attempt.session_artifacts_written, ["technique-attempts.jsonl"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_verification_context.role_bundles, ["orchestrator", "verifier", "evidence", "grader", "reporter"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.role_bundles, ["orchestrator", "verifier"]);
   assert.ok(!sourceAllowed.has("bounty_merge_wave_handoffs"));
   assert.ok(!sourceAllowed.has("bounty_read_tool_telemetry"));
   assert.ok(!sourceAllowed.has("bounty_read_pipeline_analytics"));
@@ -664,6 +666,39 @@ test("orchestrator validates brutalist and balanced rounds before proceeding", (
   );
 });
 
+test("v2 verification prompt contracts use context, independent rounds, adjudication, and replay metadata", () => {
+  const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const brutalist = readFile(".claude/agents/brutalist-verifier.md");
+  const balanced = readFile(".claude/agents/balanced-verifier.md");
+  const final = readFile(".claude/agents/final-verifier.md");
+  const evidence = readFile(".claude/agents/evidence-agent.md");
+
+  assert.match(orchestrator, /bounty_read_verification_context/);
+  assert.match(orchestrator, /schema_version === 2/);
+  assert.match(orchestrator, /bounty_build_verification_adjudication/);
+  assert.match(orchestrator, /plan_hash/);
+  assert.match(orchestrator, /replay_execution_policy/);
+
+  assert.match(brutalist, /verification_attempt_id/);
+  assert.match(brutalist, /verification_snapshot_hash/);
+  assert.match(brutalist, /purpose: "verification_replay"/);
+  assert.match(brutalist, /confidence_reasons/);
+  assert.match(brutalist, /state_sensitive/);
+
+  assert.match(balanced, /do NOT read brutalist/);
+  assert.match(balanced, /do NOT read adjudication/);
+  assert.match(balanced, /Cover exactly the current snapshot finding IDs|cover exactly the snapshot finding IDs/i);
+  assert.match(balanced, /round: "balanced"/);
+
+  assert.match(final, /adjudication_plan_hash/);
+  assert.match(final, /do not compute diffs/i);
+  assert.match(final, /inherited_confidence_reasons/);
+  assert.match(final, /resolved_confidence_reasons/);
+
+  assert.match(evidence, /purpose: "evidence_replay"/);
+  assert.match(evidence, /final_verification_hash/);
+});
+
 test("evidence-agent exists, is MCP-only, and cannot mutate unrelated artifacts", () => {
   const document = readFile(".claude/agents/evidence-agent.md");
   const frontmatter = parseFrontmatter(document, "evidence-agent.md");
@@ -677,6 +712,7 @@ test("evidence-agent exists, is MCP-only, and cannot mutate unrelated artifacts"
     "mcp__bountyagent__bounty_http_scan",
     "mcp__bountyagent__bounty_read_http_audit",
     "mcp__bountyagent__bounty_read_findings",
+    "mcp__bountyagent__bounty_read_verification_context",
     "mcp__bountyagent__bounty_read_verification_round",
     "mcp__bountyagent__bounty_write_evidence_packs",
     "mcp__bountyagent__bounty_read_evidence_packs",
@@ -1632,7 +1668,7 @@ test("verifiers can read request audit summaries without direct file access", ()
   }
 });
 
-test("verifier role bundle has only one documented mutating tool (evm-fetch-source) and no orchestration mutators", () => {
+test("verifier role bundle has only documented mutating tools and no orchestration mutators", () => {
   // The role-bundle expansion that gave verifiers SC re-run primitives also
   // included bounty_evm_fetch_source, which writes to the per-session
   // contracts cache (mutating:true). That one is an intentional, documented
@@ -1647,11 +1683,12 @@ test("verifier role bundle has only one documented mutating tool (evm-fetch-sour
   assert.deepEqual(
     mutatingInVerifier.map((tool) => tool.name).sort(),
     [
+      "bounty_build_verification_adjudication", // MCP-owned v2 adjudication artifact
       "bounty_evm_fetch_source",       // SC source-cache populate during re-run
       "bounty_http_scan",              // web PoC replay (existing baseline)
       "bounty_write_verification_round" // the verifier's own write path
     ].sort(),
-    "Only evm-fetch-source, http_scan, and write-verification-round may be mutating in the verifier bundle. New mutating tools must be reviewed before joining verifier role.",
+    "Only adjudication build, evm-fetch-source, http_scan, and write-verification-round may be mutating in the verifier bundle. New mutating tools must be reviewed before joining verifier role.",
   );
   const forbidden = ["bounty_record_finding", "bounty_write_wave_handoff", "bounty_finalize_hunter_run", "bounty_log_coverage", "bounty_log_dead_ends", "bounty_write_grade_verdict", "bounty_apply_wave_merge"];
   for (const tool of forbidden) {

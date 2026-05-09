@@ -13,6 +13,8 @@ allowed-tools:
   - mcp__bountyagent__bounty_list_findings
   - mcp__bountyagent__bounty_read_chain_attempts
   - mcp__bountyagent__bounty_read_verification_round
+  - mcp__bountyagent__bounty_read_verification_context
+  - mcp__bountyagent__bounty_build_verification_adjudication
   - mcp__bountyagent__bounty_read_evidence_packs
   - mcp__bountyagent__bounty_read_grade_verdict
   - mcp__bountyagent__bounty_init_session
@@ -249,27 +251,45 @@ After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERI
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.
 
-Round 1:
+First call `bounty_read_verification_context({ target_domain })` and use `.data.schema_version`, `.data.current_attempt_id`, `.data.snapshot_hash`, `.data.replay_execution_policy`, `.data.round_status`, `.data.adjudication_status`, `.data.evidence_match_status`, `.data.stale_blockers`, and `.data.next_action`. Do not read `state.json` or infer v2 status from raw artifact files.
+
+If `schema_version === 1`, use the legacy sequential cascade:
+1. Brutalist round:
 ```
-Agent(subagent_type: "brutalist-verifier", name: "brutalist", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings and bounty_read_chain_attempts for [domain], call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, verify each finding, then write only through bounty_write_verification_round(round='brutalist').")
+Agent(subagent_type: "brutalist-verifier", name: "brutalist", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context; for v2 use current_attempt_id and snapshot_hash on writes and verification_replay context, cover exactly the snapshot findings, then write only through bounty_write_verification_round(round='brutalist').")
 ```
 After the brutalist agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "brutalist" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
-
-Round 2:
+2. Balanced round:
 ```
-Agent(subagent_type: "balanced-verifier", name: "balanced", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings, bounty_read_chain_attempts, and bounty_read_verification_round(round='brutalist'), call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, review brutalist decisions, then write only through bounty_write_verification_round(round='balanced').")
+Agent(subagent_type: "balanced-verifier", name: "balanced", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v1, read brutalist and preserve the legacy cascade. If v2, do not read brutalist or adjudication; use current_attempt_id and snapshot_hash, pass verification_replay context on replay tools, cover exactly snapshot findings, then write only through bounty_write_verification_round(round='balanced').")
 ```
 After the balanced agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "balanced" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
+3. Final round:
+```
+Agent(subagent_type: "final-verifier", name: "final-verify", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v2, consume the current adjudication plan_hash from the orchestrator/context, do not compute diffs, pass verification_replay context on replay tools, and write round='final' with verification_attempt_id, verification_snapshot_hash, and adjudication_plan_hash. If v1, read balanced and use the legacy final cascade.")
+```
 
-Round 3:
+If `schema_version === 2`, use the attempt-scoped independent flow:
+1. Confirm `.data.current_attempt_id` and `.data.snapshot_hash` are non-null and `.data.stale_blockers` is empty. If stale blockers are present, report the exact blocker text and restart VERIFY/adjudication through normal phase flow; do not patch artifacts.
+2. Launch brutalist and balanced verifier workers as independent rounds. They both receive the same current attempt ID and snapshot hash from `bounty_read_verification_context`. They must not read each other or `verification-adjudication.json`. Follow `.data.replay_execution_policy`: if a pack is `serialized` with `lease_scope: "attempt_pack"`, the rounds may still run independently, but replay tool calls for that pack will serialize through MCP leases; do not override the lease policy.
 ```
-Agent(subagent_type: "final-verifier", name: "final-verify", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings for [domain], call bounty_read_verification_round(round='balanced'), call bounty_list_auth_profiles before authenticated replays, re-run only reportable survivors with fresh requests using egress_profile, then write only through bounty_write_verification_round(round='final').")
+Agent(subagent_type: "brutalist-verifier", name: "brutalist", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context; for v2 use current_attempt_id and snapshot_hash on writes and verification_replay context, cover exactly the snapshot findings, then write only through bounty_write_verification_round(round='brutalist').")
 ```
-Read `bounty_read_verification_round(round='final').data`. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
 ```
-Agent(subagent_type: "evidence-agent", name: "evidence", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_verification_round(round='final'), bounty_read_http_audit, and bounty_list_auth_profiles; collect bounded redacted samples for every final reportable finding using bounty_http_scan with target_domain and egress_profile; write only through bounty_write_evidence_packs.")
+Agent(subagent_type: "balanced-verifier", name: "balanced", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v1, read brutalist and preserve the legacy cascade. If v2, do not read brutalist or adjudication; use current_attempt_id and snapshot_hash, pass verification_replay context on replay tools, cover exactly snapshot findings, then write only through bounty_write_verification_round(round='balanced').")
 ```
-After the evidence agent completes, validate the artifact with `bounty_read_evidence_packs({ target_domain: "[domain]" })` and inspect `.data`. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
+3. After both complete, call `bounty_read_verification_context({ target_domain })` again. Require brutalist and balanced statuses to be `current: true`; retry a missing/invalid worker once.
+4. Call `bounty_build_verification_adjudication({ target_domain })`. Use only its returned `.data.plan_hash` and adjudication payload; do not compute diffs in prose or ask the final verifier to compute diffs.
+5. Launch the final verifier with current attempt ID, snapshot hash, and `plan_hash`. The final verifier must consume the adjudication plan hash and write `round="final"` with `adjudication_plan_hash`.
+```
+Agent(subagent_type: "final-verifier", name: "final-verify", prompt: "Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context. If v2, consume the current adjudication plan_hash from the orchestrator/context, do not compute diffs, pass verification_replay context on replay tools, and write round='final' with verification_attempt_id, verification_snapshot_hash, and adjudication_plan_hash. If v1, read balanced and use the legacy final cascade.")
+```
+
+After final verification in either branch, read `bounty_read_verification_round(round='final').data`. For v2, require `.data.current === true` and no `stale` flag. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
+```
+Agent(subagent_type: "evidence-agent", name: "evidence", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_verification_context, bounty_read_findings, bounty_read_verification_round(round='final'), bounty_read_http_audit, and bounty_list_auth_profiles; for v2 pass evidence_replay context on replay tools and rely on MCP to bind evidence to final_verification_hash; write only through bounty_write_evidence_packs.")
+```
+After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
 
 ## PHASE 6: GRADE
 Spawn:

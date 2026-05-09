@@ -90,6 +90,7 @@ const {
   autoSignup,
   authStore,
   buildHeaderProfile,
+  buildVerificationAdjudication,
   buildCircuitBreakerSummary,
   buildCoverageSummaryForSurface,
   chainAttemptsJsonlPath,
@@ -141,6 +142,7 @@ const {
   readFindings,
   readGradeVerdict,
   readVerificationRound,
+  readVerificationContext,
   readWaveHandoffs,
   recordFinding,
   recordSurfaceLeads,
@@ -163,6 +165,10 @@ const {
   transitionPhase,
   trafficJsonlPath,
   verificationRoundPaths,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
+  verificationManifestPath,
+  verificationSnapshotPath,
   waveHandoffStatus,
   waveStatus,
   writeChainAttempt,
@@ -202,6 +208,8 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_read_chain_attempts",
   "bounty_write_verification_round",
   "bounty_read_verification_round",
+  "bounty_read_verification_context",
+  "bounty_build_verification_adjudication",
   "bounty_write_evidence_packs",
   "bounty_read_evidence_packs",
   "bounty_write_grade_verdict",
@@ -632,6 +640,54 @@ function seedFinding(domain, overrides = {}) {
 }
 
 function seedVerificationPipeline(domain, results) {
+  let context = null;
+  try {
+    context = JSON.parse(readVerificationContext({ target_domain: domain }));
+  } catch {}
+  if (context && context.schema_version === 2 && context.current_attempt_id && context.snapshot_hash) {
+    const v2Results = results.map((result) => ({
+      ...result,
+      confidence: result.confidence || "high",
+      confidence_reasons: Array.isArray(result.confidence_reasons)
+        ? result.confidence_reasons
+        : ["fresh_replay_passed"],
+      state_sensitive: result.state_sensitive === true,
+      artifact_hashes: result.artifact_hashes || {},
+    }));
+    for (const round of ["brutalist", "balanced"]) {
+      writeVerificationRound({
+        target_domain: domain,
+        round,
+        notes: null,
+        verification_attempt_id: context.current_attempt_id,
+        verification_snapshot_hash: context.snapshot_hash,
+        round_profile: round,
+        results: v2Results,
+      });
+    }
+    const adjudication = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
+    writeVerificationRound({
+      target_domain: domain,
+      round: "final",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "final",
+      adjudication_plan_hash: adjudication.plan_hash,
+      results: v2Results,
+    });
+    return;
+  }
+  if (context && context.schema_version === 2 && !context.current_attempt_id && fs.existsSync(statePath(domain))) {
+    const state = JSON.parse(fs.readFileSync(statePath(domain), "utf8"));
+    writeFileAtomic(statePath(domain), `${JSON.stringify({
+      ...state,
+      verification_schema_version: 1,
+      verification_attempt_id: null,
+      verification_snapshot_hash: null,
+      verification_entered_at: null,
+    }, null, 2)}\n`);
+  }
   for (const round of ["brutalist", "balanced", "final"]) {
     writeVerificationRound({ target_domain: domain, round, notes: null, results });
   }
@@ -657,6 +713,27 @@ function evidencePack(findingId = "F-1", overrides = {}) {
     report_snippet: "An attacker can retrieve another account's private metadata by changing the account ID.",
     ...overrides,
   };
+}
+
+function v2VerificationResult(findingId = "F-1", overrides = {}) {
+  return {
+    finding_id: findingId,
+    disposition: "confirmed",
+    severity: "high",
+    reportable: true,
+    reasoning: "Fresh replay confirmed the finding.",
+    confidence: "high",
+    confidence_reasons: ["fresh_replay_passed"],
+    state_sensitive: false,
+    artifact_hashes: {},
+    ...overrides,
+  };
+}
+
+function enterVerifyV2(domain) {
+  seedSessionState(domain, { phase: "CHAIN" });
+  seedFinding(domain);
+  return JSON.parse(transitionPhase({ target_domain: domain, to_phase: "VERIFY" }));
 }
 
 async function withMockSafeFetch(routes, fn, { dnsRecords = {} } = {}) {
@@ -782,6 +859,7 @@ test("mcp server public exports remain stable", () => {
     "buildCircuitBreakerSummary",
     "buildCoverageSummaryForSurface",
     "buildHeaderProfile",
+    "buildVerificationAdjudication",
     "chainAttemptsJsonlPath",
     "clearOperatorNote",
     "clearTerminalBlock",
@@ -844,6 +922,7 @@ test("mcp server public exports remain stable", () => {
     "readTechniquePack",
     "readTechniquePackReadRecordsFromJsonl",
     "readTrafficRecordsFromJsonl",
+    "readVerificationContext",
     "readVerificationRound",
     "readWaveHandoffs",
     "recordFinding",
@@ -882,7 +961,11 @@ test("mcp server public exports remain stable", () => {
     "trafficJsonlPath",
     "transitionPhase",
     "validateScanUrl",
+    "verificationAdjudicationPath",
+    "verificationAttemptsDir",
+    "verificationManifestPath",
     "verificationRoundPaths",
+    "verificationSnapshotPath",
     "waveHandoffStatus",
     "waveStatus",
     "writeChainAttempt",
@@ -1672,9 +1755,7 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
       reportable: true,
       reasoning: "Confirmed.",
     }];
-    for (const round of ["brutalist", "balanced", "final"]) {
-      JSON.parse(writeVerificationRound({ target_domain: domain, round, notes: null, results: verified }));
-    }
+    seedVerificationPipeline(domain, verified);
     JSON.parse(writeEvidencePacks({
       target_domain: domain,
       packs: [{
@@ -1727,7 +1808,9 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
       "technique_attempt_logged",
       "finding_recorded",
       "wave_merged",
+      "verification_snapshot_created",
       "verification_written",
+      "verification_adjudication_built",
       "evidence_written",
       "grade_written",
     ]));
@@ -2291,6 +2374,10 @@ test("bounty_init_session creates the initial state and bounty_read_session_stat
       hold_count: 0,
       auth_status: "pending",
       operator_note: null,
+      verification_schema_version: null,
+      verification_attempt_id: null,
+      verification_snapshot_hash: null,
+      verification_entered_at: null,
     };
 
     const created = JSON.parse(initSession({ target_domain: domain, target_url: targetUrl }));
@@ -2404,6 +2491,10 @@ test("legacy state normalization is applied while unknown fields remain on disk 
         hold_count: 0,
         auth_status: "pending",
         operator_note: null,
+        verification_schema_version: null,
+        verification_attempt_id: null,
+        verification_snapshot_hash: null,
+        verification_entered_at: null,
       },
     });
 
@@ -3310,6 +3401,10 @@ test("bounty_start_wave validates inputs, writes assignments, and updates pendin
       hold_count: 0,
       auth_status: "pending",
       operator_note: null,
+      verification_schema_version: null,
+      verification_attempt_id: null,
+      verification_snapshot_hash: null,
+      verification_entered_at: null,
     };
 
     const result = JSON.parse(startWave({
@@ -9733,6 +9828,224 @@ test("bounty_read_verification_round rejects JSON that references non-existent f
       () => readVerificationRound({ target_domain: domain, round: "balanced" }),
       /Unknown finding_id: F-99/,
     );
+  });
+});
+
+test("verification v2 attempt is created only on CHAIN -> VERIFY and context reports current status", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "CHAIN" });
+    seedFinding(domain);
+
+    const before = JSON.parse(readVerificationContext({ target_domain: domain }));
+    assert.equal(before.schema_version, 2);
+    assert.equal(before.current_attempt_id, null);
+    assert.equal(fs.existsSync(verificationSnapshotPath(domain)), false);
+
+    const transitioned = JSON.parse(transitionPhase({ target_domain: domain, to_phase: "VERIFY" }));
+    assert.equal(transitioned.verification.schema_version, 2);
+    assert.match(transitioned.verification.attempt_id, /^[0-9T]+-[a-f0-9]{8}$/);
+    assert.equal(fs.existsSync(verificationSnapshotPath(domain)), true);
+
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    assert.equal(context.current_attempt_id, transitioned.verification.attempt_id);
+    assert.equal(context.snapshot_hash, transitioned.verification.snapshot_hash);
+    assert.equal(context.round_status.brutalist.exists, false);
+    assert.equal(context.adjudication_status.exists, false);
+    assert.match(context.next_action, /brutalist and balanced/);
+  });
+});
+
+test("verification v2 supports independent round order, deterministic adjudication, final hash, and evidence binding", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const result = v2VerificationResult("F-1");
+
+    assert.throws(() => writeVerificationRound({
+      target_domain: domain,
+      round: "balanced",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "balanced",
+      results: [],
+    }), /balanced must cover exactly the current VERIFY snapshot finding IDs/);
+
+    const balanced = JSON.parse(writeVerificationRound({
+      target_domain: domain,
+      round: "balanced",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "balanced",
+      results: [result],
+    }));
+    assert.equal(balanced.schema_version, 2);
+
+    const brutalist = JSON.parse(writeVerificationRound({
+      target_domain: domain,
+      round: "brutalist",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "brutalist",
+      results: [result],
+    }));
+    assert.equal(brutalist.schema_version, 2);
+
+    const adjudication = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
+    const adjudicationAgain = JSON.parse(buildVerificationAdjudication({ target_domain: domain }));
+    assert.equal(adjudication.plan_hash, adjudicationAgain.plan_hash);
+    assert.deepEqual(adjudication.counts, {
+      findings: 1,
+      agreed: 1,
+      disagreements: 0,
+      union_reportables: 1,
+      replay_required: 1,
+      qa_sampled: 0,
+    });
+
+    assert.throws(() => writeVerificationRound({
+      target_domain: domain,
+      round: "final",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "final",
+      adjudication_plan_hash: "wrong",
+      results: [result],
+    }), /plan_hash does not match/);
+
+    const final = JSON.parse(writeVerificationRound({
+      target_domain: domain,
+      round: "final",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "final",
+      adjudication_plan_hash: adjudication.plan_hash,
+      results: [result],
+    }));
+    assert.match(final.final_verification_hash, /^[a-f0-9]{64}$/);
+
+    const evidence = JSON.parse(writeEvidencePacks({
+      target_domain: domain,
+      packs: [evidencePack("F-1")],
+    }));
+    assert.equal(evidence.verification_attempt_id, context.current_attempt_id);
+    assert.equal(evidence.verification_snapshot_hash, context.snapshot_hash);
+    assert.equal(evidence.final_verification_hash, final.final_verification_hash);
+
+    const evidenceDoc = JSON.parse(readEvidencePacks({ target_domain: domain }));
+    assert.equal(evidenceDoc.final_verification_hash, final.final_verification_hash);
+    assert.doesNotThrow(() => transitionPhase({ target_domain: domain, to_phase: "GRADE" }));
+  });
+});
+
+test("verification v2 archives previous current attempts and stale old artifacts no longer satisfy GRADE", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    seedVerificationPipeline(domain, [v2VerificationResult("F-1")]);
+    writeEvidencePacks({ target_domain: domain, packs: [evidencePack("F-1")] });
+
+    const state = JSON.parse(fs.readFileSync(statePath(domain), "utf8"));
+    writeFileAtomic(statePath(domain), `${JSON.stringify({
+      ...state,
+      phase: "CHAIN",
+    }, null, 2)}\n`);
+    const next = JSON.parse(transitionPhase({ target_domain: domain, to_phase: "VERIFY" }));
+
+    assert.notEqual(next.verification.attempt_id, context.current_attempt_id);
+    const archiveDir = path.join(verificationAttemptsDir(domain), `attempt-${context.current_attempt_id}`);
+    assert.equal(fs.existsSync(path.join(archiveDir, "manifest.json")), true);
+    const manifest = JSON.parse(fs.readFileSync(path.join(archiveDir, "manifest.json"), "utf8"));
+    assert.equal(manifest.attempt_id, context.current_attempt_id);
+    assert.ok(manifest.files["verified-final.json"]);
+    assert.ok(manifest.files["evidence-packs.json"]);
+
+    const staleFinal = JSON.parse(readVerificationRound({ target_domain: domain, round: "final" }));
+    assert.equal(staleFinal.current, false);
+    assert.equal(staleFinal.stale, true);
+    assert.throws(
+      () => transitionPhase({ target_domain: domain, to_phase: "GRADE" }),
+      /VERIFY -> GRADE blocked:/,
+    );
+  });
+});
+
+test("verification v2 rejects changed inputs after snapshot at write/adjudication consumption points", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    seedFinding(domain, { title: "Second finding", endpoint: "/second" });
+
+    assert.throws(() => writeVerificationRound({
+      target_domain: domain,
+      round: "brutalist",
+      notes: null,
+      verification_attempt_id: context.current_attempt_id,
+      verification_snapshot_hash: context.snapshot_hash,
+      round_profile: "brutalist",
+      results: [v2VerificationResult("F-1")],
+    }), /VERIFY input changed after snapshot; restart VERIFY\/adjudication\./);
+    assert.throws(
+      () => buildVerificationAdjudication({ target_domain: domain }),
+      /VERIFY input changed after snapshot; restart VERIFY\/adjudication\./,
+    );
+  });
+});
+
+test("existing v1 verification artifacts pin VERIFY transition to v1 for the session lifetime", () => {
+  withTempHome(() => {
+    const domain = "example.com";
+    seedSessionState(domain, { phase: "CHAIN" });
+    seedFinding(domain);
+    writeVerificationRound({
+      target_domain: domain,
+      round: "brutalist",
+      notes: null,
+      results: [{
+        finding_id: "F-1",
+        disposition: "denied",
+        severity: null,
+        reportable: false,
+        reasoning: "Legacy v1 artifact pins this session.",
+      }],
+    });
+
+    const transitioned = JSON.parse(transitionPhase({ target_domain: domain, to_phase: "VERIFY" }));
+    assert.equal(transitioned.verification.schema_version, 1);
+    assert.equal(JSON.parse(readSessionState({ target_domain: domain })).state.verification_schema_version, 1);
+    assert.equal(fs.existsSync(verificationSnapshotPath(domain)), false);
+  });
+});
+
+test("replay-capable tools require context only for verification and evidence replay purposes", async () => {
+  await withTempHome(async () => {
+    const domain = "example.com";
+    const missingContext = await executeTool("bounty_http_scan", {
+      target_domain: domain,
+      method: "GET",
+      url: "https://example.com/",
+      replay_context: { purpose: "verification_replay" },
+    });
+    assert.equal(missingContext.ok, false);
+    assert.equal(missingContext.error.code, "INVALID_ARGUMENTS");
+    assert.match(missingContext.error.message, /replay_context\.verification_attempt_id/);
+
+    const unknownPurpose = await executeTool("bounty_http_scan", {
+      target_domain: domain,
+      method: "GET",
+      url: "not a url",
+      replay_context: { purpose: "operator_probe" },
+    });
+    assert.equal(unknownPurpose.ok, false);
+    assert.doesNotMatch(unknownPurpose.error.message, /replay_context\.verification_attempt_id/);
   });
 });
 

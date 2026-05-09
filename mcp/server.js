@@ -24,7 +24,9 @@
 //           bounty_clear_operator_note,
 //           bounty_promote_surface_leads, bounty_route_surfaces,
 //           bounty_get_context_budget, bounty_select_technique_packs,
-//           bounty_read_technique_pack, bounty_log_technique_attempt
+//           bounty_read_technique_pack, bounty_log_technique_attempt,
+//           bounty_read_verification_context,
+//           bounty_build_verification_adjudication
 
 const { redactUrlSensitiveValues } = require("./redaction.js");
 const {
@@ -80,7 +82,11 @@ const {
   staticArtifactsJsonlPath,
   staticScanResultsJsonlPath,
   trafficJsonlPath,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
+  verificationManifestPath,
   verificationRoundPaths,
+  verificationSnapshotPath,
 } = require("./lib/paths.js");
 const {
   appendJsonlLine,
@@ -147,6 +153,10 @@ const {
   renderEvidencePacksMarkdown,
   writeEvidencePacks,
 } = require("./lib/evidence.js");
+const {
+  buildVerificationAdjudication,
+  readVerificationContext,
+} = require("./lib/verification.js");
 const {
   readChainAttempts,
   readChainAttemptsFromJsonl,
@@ -324,12 +334,18 @@ module.exports = {
   tempEmail,
   transitionPhase,
   verificationRoundPaths,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
+  verificationManifestPath,
+  verificationSnapshotPath,
   waveHandoffStatus,
   waveStatus,
   writeEvidencePacks,
   writeGradeVerdict,
   writeHandoff,
   writeVerificationRound,
+  readVerificationContext,
+  buildVerificationAdjudication,
   writeWaveHandoff,
   normalizeStringArray,
   writeFileAtomic,

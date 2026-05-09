@@ -118,6 +118,10 @@ function pipelineAnalyticsLib() {
   return require("./pipeline-analytics.js");
 }
 
+function verificationLib() {
+  return require("./verification.js");
+}
+
 function readFindingIdSet(domain) {
   const { readFindingsFromJsonl } = findingsLib();
   return new Set(readFindingsFromJsonl(domain).map((finding) => finding.id));
@@ -129,11 +133,25 @@ function loadFinalVerification(domain, findingIdSet, action = "evidence validati
   let document;
   try {
     document = loadJsonDocumentStrict(paths.json, "final verification round JSON");
-    return normalizeVerificationRoundDocument(document, {
+    let effectiveFindingIdSet = findingIdSet;
+    let v2Current = null;
+    if (document && document.version === 2) {
+      v2Current = verificationLib().requireV2State(domain);
+      effectiveFindingIdSet = new Set(v2Current.snapshot.finding_ids);
+    }
+    const normalized = normalizeVerificationRoundDocument(document, {
       expectedDomain: domain,
       expectedRound: "final",
-      findingIdSet,
+      findingIdSet: effectiveFindingIdSet,
     });
+    if (normalized.version === 2) {
+      verificationLib().assertCurrentV2RoundDocument(domain, normalized, {
+        expectedRound: "final",
+        state: v2Current.state,
+        snapshot: v2Current.snapshot,
+      });
+    }
+    return normalized;
   } catch (error) {
     throw new ToolError(
       ERROR_CODES.STATE_CONFLICT,
@@ -198,7 +216,12 @@ function normalizeEvidencePack(pack, { findingIdSet, finalReportableIdSet }) {
   };
 }
 
-function normalizeEvidencePacksDocument(document, { expectedDomain = null, findingIdSet = null, finalReportableIdSet = null } = {}) {
+function normalizeEvidencePacksDocument(document, {
+  expectedDomain = null,
+  findingIdSet = null,
+  finalReportableIdSet = null,
+  verificationBinding = null,
+} = {}) {
   if (!isPlainObject(document)) {
     throw new Error("evidence packs document must be an object");
   }
@@ -216,6 +239,18 @@ function normalizeEvidencePacksDocument(document, { expectedDomain = null, findi
     target_domain: domain,
     packs: [],
   };
+
+  for (const field of ["verification_attempt_id", "verification_snapshot_hash", "final_verification_hash"]) {
+    if (verificationBinding) {
+      const actual = assertNonEmptyString(document[field], field);
+      if (actual !== verificationBinding[field]) {
+        throw new Error(`${field} does not match current final verification`);
+      }
+      normalized[field] = actual;
+    } else if (document[field] != null) {
+      normalized[field] = assertNonEmptyString(document[field], field);
+    }
+  }
 
   const knownFindingIds = findingIdSet || new Set(document.packs.map((pack) => parseFindingId(pack.finding_id)));
   const reportableIds = finalReportableIdSet || knownFindingIds;
@@ -272,6 +307,9 @@ function requireValidEvidencePacksForFinalReportableFindings(domain, { findingId
   const normalizedDomain = assertNonEmptyString(domain, "target_domain");
   const knownFindingIds = findingIdSet || readFindingIdSet(normalizedDomain);
   const finalRound = loadFinalVerification(normalizedDomain, knownFindingIds);
+  const verificationBinding = finalRound.version === 2
+    ? verificationLib().evidenceBindingForFinal(normalizedDomain, finalRound)
+    : null;
   const reportableIds = finalReportableIds(finalRound);
   const reportableIdSet = new Set(reportableIds);
   const paths = evidencePackPaths(normalizedDomain);
@@ -281,6 +319,7 @@ function requireValidEvidencePacksForFinalReportableFindings(domain, { findingId
       const document = {
         version: EVIDENCE_PACKS_VERSION,
         target_domain: normalizedDomain,
+        ...(verificationBinding || {}),
         packs: [],
       };
       return buildEvidenceValidationResult(normalizedDomain, paths, document, reportableIds, {
@@ -297,7 +336,11 @@ function requireValidEvidencePacksForFinalReportableFindings(domain, { findingId
       expectedDomain: normalizedDomain,
       findingIdSet: knownFindingIds,
       finalReportableIdSet: reportableIdSet,
+      verificationBinding,
     });
+    if (verificationBinding) {
+      verificationLib().assertEvidenceMatchesFinal(normalizedDomain, normalized, finalRound);
+    }
     return buildEvidenceValidationResult(normalizedDomain, paths, normalized, reportableIds);
   } catch (error) {
     if (error instanceof ToolError) throw error;
@@ -309,6 +352,13 @@ function renderEvidencePacksMarkdown(document) {
   const lines = [
     "# Evidence Packs",
     `- Target: ${document.target_domain}`,
+    ...(document.verification_attempt_id
+      ? [
+        `- Verification Attempt: ${document.verification_attempt_id}`,
+        `- Verification Snapshot: ${document.verification_snapshot_hash}`,
+        `- Final Verification Hash: ${document.final_verification_hash}`,
+      ]
+      : []),
     `- Packs: ${document.packs.length}`,
     "",
   ];
@@ -353,17 +403,25 @@ function writeEvidencePacks(args) {
   return withSessionLock(domain, () => {
     const findingIdSet = readFindingIdSet(domain);
     const finalRound = loadFinalVerification(domain, findingIdSet, "evidence collection");
+    const verificationBinding = finalRound.version === 2
+      ? verificationLib().evidenceBindingForFinal(domain, finalRound)
+      : null;
     const reportableIds = finalReportableIds(finalRound);
     const finalReportableIdSet = new Set(reportableIds);
     const document = normalizeEvidencePacksDocument({
       version: EVIDENCE_PACKS_VERSION,
       target_domain: domain,
+      ...(verificationBinding || {}),
       packs: args.packs,
     }, {
       expectedDomain: domain,
       findingIdSet,
       finalReportableIdSet,
+      verificationBinding,
     });
+    if (verificationBinding) {
+      verificationLib().assertEvidenceMatchesFinal(domain, document, finalRound);
+    }
 
     const paths = evidencePackPaths(domain);
     writeFileAtomic(paths.json, `${JSON.stringify(document, null, 2)}\n`);
@@ -373,11 +431,19 @@ function writeEvidencePacks(args) {
       reportable_findings_covered: reportableIds.length,
       written_json: paths.json,
     };
+    if (verificationBinding) {
+      response.verification_attempt_id = verificationBinding.verification_attempt_id;
+      response.verification_snapshot_hash = verificationBinding.verification_snapshot_hash;
+      response.final_verification_hash = verificationBinding.final_verification_hash;
+    }
     writeMarkdownMirror(paths.markdown, renderEvidencePacksMarkdown(document), response);
     pipelineAnalyticsLib().safeAppendPipelineEventDirect(domain, "evidence_written", {
       phase: "VERIFY",
       status: document.packs.length === 0 ? "empty" : "written",
       source: "bounty_write_evidence_packs",
+      verification_attempt_id: verificationBinding ? verificationBinding.verification_attempt_id : undefined,
+      verification_snapshot_hash: verificationBinding ? verificationBinding.verification_snapshot_hash : undefined,
+      final_verification_hash: verificationBinding ? verificationBinding.final_verification_hash : undefined,
       counts: {
         packs: document.packs.length,
         representative_samples: response.representative_samples_count,
@@ -393,9 +459,7 @@ function readEvidencePacks(args) {
   const validation = requireValidEvidencePacksForFinalReportableFindings(domain);
   if (validation.skipped) {
     return JSON.stringify({
-      version: EVIDENCE_PACKS_VERSION,
-      target_domain: domain,
-      packs: [],
+      ...validation.document,
       skipped: true,
     });
   }

@@ -16,6 +16,8 @@ const {
   SUI_NETWORK_VALUES,
   SURFACE_TYPE_VALUES,
   SVM_CLUSTER_VALUES,
+  VERIFICATION_CONFIDENCE_REASON_VALUES,
+  VERIFICATION_CONFIDENCE_VALUES,
   VERIFICATION_DISPOSITION_VALUES,
   VERIFICATION_ROUND_VALUES,
 } = require("./constants.js");
@@ -57,6 +59,10 @@ const {
 const {
   safeAppendPipelineEventDirect,
 } = require("./pipeline-analytics.js");
+
+function verificationLib() {
+  return require("./verification.js");
+}
 
 function normalizeEndpointForDedupe(endpoint) {
   const raw = String(endpoint || "").trim();
@@ -841,7 +847,40 @@ function listFindings(args) {
   });
 }
 
-function normalizeVerificationResult(result, findingIdSet) {
+function normalizeStringEnumArray(value, fieldName, allowedValues, { required = false } = {}) {
+  if (value == null) {
+    if (required) throw new Error(`${fieldName} must be an array`);
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an array`);
+  }
+  const seen = new Set();
+  const normalized = [];
+  for (const item of value) {
+    const text = assertEnumValue(item, allowedValues, fieldName);
+    if (!seen.has(text)) {
+      seen.add(text);
+      normalized.push(text);
+    }
+  }
+  return normalized;
+}
+
+function normalizeArtifactHashes(value, fieldName = "artifact_hashes") {
+  if (value == null) return {};
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${fieldName} must be an object`);
+  }
+  const normalized = {};
+  for (const [key, hash] of Object.entries(value)) {
+    const safeKey = assertNonEmptyString(key, `${fieldName} key`);
+    normalized[safeKey] = assertNonEmptyString(hash, `${fieldName}.${safeKey}`);
+  }
+  return normalized;
+}
+
+function normalizeVerificationResult(result, findingIdSet, { schemaVersion = 1 } = {}) {
   if (result == null || typeof result !== "object" || Array.isArray(result)) {
     throw new Error("results entries must be objects");
   }
@@ -851,13 +890,37 @@ function normalizeVerificationResult(result, findingIdSet) {
     throw new Error(`Unknown finding_id: ${findingId}`);
   }
 
-  return {
+  const normalized = {
     finding_id: findingId,
     disposition: assertEnumValue(result.disposition, VERIFICATION_DISPOSITION_VALUES, "disposition"),
     severity: result.severity == null ? null : assertEnumValue(result.severity, SEVERITY_VALUES, "severity"),
     reportable: assertBoolean(result.reportable, "reportable"),
     reasoning: assertRequiredText(result.reasoning, "reasoning"),
   };
+
+  if (schemaVersion === 2) {
+    normalized.confidence = assertEnumValue(result.confidence, VERIFICATION_CONFIDENCE_VALUES, "confidence");
+    normalized.confidence_reasons = normalizeStringEnumArray(
+      result.confidence_reasons,
+      "confidence_reasons",
+      VERIFICATION_CONFIDENCE_REASON_VALUES,
+      { required: true },
+    );
+    normalized.state_sensitive = assertBoolean(result.state_sensitive, "state_sensitive");
+    normalized.artifact_hashes = normalizeArtifactHashes(result.artifact_hashes);
+    normalized.inherited_confidence_reasons = normalizeStringEnumArray(
+      result.inherited_confidence_reasons,
+      "inherited_confidence_reasons",
+      VERIFICATION_CONFIDENCE_REASON_VALUES,
+    );
+    normalized.resolved_confidence_reasons = normalizeStringEnumArray(
+      result.resolved_confidence_reasons,
+      "resolved_confidence_reasons",
+      VERIFICATION_CONFIDENCE_REASON_VALUES,
+    );
+  }
+
+  return normalized;
 }
 
 function normalizeVerificationRoundDocument(document, { expectedDomain, expectedRound, findingIdSet = null } = {}) {
@@ -866,13 +929,24 @@ function normalizeVerificationRoundDocument(document, { expectedDomain, expected
   }
 
   const round = assertEnumValue(document.round, VERIFICATION_ROUND_VALUES, "round");
+  const version = assertInteger(document.version, "version", { min: 1, max: 2 });
   const normalized = {
-    version: assertInteger(document.version, "version", { min: 1, max: 1 }),
+    version,
     target_domain: assertNonEmptyString(document.target_domain, "target_domain"),
     round,
     notes: normalizeOptionalText(document.notes, "notes"),
     results: [],
   };
+
+  if (version === 2) {
+    normalized.verification_attempt_id = assertNonEmptyString(document.verification_attempt_id, "verification_attempt_id");
+    normalized.verification_snapshot_hash = assertNonEmptyString(document.verification_snapshot_hash, "verification_snapshot_hash");
+    normalized.round_profile = assertRequiredText(document.round_profile, "round_profile");
+    if (round === "final") {
+      normalized.adjudication_plan_hash = assertNonEmptyString(document.adjudication_plan_hash, "adjudication_plan_hash");
+      normalized.final_verification_hash = normalizeOptionalText(document.final_verification_hash, "final_verification_hash");
+    }
+  }
 
   if (!Array.isArray(document.results)) {
     throw new Error("results must be an array");
@@ -883,6 +957,7 @@ function normalizeVerificationRoundDocument(document, { expectedDomain, expected
     const normalizedResult = normalizeVerificationResult(
       result,
       findingIdSet ?? new Set([parseFindingId(result.finding_id)]),
+      { schemaVersion: version },
     );
     if (seenIds.has(normalizedResult.finding_id)) {
       throw new Error(`Duplicate finding_id in results: ${normalizedResult.finding_id}`);
@@ -919,6 +994,15 @@ function renderVerificationRoundMarkdown(document) {
   const lines = [
     `# Verification Round: ${document.round}`,
     `- Target: ${document.target_domain}`,
+    ...(document.version === 2
+      ? [
+        `- Schema: v2`,
+        `- Attempt: ${document.verification_attempt_id}`,
+        `- Snapshot: ${document.verification_snapshot_hash}`,
+        ...(document.adjudication_plan_hash ? [`- Adjudication Plan: ${document.adjudication_plan_hash}`] : []),
+        ...(document.final_verification_hash ? [`- Final Verification Hash: ${document.final_verification_hash}`] : []),
+      ]
+      : []),
     `- Notes: ${document.notes || "N/A"}`,
     `- Results: ${document.results.length}`,
     "",
@@ -935,6 +1019,11 @@ function renderVerificationRoundMarkdown(document) {
     lines.push(`- Disposition: ${result.disposition}`);
     lines.push(`- Severity: ${result.severity || "none"}`);
     lines.push(`- Reportable: ${result.reportable ? "YES" : "NO"}`);
+    if (document.version === 2) {
+      lines.push(`- Confidence: ${result.confidence}`);
+      lines.push(`- Confidence Reasons: ${result.confidence_reasons.length ? result.confidence_reasons.join(", ") : "N/A"}`);
+      lines.push(`- State Sensitive: ${result.state_sensitive ? "YES" : "NO"}`);
+    }
     lines.push(`- Reasoning: ${result.reasoning}`);
     lines.push("");
   }
@@ -950,10 +1039,22 @@ function writeVerificationRound(args) {
     throw new Error("results must be an array");
   }
 
-  const findingIdSet = new Set(readFindingsFromJsonl(domain).map((finding) => finding.id));
+  const schemaVersion = verificationLib().selectVerificationWriteSchemaVersion(domain);
+  let v2State = null;
+  let v2Snapshot = null;
+  let v2Adjudication = null;
+  if (schemaVersion === 2) {
+    const current = verificationLib().currentV2RoundInput(domain, args);
+    v2State = current.state;
+    v2Snapshot = current.snapshot;
+  }
+
+  const findingIdSet = schemaVersion === 2
+    ? new Set(v2Snapshot.finding_ids)
+    : new Set(readFindingsFromJsonl(domain).map((finding) => finding.id));
   const seenIds = new Set();
   const results = args.results.map((result) => {
-    const normalizedResult = normalizeVerificationResult(result, findingIdSet);
+    const normalizedResult = normalizeVerificationResult(result, findingIdSet, { schemaVersion });
     if (seenIds.has(normalizedResult.finding_id)) {
       throw new Error(`Duplicate finding_id in results: ${normalizedResult.finding_id}`);
     }
@@ -961,40 +1062,75 @@ function writeVerificationRound(args) {
     return normalizedResult;
   });
 
-  const priorDocument = requirePriorVerificationRound(domain, round, findingIdSet);
-  if (priorDocument) {
-    const priorIds = new Set(priorDocument.results.map((result) => result.finding_id));
-    const currentIds = new Set(results.map((result) => result.finding_id));
-    const missing = [...priorIds].filter((id) => !currentIds.has(id));
-    if (missing.length > 0) {
-      throw new Error(
-        `${round} round is missing ${missing.length} finding(s) from ${priorDocument.round} round: ${missing.join(", ")}. ` +
-        "Include ALL findings from the prior round — pass through unchanged findings you did not re-test."
-      );
+  if (schemaVersion === 1) {
+    const priorDocument = requirePriorVerificationRound(domain, round, findingIdSet);
+    if (priorDocument) {
+      const priorIds = new Set(priorDocument.results.map((result) => result.finding_id));
+      const currentIds = new Set(results.map((result) => result.finding_id));
+      const missing = [...priorIds].filter((id) => !currentIds.has(id));
+      if (missing.length > 0) {
+        throw new Error(
+          `${round} round is missing ${missing.length} finding(s) from ${priorDocument.round} round: ${missing.join(", ")}. ` +
+          "Include ALL findings from the prior round — pass through unchanged findings you did not re-test."
+        );
+      }
+    }
+  } else {
+    verificationLib().assertExactFindingCoverage(results, v2Snapshot.finding_ids, round);
+    if (round === "final") {
+      const planHash = assertNonEmptyString(args.adjudication_plan_hash, "adjudication_plan_hash");
+      v2Adjudication = verificationLib().requireCurrentAdjudication(domain, {
+        planHash,
+        state: v2State,
+        snapshot: v2Snapshot,
+      });
+    } else if (args.adjudication_plan_hash != null) {
+      throw new ToolError(ERROR_CODES.INVALID_ARGUMENTS, "adjudication_plan_hash is only allowed for final v2 verification");
     }
   }
 
   const document = {
-    version: 1,
+    version: schemaVersion,
     target_domain: domain,
     round,
     notes,
     results,
   };
+  if (schemaVersion === 2) {
+    document.verification_attempt_id = v2State.verification_attempt_id;
+    document.verification_snapshot_hash = v2State.verification_snapshot_hash;
+    document.round_profile = args.round_profile == null
+      ? round
+      : assertRequiredText(args.round_profile, "round_profile");
+    if (round === "final") {
+      document.adjudication_plan_hash = v2Adjudication.plan_hash;
+      document.final_verification_hash = verificationLib().finalVerificationHash(document);
+      verificationLib().validateFinalAgainstAdjudication(domain, document, v2Adjudication);
+    }
+  }
 
   const paths = verificationRoundPaths(domain, round);
   writeFileAtomic(paths.json, JSON.stringify(document, null, 2) + "\n");
 
   const response = {
     round,
+    schema_version: schemaVersion,
     results_count: results.length,
     written_json: paths.json,
   };
+  if (schemaVersion === 2) {
+    response.verification_attempt_id = v2State.verification_attempt_id;
+    response.verification_snapshot_hash = v2State.verification_snapshot_hash;
+    if (document.final_verification_hash) response.final_verification_hash = document.final_verification_hash;
+  }
   writeMarkdownMirror(paths.markdown, renderVerificationRoundMarkdown(document), response);
   safeAppendPipelineEventDirect(domain, "verification_written", {
     phase: "VERIFY",
     status: round,
     source: "bounty_write_verification_round",
+    verification_attempt_id: schemaVersion === 2 ? v2State.verification_attempt_id : undefined,
+    verification_snapshot_hash: schemaVersion === 2 ? v2State.verification_snapshot_hash : undefined,
+    final_verification_hash: schemaVersion === 2 && round === "final" ? document.final_verification_hash : undefined,
     counts: {
       results: results.length,
       reportable: results.filter((result) => result.reportable).length,
@@ -1008,12 +1144,15 @@ function readVerificationRound(args) {
   const domain = assertNonEmptyString(args.target_domain, "target_domain");
   const paths = verificationRoundPaths(domain, args.round);
   const document = loadJsonDocumentStrict(paths.json, `${paths.round} verification round JSON`);
-  const findingIdSet = new Set(readFindingsFromJsonl(domain).map((finding) => finding.id));
-  return JSON.stringify(normalizeVerificationRoundDocument(document, {
+  const findingIdSet = document && document.version === 2
+    ? null
+    : new Set(readFindingsFromJsonl(domain).map((finding) => finding.id));
+  const normalized = normalizeVerificationRoundDocument(document, {
     expectedDomain: domain,
     expectedRound: paths.round,
     findingIdSet,
-  }));
+  });
+  return JSON.stringify(verificationLib().decorateVerificationRoundRead(domain, normalized));
 }
 
 function normalizeGradeFinding(result, findingIdSet) {
@@ -1100,11 +1239,24 @@ function requireFinalReportableSeveritySet(domain, findingIdSet) {
   let normalized;
   try {
     const document = loadJsonDocumentStrict(paths.json, "final verification round JSON");
+    let effectiveFindingIdSet = findingIdSet;
+    let v2Current = null;
+    if (document && document.version === 2) {
+      v2Current = verificationLib().requireV2State(domain);
+      effectiveFindingIdSet = new Set(v2Current.snapshot.finding_ids);
+    }
     normalized = normalizeVerificationRoundDocument(document, {
       expectedDomain: domain,
       expectedRound: "final",
-      findingIdSet,
+      findingIdSet: effectiveFindingIdSet,
     });
+    if (normalized.version === 2) {
+      verificationLib().assertCurrentV2RoundDocument(domain, normalized, {
+        expectedRound: "final",
+        state: v2Current.state,
+        snapshot: v2Current.snapshot,
+      });
+    }
   } catch (error) {
     throw new ToolError(
       ERROR_CODES.STATE_CONFLICT,
@@ -1261,6 +1413,7 @@ module.exports = {
   normalizeGradeVerdictDocument,
   normalizeSs58Address,
   normalizeVerificationRoundDocument,
+  normalizeVerificationResult,
   readFindings,
   readFindingsFromJsonl,
   readGradeVerdict,

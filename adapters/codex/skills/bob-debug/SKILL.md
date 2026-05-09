@@ -27,6 +27,7 @@ After resolving `target_domain`, call both telemetry MCPs before drawing conclus
 bounty_read_pipeline_analytics({ target_domain, include_events: true, limit: 100 })
 bounty_read_tool_telemetry({ target_domain, include_agent_runs: true, limit: 100 })
 bounty_read_session_summary({ target_domain })
+bounty_read_verification_context({ target_domain })
 ```
 Use `.data` from successful MCP responses. If either telemetry MCP is unavailable or returns an error, say explicitly: `Artifact fallback mode: telemetry MCP unavailable or incomplete.` Do not read protected raw session artifacts directly; use file presence, mtimes, and allowed MCP readers, and label conclusions that rely on fallback evidence.
 
@@ -39,6 +40,7 @@ Use these only when they help confirm a telemetry finding or fill a gap:
 - `bounty_wave_status({ target_domain })`
 - `bounty_read_wave_handoffs({ target_domain })`
 - `bounty_read_findings({ target_domain })`
+- `bounty_read_verification_context({ target_domain })`
 - `bounty_read_verification_round({ target_domain, round: "brutalist" | "balanced" | "final" })`
 - `bounty_read_grade_verdict({ target_domain })`
 
@@ -49,6 +51,7 @@ For local artifact fallback, inspect only file presence/mtimes under `~/bounty-a
 - Wave health: starts, pending merges, manual force merges, missing or invalid handoffs, unexpected agents, and stale pending waves.
 - Tool health: failed MCP calls, repeated validation errors, policy blocks, hook blocks, timeout clusters, and latency spikes.
 - Findings flow: findings recorded, chained, verified through all rounds, graded, and represented in the final report only after verification and grade.
+- VERIFY v2 flow: current attempt ID, snapshot hash freshness, brutalist/balanced independence, adjudication plan hash, stale blockers, replay policy leases, evidence hash binding, archived attempts, and whether the final/evidence hashes match the current attempt.
 - Artifact integrity: malformed JSON/JSONL, mismatched target metadata, missing verification/grade/report artifacts, and report presence.
 - Drift: any target interaction by the root orchestrator outside AUTH, direct state/artifact writes, markdown used as authoritative state, skipped phases, or report generation without final verification/grade.
 

@@ -1,6 +1,7 @@
 "use strict";
 
 const { httpScan } = require("../http-scan.js");
+const { REPLAY_CONTEXT_SCHEMA } = require("./replay-context-schema.js");
 
 module.exports = Object.freeze({
   name: "bounty_http_scan",
@@ -35,6 +36,7 @@ module.exports = Object.freeze({
         description: "Control response size. 'full' (default): complete response. 'status_only': status code + redirect info only (~100 tokens). 'headers_only': status + headers, no body. 'body_truncate': status + headers + first body_limit chars of body.",
       },
       body_limit: { type: "number", description: "Max body chars when response_mode is 'body_truncate'. Default 2000." },
+      replay_context: REPLAY_CONTEXT_SCHEMA,
     },
     required: ["method", "url", "target_domain"],
   },
