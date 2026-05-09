@@ -288,6 +288,8 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_record_surface_leads",
   "bounty_read_surface_leads",
   "bounty_promote_surface_leads",
+  "bounty_build_surface_graph",
+  "bounty_query_surface_graph",
 ];
 
 function withTempHome(fn) {

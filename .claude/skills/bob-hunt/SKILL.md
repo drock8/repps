@@ -51,6 +51,8 @@ allowed-tools:
   - mcp__bountyagent__bounty_record_surface_leads
   - mcp__bountyagent__bounty_read_surface_leads
   - mcp__bountyagent__bounty_promote_surface_leads
+  - mcp__bountyagent__bounty_build_surface_graph
+  - mcp__bountyagent__bounty_query_surface_graph
   - mcp__bountyagent__bounty_http_scan
   - mcp__bountyagent__bounty_temp_email
   - mcp__bountyagent__bounty_signup_detect
