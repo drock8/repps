@@ -644,10 +644,51 @@ function seedFinding(domain, overrides = {}) {
 }
 
 function seedVerificationPipeline(domain, results) {
-  let context = null;
-  try {
-    context = JSON.parse(readVerificationContext({ target_domain: domain }));
-  } catch {}
+  const readContext = () => {
+    try {
+      return JSON.parse(readVerificationContext({ target_domain: domain }));
+    } catch (error) {
+      throw new Error(`seedVerificationPipeline: failed to read verification context for ${domain}: ${error.message || error}`);
+    }
+  };
+  // Preserve the test's seeded state across the v2 bootstrap so that downstream
+  // assertions about phase, hold_count, hunt_wave etc. still hold. The bootstrap
+  // below transitions CHAIN -> VERIFY, which clobbers those fields.
+  let originalState = null;
+  if (fs.existsSync(statePath(domain))) {
+    try {
+      originalState = JSON.parse(fs.readFileSync(statePath(domain), "utf8"));
+    } catch {}
+  }
+  let context = readContext();
+  if (context && context.schema_version === 2 && (!context.current_attempt_id || !context.snapshot_hash)) {
+    // Clean up any stale v2 artifacts from prior fixture iterations on the same
+    // session dir; otherwise bootstrap collides on `attempt-unknown` archives
+    // because state.json no longer references them.
+    const verifyDir = sessionDir(domain);
+    for (const name of [
+      "verification-input-snapshot.json",
+      "verification-adjudication.json",
+      "verification-manifest.json",
+      "evidence-packs.json",
+      "evidence-packs.md",
+    ]) {
+      try { fs.rmSync(path.join(verifyDir, name), { force: true }); } catch {}
+    }
+    for (const round of ["brutalist", "balanced", "final"]) {
+      const paths = verificationRoundPaths(domain, round);
+      try { fs.rmSync(paths.json, { force: true }); } catch {}
+      try { fs.rmSync(paths.markdown, { force: true }); } catch {}
+    }
+    try { fs.rmSync(path.join(verifyDir, "verification-attempts"), { recursive: true, force: true }); } catch {}
+    seedSessionState(domain, { phase: "CHAIN" });
+    JSON.parse(transitionPhase({
+      target_domain: domain,
+      to_phase: "VERIFY",
+      override_reason: "fixture bootstrap for seedVerificationPipeline",
+    }));
+    context = readContext();
+  }
   if (context && context.schema_version === 2 && context.current_attempt_id && context.snapshot_hash) {
     const v2Results = results.map((result) => ({
       ...result,
@@ -680,17 +721,25 @@ function seedVerificationPipeline(domain, results) {
       adjudication_plan_hash: adjudication.adjudication_plan_hash,
       results: v2Results,
     });
+    // Restore the test's pre-bootstrap state, grafting on the v2 attempt fields.
+    if (originalState) {
+      const verifyState = JSON.parse(fs.readFileSync(statePath(domain), "utf8"));
+      const restored = {
+        ...originalState,
+        verification_schema_version: verifyState.verification_schema_version,
+        verification_attempt_id: verifyState.verification_attempt_id,
+        verification_snapshot_hash: verifyState.verification_snapshot_hash,
+        verification_entered_at: verifyState.verification_entered_at,
+      };
+      writeFileAtomic(statePath(domain), `${JSON.stringify(restored, null, 2)}\n`);
+    }
     return;
   }
-  if (context && context.schema_version === 2 && !context.current_attempt_id && fs.existsSync(statePath(domain))) {
-    const state = JSON.parse(fs.readFileSync(statePath(domain), "utf8"));
-    writeFileAtomic(statePath(domain), `${JSON.stringify({
-      ...state,
-      verification_schema_version: 1,
-      verification_attempt_id: null,
-      verification_snapshot_hash: null,
-      verification_entered_at: null,
-    }, null, 2)}\n`);
+  if (context && context.schema_version === 2) {
+    throw new Error(
+      `seedVerificationPipeline: v2 bootstrap for ${domain} did not produce a current attempt; ` +
+      "verification-input-snapshot.json is missing or stale",
+    );
   }
   for (const round of ["brutalist", "balanced", "final"]) {
     writeVerificationRound({ target_domain: domain, round, notes: null, results });
@@ -10297,17 +10346,21 @@ test("bounty_write_evidence_packs writes JSON and markdown mirror", () => {
     assert.equal(result.reportable_findings_covered, 1);
     assert.equal(result.written_json, paths.json);
     assert.equal(result.written_md, paths.markdown);
-    assert.deepEqual(JSON.parse(fs.readFileSync(paths.json, "utf8")), {
+    const ctx = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const onDisk = JSON.parse(fs.readFileSync(paths.json, "utf8"));
+    const expectedShape = {
       version: 1,
       target_domain: domain,
       packs: [evidencePack("F-1")],
-    });
+      ...(ctx.schema_version === 2 ? {
+        verification_attempt_id: ctx.current_attempt_id,
+        verification_snapshot_hash: ctx.snapshot_hash,
+        final_verification_hash: onDisk.final_verification_hash,
+      } : {}),
+    };
+    assert.deepEqual(onDisk, expectedShape);
     assert.match(fs.readFileSync(paths.markdown, "utf8"), /# Evidence Packs/);
-    assert.deepEqual(JSON.parse(readEvidencePacks({ target_domain: domain })), {
-      version: 1,
-      target_domain: domain,
-      packs: [evidencePack("F-1")],
-    });
+    assert.deepEqual(JSON.parse(readEvidencePacks({ target_domain: domain })), expectedShape);
 
     const rows = readJsonl(pipelineEventsJsonlPath(domain));
     const evidenceEvent = rows.find((row) => row.type === "evidence_written");
@@ -10390,11 +10443,20 @@ test("bounty_read_evidence_packs allows skip only when final verification has no
       reasoning: "Not reproducible.",
     }]);
 
+    const skipCtx = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const finalDoc = skipCtx.schema_version === 2
+      ? JSON.parse(fs.readFileSync(verificationRoundPaths(domain, "final").json, "utf8"))
+      : null;
     assert.deepEqual(JSON.parse(readEvidencePacks({ target_domain: domain })), {
       version: 1,
       target_domain: domain,
       packs: [],
       skipped: true,
+      ...(skipCtx.schema_version === 2 ? {
+        verification_attempt_id: skipCtx.current_attempt_id,
+        verification_snapshot_hash: skipCtx.snapshot_hash,
+        final_verification_hash: finalDoc.final_verification_hash,
+      } : {}),
     });
     assert.doesNotThrow(() => writeEvidencePacks({ target_domain: domain, packs: [] }));
 
