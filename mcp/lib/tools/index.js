@@ -11,6 +11,7 @@ const TOOL_MODULES = Object.freeze([
   require("./import-static-artifact.js"),
   require("./ingest-schema-doc.js"),
   require("./query-schema-contracts.js"),
+  require("./run-doc-delta.js"),
   require("./static-scan.js"),
   require("./record-finding.js"),
   require("./read-findings.js"),
