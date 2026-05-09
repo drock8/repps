@@ -935,6 +935,12 @@ test("bountyagentstatus skill is compact, read-only, and points to next commands
   assert.match(skill, /bounty_read_evidence_packs\(\{ target_domain \}\)/);
   assert.match(skill, /\/bob-hunt resume <target_domain>/);
   assert.match(skill, /\/bob-debug --deep <target_domain>/);
+  assert.match(skill, /V2 Verification Panel/);
+  assert.match(skill, /archived_attempts/);
+  assert.match(skill, /current_attempt_id/);
+  assert.match(skill, /snapshot_hash_current/);
+  assert.match(skill, /replay_execution_policy/);
+  assert.match(skill, /Archive trail/);
   for (const tool of forbiddenTools) {
     assert.ok(!allowedTools.includes(tool), `${tool} must not be allowed in bountyagentstatus`);
   }
