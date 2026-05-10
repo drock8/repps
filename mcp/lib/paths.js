@@ -154,6 +154,10 @@ function invariantRunsJsonlPath(domain) {
   return path.join(sessionDir(domain), "invariant-runs.jsonl");
 }
 
+function symbolSurfaceIndexPath(domain) {
+  return path.join(sessionDir(domain), "symbol-surface-index.json");
+}
+
 function staticScanResultsJsonlPath(domain) {
   return path.join(sessionDir(domain), "static-scan-results.jsonl");
 }
@@ -241,6 +245,7 @@ module.exports = {
   invariantRunsJsonlPath,
   schemaContractsJsonlPath,
   surfaceGraphJsonlPath,
+  symbolSurfaceIndexPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,
