@@ -68,6 +68,7 @@ const TOOL_MODULES = Object.freeze([
   require("./read-tool-telemetry.js"),
   require("./read-pipeline-analytics.js"),
   require("./read-capability-metrics.js"),
+  require("./evaluate-capabilities.js"),
   require("./evm-call.js"),
   require("./evm-storage-read.js"),
   require("./evm-fetch-source.js"),

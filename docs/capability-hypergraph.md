@@ -411,6 +411,8 @@ Per-PR CI invariant: same input artifacts → same canonical hashes across runs.
 
 ### X5 — Capability evaluation harness
 
+**Status.** Shipped (`mcp/lib/capability-eval-harness.js` + `mcp/lib/tools/evaluate-capabilities.js` + `test/capability-eval-harness.test.js`, 6 tests passing). `FIXTURES` registers one runner per post-v2 capability that exercises a synthetic input and asserts an expected outcome (C2 doc-vs-behavior emits an auth-bypass divergence; C4 multi-account flags `unauth_succeeds_where_auth_blocked`; I6 ranks an IDOR finding ahead of an XSS one for an IDOR query; I1 records edges queryable by source/target; I7 branches into two distinct frontier leaves). `evaluateAllFixtures()` runs every fixture and tallies passed/failed. `bounty_evaluate_capabilities` is orchestrator-only; pass `fixture: '<name>'` to run one or omit to run all. Fixtures use unique session domains and clean up after each run so the harness leaves no fingerprint on real session storage.
+
 Per-capability fixture: a known authorized target with seeded findings. Hunts run against the fixture must produce expected findings deterministically. Regressions caught before parishioner review.
 
 **Why.** Parishioner review is expensive (real targets, real triagers). Evaluation harness catches regressions cheaply.

@@ -30,8 +30,7 @@ All Bob MCP calls return `{ ok, data, meta }` or `{ ok: false, error, meta }`. F
 
 MCP-owned session artifacts:
 - `bounty_import_http_traffic` writes imported Burp/HAR history to `traffic.jsonl`.
-- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs.
-- MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default. Pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
+- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs. MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default; pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
 - `bounty_public_intel` writes optional public bounty intel to `public-intel.json`.
 - `bounty_import_static_artifact` writes redacted token contract source under `static-imports/` and metadata to `static-artifacts.jsonl`.
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
@@ -150,7 +149,7 @@ Call `bounty_transition_phase({ target_domain, to_phase: "CHAIN" })`.
 
 Spawn:
 {{SPAWN_CHAIN_AGENT}}
-After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn. For multi-branch chain exploration the content-addressed tree (`bounty_append_chain_node` / `bounty_query_chain_tree` / `bounty_chain_frontier` / `bounty_chain_ancestry`) lets you branch from the same `parent_state_hash`, mark dead branches `verdict: "pruned"`, and re-pin to a known-good `state_hash` for backtracking.
+After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn.
 
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.

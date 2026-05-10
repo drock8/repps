@@ -53,6 +53,7 @@ allowed-tools:
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
   - mcp__bountyagent__bounty_read_capability_metrics
+  - mcp__bountyagent__bounty_evaluate_capabilities
   - mcp__bountyagent__bounty_record_surface_leads
   - mcp__bountyagent__bounty_read_surface_leads
   - mcp__bountyagent__bounty_promote_surface_leads
@@ -96,8 +97,7 @@ All Bob MCP calls return `{ ok, data, meta }` or `{ ok: false, error, meta }`. F
 
 MCP-owned session artifacts:
 - `bounty_import_http_traffic` writes imported Burp/HAR history to `traffic.jsonl`.
-- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs.
-- MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default. Pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
+- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs. MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default; pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
 - `bounty_public_intel` writes optional public bounty intel to `public-intel.json`.
 - `bounty_import_static_artifact` writes redacted token contract source under `static-imports/` and metadata to `static-artifacts.jsonl`.
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
@@ -270,7 +270,7 @@ Spawn:
 ```
 Agent(subagent_type: "chain-builder", name: "chain", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Read findings, wave handoffs, auth profiles, HTTP audit, and prior chain attempts through MCP. Test plausible chains with bounty_http_scan as needed, passing egress_profile on every scan, and write every outcome through bounty_write_chain_attempt. Do not read findings.md, chains.md, or markdown handoffs.")
 ```
-After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn. For multi-branch chain exploration the content-addressed tree (`bounty_append_chain_node` / `bounty_query_chain_tree` / `bounty_chain_frontier` / `bounty_chain_ancestry`) lets you branch from the same `parent_state_hash`, mark dead branches `verdict: "pruned"`, and re-pin to a known-good `state_hash` for backtracking.
+After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERIFY" })`. If MCP blocks this transition for missing terminal chain attempts, retry the chain-builder once with the blocker text. Use `override_reason` only when the operator explicitly accepts proceeding without terminal chain evidence. `override_reason` is rejected outside HUNT->CHAIN and CHAIN->VERIFY — do not pass it on other transitions; the MCP returns INVALID_ARGUMENTS and the call wastes a turn.
 
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.
