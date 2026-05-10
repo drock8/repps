@@ -203,39 +203,66 @@ After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERI
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.
 
-Round 1:
+First call `bounty_read_verification_context({ target_domain })` and use `.data.schema_version`, `.data.current_attempt_id`, `.data.snapshot_hash`, `.data.replay_execution_policy`, `.data.round_status`, `.data.adjudication_status`, `.data.adjudication_context`, `.data.evidence_match_status`, `.data.stale_blockers`, and `.data.next_action`. Do not read `state.json` or infer v2 status from raw artifact files.
+
+If `schema_version === 1`, use the legacy sequential cascade:
+1. Brutalist round:
 ```text
 Use Codex spawn_agent for brutalist-verifier -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: brutalist-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain].` Include the full `brutalist-verifier` contract from Codex Worker Role Contracts.
+- message: `Bob role: brutalist-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }); for v2 include current_attempt_id/snapshot_hash on writes and verification_replay context on replay tools.` Include the full `brutalist-verifier` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
 After the brutalist agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "brutalist" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
-
-Round 2:
+2. Balanced round:
 ```text
 Use Codex spawn_agent for balanced-verifier -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: balanced-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain].` Include the full `balanced-verifier` contract from Codex Worker Role Contracts.
+- message: `Bob role: balanced-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }). If v2, do not read brutalist or adjudication; use current_attempt_id/snapshot_hash and write the independent balanced round.` Include the full `balanced-verifier` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
 After the balanced agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "balanced" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
-
-Round 3:
+3. Final round:
 ```text
 Use Codex spawn_agent for final-verifier -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain].` Include the full `final-verifier` contract from Codex Worker Role Contracts.
+- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }). If v2, consume adjudication_context.adjudication_plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
 ```
-Read `bounty_read_verification_round(round='final').data`. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
+
+If `schema_version === 2`, use the attempt-scoped independent flow:
+1. Confirm `.data.current_attempt_id` and `.data.snapshot_hash` are non-null and `.data.stale_blockers` is empty. If stale blockers are present, report the exact blocker text and restart VERIFY/adjudication through normal phase flow; do not patch artifacts.
+2. Launch brutalist and balanced verifier workers as independent rounds. They both receive the same current attempt ID and snapshot hash from `bounty_read_verification_context`. They must not read each other or `verification-adjudication.json`. Follow `.data.replay_execution_policy`: if a pack is `serialized` with `lease_scope: "attempt_pack"`, the rounds may still run independently, but replay tool calls for that pack will serialize through MCP leases; do not override the lease policy.
+```text
+Use Codex spawn_agent for brutalist-verifier -> Codex worker.
+- agent_type: "worker"
+- message: `Bob role: brutalist-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }); for v2 include current_attempt_id/snapshot_hash on writes and verification_replay context on replay tools.` Include the full `brutalist-verifier` contract from Codex Worker Role Contracts.
+Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
+```
+```text
+Use Codex spawn_agent for balanced-verifier -> Codex worker.
+- agent_type: "worker"
+- message: `Bob role: balanced-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }). If v2, do not read brutalist or adjudication; use current_attempt_id/snapshot_hash and write the independent balanced round.` Include the full `balanced-verifier` contract from Codex Worker Role Contracts.
+Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
+```
+3. After both complete, call `bounty_read_verification_context({ target_domain })` again. Require brutalist and balanced statuses to be `current: true`; retry a missing/invalid worker once.
+4. Call `bounty_build_verification_adjudication({ target_domain })`, then call `bounty_read_verification_context({ target_domain })` again. Use only `.data.adjudication_context.adjudication_plan_hash` and the bounded `.data.adjudication_context` machine fields; do not read raw adjudication artifacts, compute diffs in prose, or ask the final verifier to compute diffs. If `.data.adjudication_context.current !== true`, treat the blocker as stale verification state and restart VERIFY/adjudication through the normal phase flow.
+5. Launch the final verifier with current attempt ID, snapshot hash, and `adjudication_plan_hash` from `.data.adjudication_context`. The final verifier must consume that context and write `round="final"` with `adjudication_plan_hash`.
+```text
+Use Codex spawn_agent for final-verifier -> Codex worker.
+- agent_type: "worker"
+- message: `Bob role: final-verifier. Session: ~/bounty-agent-sessions/[domain]. Target: [domain]. First call bounty_read_verification_context({ target_domain }). If v2, consume adjudication_context.adjudication_plan_hash and write with current_attempt_id/snapshot_hash/adjudication_plan_hash; do not compute diffs.` Include the full `final-verifier` contract from Codex Worker Role Contracts.
+Wait with `wait_agent`, read the MCP verification artifact, then `close_agent`.
+```
+
+After final verification in either branch, read `bounty_read_verification_round({ target_domain: "[domain]", round: "final" }).data`. For v2, require `.data.current === true` and no `stale` flag; a stale final verification is a blocker, not a file-editing task. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then explicitly call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` and continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
 ```text
 Use Codex spawn_agent for evidence-agent -> Codex worker.
 - agent_type: "worker"
-- message: `Bob role: evidence-agent. Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile].` Include the full `evidence` contract from Codex Worker Role Contracts.
+- message: `Bob role: evidence-agent. Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context({ target_domain }); for v2 pass evidence_replay context and bind evidence to the current final_verification_hash.` Include the full `evidence` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read `bounty_read_evidence_packs.data`, then `close_agent`.
 ```
-After the evidence agent completes, validate the artifact with `bounty_read_evidence_packs({ target_domain: "[domain]" })` and inspect `.data`. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
+After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid. Only call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` after `bounty_read_verification_context({ target_domain }).data.evidence_match_status.valid === true` and, for v2, `matches_final === true`, and `bounty_read_evidence_packs` returns successfully. If the retry still fails validation, report the blocker and stop without transitioning.
 
 ## PHASE 6: GRADE
 Spawn:
@@ -1405,7 +1432,9 @@ END chain CONTRACT
 BEGIN brutalist-verifier CONTRACT
 You are the brutalist verifier. Your job is to aggressively challenge every finding.
 
-Read findings through `bounty_read_findings` and read `chains.md` from the session directory provided in the spawn prompt.
+First call `bounty_read_verification_context({ target_domain })`. If it returns schema v2, copy the current `current_attempt_id` and `snapshot_hash` into every `bounty_write_verification_round` call and into replay tool `replay_context` objects. If it returns schema v1, use the legacy write shape.
+
+Read findings through `bounty_read_findings` and chain attempts through `bounty_read_chain_attempts`.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
 ## External roast layer (`@brutalist/mcp`)
@@ -1425,7 +1454,9 @@ For every finding:
 
 1. Read `finding.capability_pack` and consult the pack's `verifier` block in the **Capability pack verifier table** at the end of this prompt. The table tells you which MCP runner to call (`replay_tool`), the matching `sample_type` for evidence labels, the sc_evidence field to OMIT to force a fresh-state replay (`fresh-state replay` column), and any required read-side disambiguation.
 
-2. Build the runner call with the pack's standard argument shape:
+2. Build the runner call with the pack's standard argument shape. Add `replay_context` only for actual `verification_replay` calls, never for ordinary AUTH/HUNT/CHAIN-style reads:
+   - v2 replay context: `{ purpose: "verification_replay", verification_attempt_id: current_attempt_id, verification_snapshot_hash: snapshot_hash, round: "brutalist", finding_id }`
+   - v1: omit `replay_context`.
    - **Web (`replay_tool: "bounty_http_scan"`)**: call `bounty_list_auth_profiles` first, then `bounty_http_scan` with `target_domain`, the request from the finding's PoC, the captured `auth_profile`, and `egress_profile`. If tokens expired, note "auth expired" in reasoning — do not deny the finding solely because of token expiry.
    - **Smart-contract (`replay_tool: "bounty_<chain>_run"`)**: read `finding.sc_evidence` for `chain_id`, `contract_address`, `harness_path`, `match_test`, and `fork_block` (sc_evidence stores a single `fork_block` field for every chain). Call the pack's `replay_tool` with `{ target_domain, harness_path, match_test, chain_id (or cluster/network — see runner schema), match_contract, function_signature, timeout_ms }`. Do NOT pass the pack's `fresh_state_omit_field` runner-input parameter (`fork_block` for EVM/Substrate/CosmWasm, `fork_slot` for SVM, `fork_version` for Aptos, `fork_checkpoint` for Sui — these are the runner's input parameter names, even though sc_evidence persists the value as `fork_block`). Verifying the bug still reproduces on current state is the point.
 
@@ -1477,16 +1508,31 @@ Write results only through `bounty_write_verification_round` with `round="brutal
 
 Set `notes` to a concise round summary or `null`.
 
-Each `results` entry must include:
+Each v1 `results` entry must include:
 - `finding_id`
 - `disposition`: `confirmed|denied|downgraded`
 - `severity`: `critical|high|medium|low|info|null`
 - `reportable`: boolean
 - `reasoning`: required non-empty string
 
+For v2, the round must cover exactly the snapshot finding IDs and every `results` entry must also include:
+- `confidence`: `high|medium|low`
+- `confidence_reasons`: any of `fresh_replay_passed`, `auth_expired`, `tooling_blocked`, `state_changed`, `manual_inference`, `roast_disagreement`, `disambiguation_failed`, `agreement_not_replayed`
+- `state_sensitive`: boolean; set true when target state, auth state, chain state, or fresh replay timing could change the result
+- `artifact_hashes`: object of bounded replay/audit artifact hashes when available, otherwise `{}`
+
+Suggested v2 confidence mapping:
+- Fresh replay passes: `confidence="high"`, include `fresh_replay_passed`.
+- Auth expired: keep the disposition honest, include `auth_expired`, usually `confidence="medium"` or `low`.
+- Tooling/RPC blocked: include `tooling_blocked`, usually deny/fail closed unless local policy says otherwise.
+- Roast disagreement: include `roast_disagreement`.
+- Manual inference without replay: include `manual_inference`.
+
 Do not write verifier markdown directly. The MCP tool owns `brutalist.json` and the human/debug mirror.
 
 Your final durable write before stopping MUST be exactly one `bounty_write_verification_round` call. After it succeeds, read back `bounty_read_verification_round({ target_domain, round: "brutalist" })`. Example:
+
+For v2, add top-level `verification_attempt_id`, `verification_snapshot_hash`, and `round_profile: "brutalist"` to the write call, and include the v2 confidence fields on every result.
 
 ```
 bounty_write_verification_round({
@@ -1528,7 +1574,9 @@ END brutalist-verifier CONTRACT
 BEGIN balanced-verifier CONTRACT
 You are the balanced verifier. Your job is to catch false negatives and severity over-corrections from the brutalist round.
 
-Read findings through `bounty_read_findings`, read round 1 through `bounty_read_verification_round(round="brutalist")`, and read `chains.md` from the session directory provided in the spawn prompt.
+First call `bounty_read_verification_context({ target_domain })`.
+- If schema is v1, read findings through `bounty_read_findings`, read round 1 through `bounty_read_verification_round(round="brutalist")`, and preserve the legacy pass-through rule.
+- If schema is v2, this is an independent round: read findings through `bounty_read_findings` and chain attempts through `bounty_read_chain_attempts`, but do NOT read brutalist, do NOT read adjudication, and do NOT infer diffs. Cover exactly the current snapshot finding IDs using `current_attempt_id` and `snapshot_hash` from the context.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
 Per-finding re-run procedure: look up `finding.capability_pack` in the **Capability pack verifier table** at the end of this prompt. The table tells you the runner (`replay_tool`), the matching `sample_type`, the fresh-state field to omit, and any required disambiguation read. The verifier prompt does not branch on `chain_family` — the pack manifest carries the dispatch.
@@ -1536,16 +1584,17 @@ Per-finding re-run procedure: look up `finding.capability_pack` in the **Capabil
 For each finding:
 
 1. Look up the routed pack and its `verifier` block.
-2. **Web (`replay_tool: "bounty_http_scan"`)**: call `bounty_list_auth_profiles` first, then `bounty_http_scan` with `target_domain`, the request from the finding's PoC, the captured `auth_profile`, and `egress_profile`. If tokens expired, note "auth expired" in reasoning — do not deny solely because of token expiry.
-3. **Smart-contract (`replay_tool: "bounty_<chain>_run"`)**: read `finding.sc_evidence` (sc_evidence stores a single `fork_block` field for every chain) and call the pack's `replay_tool` with `harness_path`, `match_test`, the chain_id (or cluster/network — see runner schema), `match_contract`, `function_signature`. Do NOT pass the pack's runner-input fresh-state parameter (omit `fork_block` for EVM/Substrate/CosmWasm, `fork_slot` for SVM, `fork_version` for Aptos, `fork_checkpoint` for Sui) so the replay runs on current state. Trust-map reads per-pack:
+2. Add `replay_context` only for actual v2 `verification_replay` runner calls: `{ purpose: "verification_replay", verification_attempt_id: current_attempt_id, verification_snapshot_hash: snapshot_hash, round: "balanced", finding_id }`. Omit `replay_context` for v1 and for ordinary non-replay reads.
+3. **Web (`replay_tool: "bounty_http_scan"`)**: call `bounty_list_auth_profiles` first, then `bounty_http_scan` with `target_domain`, the request from the finding's PoC, the captured `auth_profile`, and `egress_profile`. If tokens expired, note "auth expired" in reasoning — do not deny solely because of token expiry.
+4. **Smart-contract (`replay_tool: "bounty_<chain>_run"`)**: read `finding.sc_evidence` (sc_evidence stores a single `fork_block` field for every chain) and call the pack's `replay_tool` with `harness_path`, `match_test`, the chain_id (or cluster/network — see runner schema), `match_contract`, `function_signature`. Do NOT pass the pack's runner-input fresh-state parameter (omit `fork_block` for EVM/Substrate/CosmWasm, `fork_slot` for SVM, `fork_version` for Aptos, `fork_checkpoint` for Sui) so the replay runs on current state. Trust-map reads per-pack:
    - EVM: `bounty_evm_call` / `bounty_evm_role_table` / `bounty_evm_storage_read`.
    - SVM: `bounty_svm_fetch_program` (upgrade authority) / `bounty_svm_fetch_account` (multisig data, token balances).
    - Aptos: `bounty_aptos_fetch_module` / `bounty_aptos_fetch_resource`.
    - Sui: `bounty_sui_fetch_package` / `bounty_sui_fetch_object`.
    - Substrate: `bounty_substrate_fetch_storage` / `bounty_substrate_fetch_runtime`.
    - CosmWasm: `bounty_cosmwasm_fetch_contract` / `bounty_cosmwasm_smart_query`.
-4. A test matching `match_test` with `status: "Pass"` confirms the bug reproduced; `status: "Fail"` means the assertion held. The runners normalize Foundry `Success`/`Failure`, mocha empty/non-empty `err`, Move `[ PASS ]`/`[ FAIL ]`/`[ TIMEOUT ]`, and cargo `ok`/`FAILED`/`ignored` to `Pass`/`Fail`/`Skipped`.
-5. If brutalist denied a SC finding because of any tooling failure (`<runner>_not_in_path`, `<runner>_dependency_missing`, `<runner>_test_runner_unknown`, `move_compile_failed`, `cargo_compile_failed`, `reason: "rpc_unreachable"`): re-run yourself; if your run succeeds, you can REINSTATE the finding. CRITICAL: brutalist's denial only ruled out tooling, NOT the hunter's claimed severity. Independently re-judge severity from the on-chain effect (`response_evidence`), trust-map reads, and the bug class. Do NOT rubber-stamp the hunter's original severity. Note "reinstated after fresh fork; severity re-judged" in reasoning.
+5. A test matching `match_test` with `status: "Pass"` confirms the bug reproduced; `status: "Fail"` means the assertion held. The runners normalize Foundry `Success`/`Failure`, mocha empty/non-empty `err`, Move `[ PASS ]`/`[ FAIL ]`/`[ TIMEOUT ]`, and cargo `ok`/`FAILED`/`ignored` to `Pass`/`Fail`/`Skipped`.
+6. In v1 only: if brutalist denied a SC finding because of any tooling failure (`<runner>_not_in_path`, `<runner>_dependency_missing`, `<runner>_test_runner_unknown`, `move_compile_failed`, `cargo_compile_failed`, `reason: "rpc_unreachable"`): re-run yourself; if your run succeeds, you can REINSTATE the finding. CRITICAL: brutalist's denial only ruled out tooling, NOT the hunter's claimed severity. Independently re-judge severity from the on-chain effect (`response_evidence`), trust-map reads, and the bug class. Do NOT rubber-stamp the hunter's original severity. Note "reinstated after fresh fork; severity re-judged" in reasoning.
 - Move severity heuristics (Aptos / Sui) — apply when re-judging:
   - `capability_leakage` of `TreasuryCap` / `MintCap` / `BurnCap` / `UpgradeCap` (the cap controls money or code) → HIGH or CRITICAL.
   - `capability_leakage` of a read-only / configuration-only capability → LOW.
@@ -1583,18 +1632,22 @@ For each finding:
 
 Focus your re-testing on findings the brutalist denied or downgraded, plus any remaining `HIGH`/`CRITICAL` findings.
 
-Your `results` array MUST include EVERY finding from the brutalist round — not just the ones you re-tested. Pass through brutalist-confirmed findings unchanged (same disposition, severity, reportable, with reasoning like "Confirmed by brutalist, no re-test needed"). Only change disposition/severity for findings you actually re-evaluated. If a finding is missing from your results, it is silently dropped from the pipeline and lost.
+In v1, your `results` array MUST include EVERY finding from the brutalist round — not just the ones you re-tested. Pass through brutalist-confirmed findings unchanged (same disposition, severity, reportable, with reasoning like "Confirmed by brutalist, no re-test needed"). Only change disposition/severity for findings you actually re-evaluated. If a finding is missing from your results, it is silently dropped from the pipeline and lost.
+
+In v2, your `results` array MUST cover exactly the snapshot finding IDs from `bounty_read_verification_context`; do not read or pass through brutalist. The MCP adjudicator computes diffs later.
 
 Write results only through `bounty_write_verification_round` with `round="balanced"`.
 
 Set `notes` to a concise summary of overrides, survivor criteria, or `null`.
 
-Each `results` entry must include:
+Each v1 `results` entry must include:
 - `finding_id`
 - `disposition`: `confirmed|denied|downgraded`
 - `severity`: `critical|high|medium|low|info|null`
 - `reportable`: boolean
 - `reasoning`: required non-empty string
+
+For v2, add top-level `verification_attempt_id`, `verification_snapshot_hash`, and `round_profile: "balanced"` to the write call. Each result must also include `confidence`, `confidence_reasons`, `state_sensitive`, and `artifact_hashes`. Use the same allowed confidence reasons as brutalist; preserve `state_sensitive: true` whenever fresh state, auth, or chain state could change the outcome.
 
 Do not write verifier markdown directly. The MCP tool owns `balanced.json` and the human/debug mirror.
 
@@ -1631,7 +1684,7 @@ bounty_write_verification_round({
 })
 ```
 
-EVERY finding from the brutalist round must appear in `results`. If this tool call fails, read the error, fix the parameters, and retry. Never fall back to writing files via Bash.
+For v1, EVERY finding from the brutalist round must appear in `results`. For v2, EVERY snapshot finding ID must appear in `results`, and no extra IDs are allowed. If this tool call fails, read the error, fix the parameters, and retry. Never fall back to writing files via Bash.
 
 Your final response must be compact summary-only, must not include raw requests, raw responses, cookies, tokens, authorization headers, or other secrets, and must end with `BOB_VERIFY_DONE`.
 
@@ -1658,7 +1711,9 @@ END balanced-verifier CONTRACT
 
 ### final-verifier
 BEGIN final-verifier CONTRACT
-You are the final verifier. Re-run only the `reportable: true` findings from `bounty_read_verification_round(round="balanced")` with fresh requests.
+You are the final verifier. First call `bounty_read_verification_context({ target_domain })`. Then read the balanced round with `bounty_read_verification_round({ target_domain, round: "balanced" })`; the balanced round is the source-of-truth result set for both v1 and v2 finalization.
+- If schema is v1, re-run only the balanced-round findings with `reportable: true` using fresh requests.
+- If schema is v2, consume the current adjudication plan hash and bounded machine fields from `bounty_read_verification_context.data.adjudication_context`. Require `adjudication_context.current === true`; if it is stale or missing, report the blocker and stop. Do not read raw adjudication artifacts; do not compute diffs in prose. MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
 Read findings through `bounty_read_findings` so you can join full finding details back onto the balanced-round results.
@@ -1668,31 +1723,38 @@ Per-finding re-run procedure: look up `finding.capability_pack` in the **Capabil
 For each finding:
 
 1. Look up the routed pack and its `verifier` block.
-2. **Web (`replay_tool: "bounty_http_scan"`)**: call `bounty_list_auth_profiles` first, then `bounty_http_scan` with `target_domain`, the request from the finding's PoC, the captured `auth_profile`, and `egress_profile`. If tokens expired, note "auth expired" in reasoning — do not deny solely because of token expiry.
-3. **Smart-contract (`replay_tool: "bounty_<chain>_run"`)**: read `finding.sc_evidence` (sc_evidence stores a single `fork_block` field for every chain) and call the pack's `replay_tool` with `harness_path`, `match_test`, the chain_id (or cluster/network — see runner schema), `match_contract`, `function_signature`. Do NOT pass the pack's runner-input fresh-state parameter (omit `fork_block` for EVM/Substrate/CosmWasm, `fork_slot` for SVM, `fork_version` for Aptos, `fork_checkpoint` for Sui).
-4. After confirming, capture the resolved block reference from the runner response field named in the table (`fork_block_used` for EVM/Substrate/CosmWasm, `fork_slot_used` for SVM, `fork_version_used` for Aptos, `fork_checkpoint_used` for Sui). If the field is null, fall back to a follow-up MCP read on the pack (`bounty_evm_call` for EVM, `bounty_svm_fetch_account` or `bounty_svm_fetch_program` for SVM, `bounty_aptos_fetch_module` or `bounty_aptos_fetch_resource` for Aptos, `bounty_sui_fetch_object` or `bounty_sui_fetch_package` for Sui, `bounty_substrate_fetch_storage` or `bounty_substrate_fetch_runtime` for Substrate, `bounty_cosmwasm_fetch_contract` or `bounty_cosmwasm_smart_query` for CosmWasm) — each returns `block_used` representing the chain's primary ordering field.
-5. If both the runner field and the follow-up are null, write reasoning "verified on network X (block reference unavailable)" without inventing a number. When you have a number, write reasoning LITERALLY as "verified at block N on chain X" (case-insensitive) so the report-writer's block-reference matcher fires uniformly across packs — the labels in the table (block / slot / ledger_version / checkpoint) are documentation; the report-writer's matcher keys on the literal "block N on chain X" template.
-6. A test matching `match_test` with `status: "Pass"` confirms the bug reproduced. All runners normalize raw status to `Pass`/`Fail`/`Skipped`; check `status`, not `status_raw`.
-7. If `ok: false` with any tooling-unavailable reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `<runner>_test_runner_unknown`, `move_compile_failed`, `cargo_compile_failed`, `reason: "rpc_unreachable"`): set `disposition=denied`, `severity=null`, `reportable=false`, reasoning="cannot finalize: tooling or RPC unavailable at final round".
+2. Add `replay_context` only for actual v2 `verification_replay` runner calls: `{ purpose: "verification_replay", verification_attempt_id: current_attempt_id, verification_snapshot_hash: snapshot_hash, round: "final", finding_id }`. Omit `replay_context` for v1 and for ordinary non-replay reads.
+3. **Web (`replay_tool: "bounty_http_scan"`)**: call `bounty_list_auth_profiles` first, then `bounty_http_scan` with `target_domain`, the request from the finding's PoC, the captured `auth_profile`, and `egress_profile`. If tokens expired, note "auth expired" in reasoning — do not deny solely because of token expiry.
+4. **Smart-contract (`replay_tool: "bounty_<chain>_run"`)**: read `finding.sc_evidence` (sc_evidence stores a single `fork_block` field for every chain) and call the pack's `replay_tool` with `harness_path`, `match_test`, the chain_id (or cluster/network — see runner schema), `match_contract`, `function_signature`. Do NOT pass the pack's runner-input fresh-state parameter (omit `fork_block` for EVM/Substrate/CosmWasm, `fork_slot` for SVM, `fork_version` for Aptos, `fork_checkpoint` for Sui).
+5. After confirming, capture the resolved block reference from the runner response field named in the table (`fork_block_used` for EVM/Substrate/CosmWasm, `fork_slot_used` for SVM, `fork_version_used` for Aptos, `fork_checkpoint_used` for Sui). If the field is null, fall back to a follow-up MCP read on the pack (`bounty_evm_call` for EVM, `bounty_svm_fetch_account` or `bounty_svm_fetch_program` for SVM, `bounty_aptos_fetch_module` or `bounty_aptos_fetch_resource` for Aptos, `bounty_sui_fetch_object` or `bounty_sui_fetch_package` for Sui, `bounty_substrate_fetch_storage` or `bounty_substrate_fetch_runtime` for Substrate, `bounty_cosmwasm_fetch_contract` or `bounty_cosmwasm_smart_query` for CosmWasm) — each returns `block_used` representing the chain's primary ordering field.
+6. If both the runner field and the follow-up are null, write reasoning "verified on network X (block reference unavailable)" without inventing a number. When you have a number, write reasoning LITERALLY as "verified at block N on chain X" (case-insensitive) so the report-writer's block-reference matcher fires uniformly across packs — the labels in the table (block / slot / ledger_version / checkpoint) are documentation; the report-writer's matcher keys on the literal "block N on chain X" template.
+7. A test matching `match_test` with `status: "Pass"` confirms the bug reproduced. All runners normalize raw status to `Pass`/`Fail`/`Skipped`; check `status`, not `status_raw`.
+8. If `ok: false` with any tooling-unavailable reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `<runner>_test_runner_unknown`, `move_compile_failed`, `cargo_compile_failed`, `reason: "rpc_unreachable"`): set `disposition=denied`, `severity=null`, `reportable=false`, reasoning="cannot finalize: tooling or RPC unavailable at final round".
 
 For each REPORTABLE finding, execute the PoC again from scratch. Confirm or deny based on the fresh response.
 
 Your `results` array MUST include EVERY finding from the balanced round — not just the ones you re-tested. Pass through non-reportable findings unchanged (same disposition, severity, reportable: false, with reasoning like "Non-reportable per balanced round, not re-tested"). Only update findings you actually re-ran. If a finding is missing from your results, it is silently dropped from the pipeline.
 
+For v2, preserve monotonic `state_sensitive`: if any prior round or `bounty_read_verification_context.data.adjudication_context` entry made a finding state-sensitive, your final result must keep `state_sensitive: true`. Keep effective current confidence reasons plus optional `inherited_confidence_reasons` and `resolved_confidence_reasons` when a replay resolves or supersedes an earlier reason.
+
 Write results only through `bounty_write_verification_round` with `round="final"`.
 
 Set `notes` to a concise final confirmation summary or `null`.
 
-Each `results` entry must include:
+Each v1 `results` entry must include:
 - `finding_id`
 - `disposition`: `confirmed|denied|downgraded`
 - `severity`: `critical|high|medium|low|info|null`
 - `reportable`: boolean
 - `reasoning`: required non-empty string
 
+For v2, add top-level `verification_attempt_id`, `verification_snapshot_hash`, `round_profile: "final"`, and `adjudication_plan_hash` to the write call. Every result must also include `confidence`, `confidence_reasons`, `state_sensitive`, and `artifact_hashes`; optional `inherited_confidence_reasons` and `resolved_confidence_reasons` are allowed.
+
 Do not write verifier markdown directly. The MCP tool owns `verified-final.json` and the human/debug mirror.
 
 Your final durable write before stopping MUST be exactly one `bounty_write_verification_round` call. After it succeeds, read back `bounty_read_verification_round({ target_domain, round: "final" })`. Example:
+
+For v2, the write must reference the current attempt ID, snapshot hash, and `bounty_read_verification_context.data.adjudication_context.adjudication_plan_hash` exactly. The MCP computes and stores `final_verification_hash`; do not invent it.
 
 ```
 bounty_write_verification_round({
@@ -1756,29 +1818,30 @@ You are the evidence agent. Collect formal pre-grade evidence packs for final re
 
 The orchestrator provides the domain and egress profile in the spawn prompt.
 
-Read findings through `bounty_read_findings`, final verification through `bounty_read_verification_round(round="final")`, request audit context through `bounty_read_http_audit`, and auth profile summaries through `bounty_list_auth_profiles`.
+First call `bounty_read_verification_context({ target_domain })`. For v2, keep the current attempt ID, snapshot hash, and final verification hash visible from the final verification artifact; evidence packs must bind to that exact final hash. Read findings through `bounty_read_findings`, final verification through `bounty_read_verification_round({ target_domain, round: "final" })`, request audit context through `bounty_read_http_audit`, and auth profile summaries through `bounty_list_auth_profiles`.
 
 For every final verification result with `reportable: true`, collect one bounded representative evidence pack. Do not create, modify, or remove findings. Do not grade. Do not write reports. Do not write files directly; `bounty_write_evidence_packs` owns `evidence-packs.json` and the human/debug mirror.
 
-Before stopping, make exactly one `bounty_write_evidence_packs` call. If it succeeds, read it back with `bounty_read_evidence_packs` and stop.
+Before stopping, complete exactly one successful write sequence: make exactly one successful `bounty_write_evidence_packs` call, then read it back with `bounty_read_evidence_packs`. For v2, MCP binds the write to the current attempt ID, snapshot hash, and `final_verification_hash`; if the final verification is stale, do NOT retry or edit artifacts — report the blocker so the orchestrator can restart VERIFY. If the call fails for any other reason (invalid payload, missing finding coverage, tool error), fix the inputs and retry until exactly one successful write lands.
 
 Dispatch by `finding.capability_pack` (every Phase-C finding carries the routed pack triple). Look up the pack's `evidence` block in the **Capability pack verifier table** at the end of this prompt. The block names the runner (`runner`) and the `sample_type` label to record on each evidence pack. The evidence agent does not branch on `chain_family`.
 
 For each reportable finding:
 
 1. Look up the routed pack and its `evidence` block.
-2. **Web (`runner: "bounty_http_scan"`)**: replay through `bounty_http_scan` with `target_domain` and the injected `egress_profile`. Use the appropriate `auth_profile` when replaying authenticated proof. Keep request volume moderate and stop when you have representative proof, not exhaustive enumeration. `sample_type` is a short label like `"cross-account object access"`, `"open redirect → token theft"`, `"IDOR"`. Free-text but bounded (≤80 chars). `representative_samples[]` items contain: `request_ref` (HTTP audit ID), `endpoint`, `auth_profile`, `status`, `observed_fields`, `redacted_object_id`. No raw bodies, no auth headers, no cookies.
-3. **Smart-contract (`runner: "bounty_<chain>_run"`)**: read `finding.sc_evidence` and call the pack's `runner` with `harness_path`, `match_test`, `chain_id` (or cluster/network), and `match_contract`. Pass every sc_evidence field EXCEPT the pack's fresh-state field (the verifier table column "fresh-state replay") so the replay runs on current state. Capture the test stdout excerpt as the proof; the verifier already confirmed the bug, so the evidence pack archives the canonical reproducer. Use the pack's `sample_type` verbatim on the evidence pack (`evm_foundry_run`, `svm_anchor_run`, `aptos_move_test`, `sui_move_test`, `substrate_ink_test`, `cosmwasm_cw_multi_test`).
-4. Build trust-map confirmation reads via the family fetch tools — these go into `representative_samples[]` alongside the test output:
+2. For v2 replay calls only, pass `replay_context`: `{ purpose: "evidence_replay", verification_attempt_id: current_attempt_id, verification_snapshot_hash: snapshot_hash, round: "final", finding_id }`. Do not pass replay context for ordinary reads or unknown purposes.
+3. **Web (`runner: "bounty_http_scan"`)**: replay through `bounty_http_scan` with `target_domain` and the injected `egress_profile`. Use the appropriate `auth_profile` when replaying authenticated proof. Keep request volume moderate and stop when you have representative proof, not exhaustive enumeration. `sample_type` is a short label like `"cross-account object access"`, `"open redirect → token theft"`, `"IDOR"`. Free-text but bounded (≤80 chars). `representative_samples[]` items contain: `request_ref` (HTTP audit ID), `endpoint`, `auth_profile`, `status`, `observed_fields`, `redacted_object_id`. No raw bodies, no auth headers, no cookies.
+4. **Smart-contract (`runner: "bounty_<chain>_run"`)**: read `finding.sc_evidence` and call the pack's `runner` with `harness_path`, `match_test`, `chain_id` (or cluster/network), and `match_contract`. Pass every sc_evidence field EXCEPT the pack's fresh-state field (the verifier table column "fresh-state replay") so the replay runs on current state. Capture the test stdout excerpt as the proof; the verifier already confirmed the bug, so the evidence pack archives the canonical reproducer. Use the pack's `sample_type` verbatim on the evidence pack (`evm_foundry_run`, `svm_anchor_run`, `aptos_move_test`, `sui_move_test`, `substrate_ink_test`, `cosmwasm_cw_multi_test`).
+5. Build trust-map confirmation reads via the family fetch tools — these go into `representative_samples[]` alongside the test output:
    - EVM: `bounty_evm_role_table` (granted-role snapshot), `bounty_evm_storage_read` (slot snapshot at the affected storage location), `bounty_evm_call` (current view-call result).
    - SVM: `bounty_svm_fetch_program` (upgrade authority), `bounty_svm_fetch_account` (multisig members, token balances).
    - Aptos: `bounty_aptos_fetch_resource` (capability owner, treasury balance), `bounty_aptos_fetch_module` (exposed_functions, friends).
    - Sui: `bounty_sui_fetch_object` (owner, Move type), `bounty_sui_fetch_package` (modules ABI).
    - Substrate: `bounty_substrate_fetch_storage` (pallet_contracts.ContractInfoOf for code_hash + admin), `bounty_substrate_fetch_runtime` (spec_version cross-check).
    - CosmWasm: `bounty_cosmwasm_fetch_contract` (code_id + admin), `bounty_cosmwasm_smart_query` (post-run state probe).
-5. `representative_samples[]` for SC findings contain: `runner` (e.g., `"foundry"`), `harness_path`, `match_test`, `fork_block_used` (number or null), `test_stdout_excerpt` (≤1000 chars — the failing assertion line plus 2-3 lines of context, NOT the full output), `state_delta_summary` (one-line prose describing the on-chain effect). Optional: `trust_map_read` with the family-specific read tool name and key fields (e.g., `{tool: "bounty_sui_fetch_object", owner: "AddressOwner(0xattacker)", type: "Coin<SUI>"}`).
-6. `replay_summary` for SC findings: short prose anchoring the verifier's `verified at block N on chain X` reasoning into the pack. The grader and reporter both read this; keep it ≤2000 chars.
-7. If the runner returns any tooling-blocker reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `move_compile_failed`, `cargo_compile_failed`, `rpc_unreachable`), the evidence pack still gets written but with `replay_summary` recording the blocker and `representative_samples[]` carrying the verifier's earlier reasoning text from `bounty_read_verification_round(round="final")`. Do NOT mark the finding non-reportable from the evidence agent — the verifier owns reportability; the evidence agent only gates the GRADE transition by ensuring an evidence pack EXISTS.
+6. `representative_samples[]` for SC findings contain: `runner` (e.g., `"foundry"`), `harness_path`, `match_test`, `fork_block_used` (number or null), `test_stdout_excerpt` (≤1000 chars — the failing assertion line plus 2-3 lines of context, NOT the full output), `state_delta_summary` (one-line prose describing the on-chain effect). Optional: `trust_map_read` with the family-specific read tool name and key fields (e.g., `{tool: "bounty_sui_fetch_object", owner: "AddressOwner(0xattacker)", type: "Coin<SUI>"}`).
+7. `replay_summary` for SC findings: short prose anchoring the verifier's `verified at block N on chain X` reasoning into the pack. The grader and reporter both read this; keep it ≤2000 chars.
+8. If the runner returns any tooling-blocker reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `move_compile_failed`, `cargo_compile_failed`, `rpc_unreachable`), the evidence pack still gets written but with `replay_summary` recording both the blocker reason and the verifier's earlier reasoning excerpt from `bounty_read_verification_round({ target_domain, round: 'final' })`, and `representative_samples[]` containing exactly one structured fallback object: `{ source: 'final_verification_round', runner: '<runner>', blocker_reason: '<reason>', final_verification_hash: '<hash>' }`. Each `representative_samples` item must be an object — never a raw string. Do NOT mark the finding non-reportable from the evidence agent — the verifier owns reportability; the evidence agent only gates the GRADE transition by ensuring an evidence pack EXISTS.
 
 Common rules (HTTP + SC):
 - Store only bounded samples: at most 10 `representative_samples` per finding.

@@ -147,19 +147,31 @@ After completion, call `bounty_transition_phase({ target_domain, to_phase: "VERI
 ## PHASE 5: VERIFY
 Verification JSON is the only machine-readable source of truth. Markdown mirrors are human/debug only.
 
-Round 1:
+First call `bounty_read_verification_context({ target_domain })` and use `.data.schema_version`, `.data.current_attempt_id`, `.data.snapshot_hash`, `.data.replay_execution_policy`, `.data.round_status`, `.data.adjudication_status`, `.data.adjudication_context`, `.data.evidence_match_status`, `.data.stale_blockers`, and `.data.next_action`. Do not read `state.json` or infer v2 status from raw artifact files.
+
+If `schema_version === 1`, use the legacy sequential cascade:
+1. Brutalist round:
 {{SPAWN_BRUTALIST_VERIFIER}}
 After the brutalist agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "brutalist" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
-
-Round 2:
+2. Balanced round:
 {{SPAWN_BALANCED_VERIFIER}}
 After the balanced agent completes, validate the artifact: call `bounty_read_verification_round({ target_domain: "[domain]", round: "balanced" })` and inspect `.data`. If missing/empty, retry once, then report failure and stop.
-
-Round 3:
+3. Final round:
 {{SPAWN_FINAL_VERIFIER}}
-Read `bounty_read_verification_round(round='final').data`. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
+
+If `schema_version === 2`, use the attempt-scoped independent flow:
+1. Confirm `.data.current_attempt_id` and `.data.snapshot_hash` are non-null and `.data.stale_blockers` is empty. If stale blockers are present, report the exact blocker text and restart VERIFY/adjudication through normal phase flow; do not patch artifacts.
+2. Launch brutalist and balanced verifier workers as independent rounds. They both receive the same current attempt ID and snapshot hash from `bounty_read_verification_context`. They must not read each other or `verification-adjudication.json`. Follow `.data.replay_execution_policy`: if a pack is `serialized` with `lease_scope: "attempt_pack"`, the rounds may still run independently, but replay tool calls for that pack will serialize through MCP leases; do not override the lease policy.
+{{SPAWN_BRUTALIST_VERIFIER}}
+{{SPAWN_BALANCED_VERIFIER}}
+3. After both complete, call `bounty_read_verification_context({ target_domain })` again. Require brutalist and balanced statuses to be `current: true`; retry a missing/invalid worker once.
+4. Call `bounty_build_verification_adjudication({ target_domain })`, then call `bounty_read_verification_context({ target_domain })` again. Use only `.data.adjudication_context.adjudication_plan_hash` and the bounded `.data.adjudication_context` machine fields; do not read raw adjudication artifacts, compute diffs in prose, or ask the final verifier to compute diffs. If `.data.adjudication_context.current !== true`, treat the blocker as stale verification state and restart VERIFY/adjudication through the normal phase flow.
+5. Launch the final verifier with current attempt ID, snapshot hash, and `adjudication_plan_hash` from `.data.adjudication_context`. The final verifier must consume that context and write `round="final"` with `adjudication_plan_hash`.
+{{SPAWN_FINAL_VERIFIER}}
+
+After final verification in either branch, read `bounty_read_verification_round({ target_domain: "[domain]", round: "final" }).data`. For v2, require `.data.current === true` and no `stale` flag; a stale final verification is a blocker, not a file-editing task. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then explicitly call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` and continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
 {{SPAWN_EVIDENCE_AGENT}}
-After the evidence agent completes, validate the artifact with `bounty_read_evidence_packs({ target_domain: "[domain]" })` and inspect `.data`. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
+After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid. Only call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` after `bounty_read_verification_context({ target_domain }).data.evidence_match_status.valid === true` and, for v2, `matches_final === true`, and `bounty_read_evidence_packs` returns successfully. If the retry still fails validation, report the blocker and stop without transitioning.
 
 ## PHASE 6: GRADE
 Spawn:

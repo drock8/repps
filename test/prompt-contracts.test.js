@@ -464,8 +464,20 @@ test("manifest, settings, and generated Claude config keep global MCP permission
   assert.equal(TOOL_MANIFEST.bounty_log_technique_attempt.mutating, true);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_technique_pack.session_artifacts_written, ["technique-pack-reads.jsonl"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_log_technique_attempt.session_artifacts_written, ["technique-attempts.jsonl"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_transition_phase.session_artifacts_written, [
+    "state.json",
+    "verification-input-snapshot.json",
+    "verification-manifest.json",
+    "verification-attempts/attempt-*/",
+  ]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_verification_round.session_artifacts_written, ["brutalist.json", "balanced.json", "verified-final.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.session_artifacts_written, ["verification-adjudication.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.session_artifacts_written, ["evidence-packs.json", "evidence-packs.md", "verification-manifest.json"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_evidence_packs.role_bundles, ["evidence"]);
   assert.deepEqual(TOOL_MANIFEST.bounty_read_evidence_packs.role_bundles, ["evidence", "grader", "reporter", "orchestrator"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_read_verification_context.role_bundles, ["orchestrator", "verifier", "evidence", "grader", "reporter"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_build_verification_adjudication.global_preapproval, false);
   assert.ok(!sourceAllowed.has("bounty_merge_wave_handoffs"));
   assert.ok(!sourceAllowed.has("bounty_read_tool_telemetry"));
   assert.ok(!sourceAllowed.has("bounty_read_pipeline_analytics"));
@@ -664,6 +676,52 @@ test("orchestrator validates brutalist and balanced rounds before proceeding", (
   );
 });
 
+test("v2 verification prompt contracts use context, independent rounds, adjudication, and replay metadata", () => {
+  const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const brutalist = readFile(".claude/agents/brutalist-verifier.md");
+  const balanced = readFile(".claude/agents/balanced-verifier.md");
+  const final = readFile(".claude/agents/final-verifier.md");
+  const evidence = readFile(".claude/agents/evidence-agent.md");
+
+  assert.match(orchestrator, /bounty_read_verification_context/);
+  assert.match(orchestrator, /schema_version === 2/);
+  assert.match(orchestrator, /bounty_build_verification_adjudication/);
+  assert.match(orchestrator, /adjudication_context/);
+  assert.match(orchestrator, /adjudication_plan_hash/);
+  assert.doesNotMatch(orchestrator.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
+  assert.match(orchestrator, /replay_execution_policy/);
+  assert.match(orchestrator, /evidence_match_status\.valid === true/);
+  assert.match(orchestrator, /matches_final === true/);
+  assert.doesNotMatch(orchestrator, /Retry once if missing\/invalid, then call/);
+
+  assert.match(brutalist, /verification_attempt_id/);
+  assert.match(brutalist, /verification_snapshot_hash/);
+  assert.match(brutalist, /purpose: "verification_replay"/);
+  assert.match(brutalist, /confidence_reasons/);
+  assert.match(brutalist, /state_sensitive/);
+
+  assert.match(balanced, /do NOT read brutalist/);
+  assert.match(balanced, /do NOT read adjudication/);
+  assert.match(balanced, /Cover exactly the current snapshot finding IDs|cover exactly the snapshot finding IDs/i);
+  assert.match(balanced, /round: "balanced"/);
+
+  assert.match(final, /adjudication_plan_hash/);
+  assert.match(final, /adjudication_context/);
+  assert.doesNotMatch(final.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
+  assert.match(final, /bounty_read_verification_round\(\{ target_domain, round: "balanced" \}\)/);
+  assert.match(final, /source-of-truth result set for both v1 and v2 finalization/);
+  assert.match(final, /do not compute diffs/i);
+  assert.match(final, /inherited_confidence_reasons/);
+  assert.match(final, /resolved_confidence_reasons/);
+
+  assert.match(evidence, /purpose: "evidence_replay"/);
+  assert.match(evidence, /final_verification_hash/);
+  assert.match(evidence, /containing exactly one structured fallback object/i);
+  assert.match(evidence, /source: 'final_verification_round'/);
+  assert.match(evidence, /final_verification_hash/);
+  assert.doesNotMatch(evidence, /carrying the verifier's earlier reasoning text/);
+});
+
 test("evidence-agent exists, is MCP-only, and cannot mutate unrelated artifacts", () => {
   const document = readFile(".claude/agents/evidence-agent.md");
   const frontmatter = parseFrontmatter(document, "evidence-agent.md");
@@ -677,6 +735,7 @@ test("evidence-agent exists, is MCP-only, and cannot mutate unrelated artifacts"
     "mcp__bountyagent__bounty_http_scan",
     "mcp__bountyagent__bounty_read_http_audit",
     "mcp__bountyagent__bounty_read_findings",
+    "mcp__bountyagent__bounty_read_verification_context",
     "mcp__bountyagent__bounty_read_verification_round",
     "mcp__bountyagent__bounty_write_evidence_packs",
     "mcp__bountyagent__bounty_read_evidence_packs",
@@ -699,12 +758,15 @@ test("evidence-agent exists, is MCP-only, and cannot mutate unrelated artifacts"
 test("bob-hunt spawns evidence before grade and validates evidence packs", () => {
   const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
   const evidenceIndex = orchestrator.indexOf('subagent_type: "evidence-agent"');
-  const gradeTransitionIndex = orchestrator.indexOf('to_phase: "GRADE"');
+  // The no-reportables branch transitions to GRADE without spawning the
+  // evidence agent. The evidence-present branch transitions only after
+  // the agent completes — that's the GRADE transition this test guards.
+  const evidencePresentGrade = orchestrator.indexOf('to_phase: "GRADE"', evidenceIndex);
   const graderIndex = orchestrator.indexOf('subagent_type: "grader"');
 
   assert.ok(evidenceIndex > 0, "missing evidence-agent spawn");
-  assert.ok(gradeTransitionIndex > evidenceIndex, "GRADE transition must happen after evidence-agent");
-  assert.ok(graderIndex > gradeTransitionIndex, "grader must spawn after GRADE transition");
+  assert.ok(evidencePresentGrade > evidenceIndex, "GRADE transition must happen after evidence-agent in the evidence-present branch");
+  assert.ok(graderIndex > evidencePresentGrade, "grader must spawn after GRADE transition");
   assert.match(orchestrator, /bounty_read_evidence_packs\(\{ target_domain: "\[domain\]" \}\)/);
   assert.match(orchestrator, /write only through bounty_write_evidence_packs/);
 });
@@ -1632,7 +1694,7 @@ test("verifiers can read request audit summaries without direct file access", ()
   }
 });
 
-test("verifier role bundle has only one documented mutating tool (evm-fetch-source) and no orchestration mutators", () => {
+test("verifier role bundle has only documented mutating tools and no orchestration mutators", () => {
   // The role-bundle expansion that gave verifiers SC re-run primitives also
   // included bounty_evm_fetch_source, which writes to the per-session
   // contracts cache (mutating:true). That one is an intentional, documented
@@ -1653,7 +1715,18 @@ test("verifier role bundle has only one documented mutating tool (evm-fetch-sour
     ].sort(),
     "Only evm-fetch-source, http_scan, and write-verification-round may be mutating in the verifier bundle. New mutating tools must be reviewed before joining verifier role.",
   );
-  const forbidden = ["bounty_record_finding", "bounty_write_wave_handoff", "bounty_finalize_hunter_run", "bounty_log_coverage", "bounty_log_dead_ends", "bounty_write_grade_verdict", "bounty_apply_wave_merge"];
+  const forbidden = [
+    "bounty_record_finding",
+    "bounty_write_wave_handoff",
+    "bounty_finalize_hunter_run",
+    "bounty_log_coverage",
+    "bounty_log_dead_ends",
+    "bounty_write_grade_verdict",
+    "bounty_apply_wave_merge",
+    // Adjudication is built by the orchestrator; verifiers consume the
+    // adjudication_plan_hash from bounty_read_verification_context only.
+    "bounty_build_verification_adjudication",
+  ];
   for (const tool of forbidden) {
     const meta = TOOL_MANIFEST[tool];
     if (!meta) continue;

@@ -42,6 +42,10 @@ const {
 
 const OPERATOR_NOTE_MAX_CHARS = 1000;
 
+function verificationLib() {
+  return require("./verification.js");
+}
+
 function validateOperatorNoteText(note, fieldName) {
   if (note.length > OPERATOR_NOTE_MAX_CHARS) {
     throw new Error(`${fieldName} must be at most ${OPERATOR_NOTE_MAX_CHARS} characters`);
@@ -140,6 +144,10 @@ function buildInitialSessionState(domain, targetUrl, { deepMode = false } = {}) 
     hold_count: 0,
     auth_status: "pending",
     operator_note: null,
+    verification_schema_version: null,
+    verification_attempt_id: null,
+    verification_snapshot_hash: null,
+    verification_entered_at: null,
   };
 }
 
@@ -276,6 +284,10 @@ function compactSessionState(state) {
     hold_count: state.hold_count,
     auth_status: state.auth_status,
     operator_note: state.operator_note,
+    verification_schema_version: state.verification_schema_version,
+    verification_attempt_id: state.verification_attempt_id,
+    verification_snapshot_hash: state.verification_snapshot_hash,
+    verification_entered_at: state.verification_entered_at,
   };
 }
 
@@ -320,6 +332,12 @@ function normalizeSessionStateDocument(document, requestedDomain) {
       ? "pending"
       : assertEnumValue(document.auth_status, AUTH_STATUS_VALUES, "auth_status"),
     operator_note: normalizeOperatorNote(document.operator_note, "operator_note"),
+    verification_schema_version: document.verification_schema_version == null
+      ? null
+      : assertInteger(document.verification_schema_version, "verification_schema_version", { min: 1, max: 2 }),
+    verification_attempt_id: normalizeOptionalText(document.verification_attempt_id, "verification_attempt_id"),
+    verification_snapshot_hash: normalizeOptionalText(document.verification_snapshot_hash, "verification_snapshot_hash"),
+    verification_entered_at: normalizeOptionalText(document.verification_entered_at, "verification_entered_at"),
   };
 
   // Disjointness invariant: a surface is either explored (hunter declared
@@ -544,8 +562,13 @@ function transitionPhase(args) {
       );
     }
 
+    const verificationEntry = fromPhase === "CHAIN" && toPhase === "VERIFY"
+      ? verificationLib().prepareVerificationEntry(domain, state)
+      : null;
+
     const nextState = {
       ...state,
+      ...(verificationEntry ? verificationEntry.state_fields : {}),
       phase: toPhase,
       auth_status: nextAuthStatus,
       hold_count: fromPhase === "GRADE" && toPhase === "HUNT"
@@ -554,6 +577,19 @@ function transitionPhase(args) {
     };
 
     writeSessionStateDocument(domain, raw, nextState);
+    if (verificationEntry && verificationEntry.schema_version === 2) {
+      try {
+        verificationLib().refreshVerificationManifest(domain, { throw_on_error: true });
+      } catch (manifestError) {
+        // Roll back the state advance so the transition is fully aborted on
+        // manifest write failure. The verification snapshot stays on disk and
+        // will be archived under its real attempt_id by the next CHAIN -> VERIFY.
+        try {
+          writeSessionStateDocument(domain, raw, state);
+        } catch {}
+        throw manifestError;
+      }
+    }
     const eventFields = {
       from_phase: fromPhase,
       to_phase: toPhase,
@@ -571,12 +607,36 @@ function transitionPhase(args) {
         ? transitionGate.transition_blockers.length
         : 0;
     }
+    if (verificationEntry && verificationEntry.schema_version === 2) {
+      eventFields.verification_attempt_id = verificationEntry.state_fields.verification_attempt_id;
+      eventFields.verification_snapshot_hash = verificationEntry.state_fields.verification_snapshot_hash;
+      eventFields.counts.verification_findings = verificationEntry.snapshot
+        ? verificationEntry.snapshot.finding_ids.length
+        : 0;
+      eventFields.counts.verification_archived = verificationEntry.archived != null ? 1 : 0;
+    }
+    if (fromPhase === "VERIFY" && toPhase === "GRADE" && state.verification_entered_at) {
+      const enteredMs = Date.parse(state.verification_entered_at);
+      if (Number.isFinite(enteredMs)) {
+        eventFields.verification_attempt_id = state.verification_attempt_id;
+        eventFields.verification_snapshot_hash = state.verification_snapshot_hash;
+        eventFields.counts.verify_phase_wall_clock_ms = Math.max(0, Date.now() - enteredMs);
+      }
+    }
     safeAppendPipelineEventDirect(domain, "phase_transitioned", eventFields);
     return JSON.stringify({
       version: 1,
       transitioned: true,
       from_phase: fromPhase,
       to_phase: toPhase,
+      verification: verificationEntry
+        ? {
+          schema_version: verificationEntry.schema_version,
+          attempt_id: verificationEntry.state_fields.verification_attempt_id,
+          snapshot_hash: verificationEntry.state_fields.verification_snapshot_hash,
+          archived: verificationEntry.archived != null,
+        }
+        : undefined,
       state: compactSessionState(nextState),
     });
   });

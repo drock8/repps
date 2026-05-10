@@ -26,6 +26,18 @@ module.exports = Object.freeze({
           "null"
         ]
       },
+      "verification_attempt_id": {
+        "type": "string"
+      },
+      "verification_snapshot_hash": {
+        "type": "string"
+      },
+      "round_profile": {
+        "type": "string"
+      },
+      "adjudication_plan_hash": {
+        "type": "string"
+      },
       "results": {
         "type": "array",
         "items": {
@@ -57,6 +69,73 @@ module.exports = Object.freeze({
             },
             "reasoning": {
               "type": "string"
+            },
+            "confidence": {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            },
+            "confidence_reasons": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "fresh_replay_passed",
+                  "auth_expired",
+                  "tooling_blocked",
+                  "state_changed",
+                  "manual_inference",
+                  "roast_disagreement",
+                  "disambiguation_failed",
+                  "agreement_not_replayed"
+                ]
+              }
+            },
+            "state_sensitive": {
+              "type": "boolean"
+            },
+            "artifact_hashes": {
+              "type": "object",
+              "maxProperties": 20,
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "inherited_confidence_reasons": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "fresh_replay_passed",
+                  "auth_expired",
+                  "tooling_blocked",
+                  "state_changed",
+                  "manual_inference",
+                  "roast_disagreement",
+                  "disambiguation_failed",
+                  "agreement_not_replayed"
+                ]
+              }
+            },
+            "resolved_confidence_reasons": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "fresh_replay_passed",
+                  "auth_expired",
+                  "tooling_blocked",
+                  "state_changed",
+                  "manual_inference",
+                  "roast_disagreement",
+                  "disambiguation_failed",
+                  "agreement_not_replayed"
+                ]
+              }
             }
           },
           "required": [
@@ -84,6 +163,6 @@ module.exports = Object.freeze({
   browser_access: false,
   scope_required: false,
   sensitive_output: false,
-  session_artifacts_written: ["brutalist.json","balanced.json","verified-final.json"],
+  session_artifacts_written: ["brutalist.json","balanced.json","verified-final.json","verification-manifest.json"],
   hook_required: false,
 });

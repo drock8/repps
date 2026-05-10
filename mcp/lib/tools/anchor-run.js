@@ -1,6 +1,7 @@
 "use strict";
 
 const { runAnchorTest, MAX_TIMEOUT_MS, DEFAULT_TIMEOUT_MS } = require("../anchor-runner.js");
+const { REPLAY_CONTEXT_SCHEMA } = require("./replay-context-schema.js");
 
 async function handler(args) {
   const result = await runAnchorTest({
@@ -29,7 +30,8 @@ module.exports = Object.freeze({
       "fork_block": { "type": "integer", "minimum": 0, "description": "Alias for fork_slot — accepted for symmetry with bounty_foundry_run." },
       "fork_urls": { "type": "array", "items": { "type": "string", "format": "uri" }, "maxItems": 8 },
       "extra_args": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 }, "maxItems": 12 },
-      "timeout_ms": { "type": "integer", "minimum": 5000, "maximum": 600000 }
+      "timeout_ms": { "type": "integer", "minimum": 5000, "maximum": 600000 },
+      "replay_context": REPLAY_CONTEXT_SCHEMA
     },
     "required": ["target_domain", "harness_path", "match_test"]
   },

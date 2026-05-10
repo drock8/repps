@@ -48,6 +48,20 @@ const PHASE_VALUES = ["RECON", "AUTH", "HUNT", "CHAIN", "VERIFY", "GRADE", "REPO
 const AUTH_STATUS_VALUES = ["pending", "authenticated", "unauthenticated"];
 const VERIFICATION_ROUND_VALUES = ["brutalist", "balanced", "final"];
 const VERIFICATION_DISPOSITION_VALUES = ["confirmed", "denied", "downgraded"];
+const VERIFICATION_CONFIDENCE_VALUES = ["high", "medium", "low"];
+const VERIFICATION_CONFIDENCE_REASON_VALUES = [
+  "fresh_replay_passed",
+  "auth_expired",
+  "tooling_blocked",
+  "state_changed",
+  "manual_inference",
+  "roast_disagreement",
+  "disambiguation_failed",
+  "agreement_not_replayed",
+];
+const VERIFICATION_REPLAY_PURPOSE_VALUES = ["verification_replay", "evidence_replay"];
+const VERIFY_SMALL_REPORTABLE_THRESHOLD = 5;
+const VERIFY_QA_SAMPLE_MAX = 10;
 const GRADE_VERDICT_VALUES = ["SUBMIT", "HOLD", "SKIP"];
 const GRADE_HOLD_MIN_SCORE = 20;
 const GRADE_SUBMIT_MIN_SCORE = 40;
@@ -99,6 +113,10 @@ const SESSION_PUBLIC_STATE_FIELDS = [
   "hold_count",
   "auth_status",
   "operator_note",
+  "verification_schema_version",
+  "verification_attempt_id",
+  "verification_snapshot_hash",
+  "verification_entered_at",
 ];
 
 const VERIFICATION_ROUND_FILE_MAP = {
@@ -151,7 +169,12 @@ module.exports = {
   TRAFFIC_LOG_MAX_RECORDS,
   TRAFFIC_SUMMARY_MAX_ITEMS,
   VERIFICATION_DISPOSITION_VALUES,
+  VERIFICATION_CONFIDENCE_REASON_VALUES,
+  VERIFICATION_CONFIDENCE_VALUES,
+  VERIFICATION_REPLAY_PURPOSE_VALUES,
   VERIFICATION_ROUND_FILE_MAP,
   VERIFICATION_ROUND_VALUES,
+  VERIFY_QA_SAMPLE_MAX,
+  VERIFY_SMALL_REPORTABLE_THRESHOLD,
   WAVE_ID_RE,
 };

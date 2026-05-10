@@ -68,6 +68,6 @@ module.exports = Object.freeze({
   browser_access: false,
   scope_required: false,
   sensitive_output: false,
-  session_artifacts_written: ["evidence-packs.json", "evidence-packs.md"],
+  session_artifacts_written: ["evidence-packs.json", "evidence-packs.md", "verification-manifest.json"],
   hook_required: false,
 });

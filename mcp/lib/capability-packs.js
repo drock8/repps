@@ -30,6 +30,11 @@ const SMART_CONTRACT_CONTEXT_BUDGET = Object.freeze({
   attempt_log_required: false,
 });
 
+const DEFAULT_REPLAY_SAFETY = Object.freeze({
+  mode: "serialized",
+  lease_scope: "attempt_pack",
+});
+
 const WEB_CAPABILITY_PACK = Object.freeze({
   id: "web",
   capability_pack_version: 1,
@@ -46,6 +51,7 @@ const WEB_CAPABILITY_PACK = Object.freeze({
     sample_type: "http_replay",
     fresh_state_omit_field: null,        // HTTP has no fork concept
     disambiguation: null,                // single endpoint, no chain confusion
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_http_scan",
@@ -79,6 +85,7 @@ const SMART_CONTRACT_EVM_CAPABILITY_PACK = Object.freeze({
     // EVM 0x... addresses are unambiguous across EVM chains; chain_id alone
     // fixes the fork RPC. No read-side disambiguation required.
     disambiguation: null,
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_foundry_run",
@@ -116,6 +123,7 @@ const SMART_CONTRACT_SVM_CAPABILITY_PACK = Object.freeze({
     block_reference_field: "fork_slot_used",
     block_reference_label: "slot",
     disambiguation: null,
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_anchor_run",
@@ -159,6 +167,7 @@ const SMART_CONTRACT_APTOS_CAPABILITY_PACK = Object.freeze({
       tool: "bounty_aptos_fetch_module",
       fail_reason: "address does not resolve on the claimed Aptos network; chain_family/chain_id mismatch suspected",
     }),
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_aptos_run",
@@ -194,6 +203,7 @@ const SMART_CONTRACT_SUI_CAPABILITY_PACK = Object.freeze({
       tool: "bounty_sui_fetch_package",
       fail_reason: "package does not resolve on the claimed Sui network; chain_family/chain_id mismatch suspected",
     }),
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_sui_run",
@@ -233,6 +243,7 @@ const SMART_CONTRACT_SUBSTRATE_CAPABILITY_PACK = Object.freeze({
       tool: "bounty_substrate_fetch_storage",
       fail_reason: "address does not resolve on the claimed Substrate network; chain_family/chain_id mismatch suspected",
     }),
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_substrate_run",
@@ -271,6 +282,7 @@ const SMART_CONTRACT_COSMWASM_CAPABILITY_PACK = Object.freeze({
       tool: "bounty_cosmwasm_fetch_contract",
       fail_reason: "address does not resolve on the claimed CosmWasm network; chain_family/chain_id mismatch suspected",
     }),
+    replay_safety: DEFAULT_REPLAY_SAFETY,
   }),
   evidence: Object.freeze({
     runner: "bounty_cosmwasm_run",

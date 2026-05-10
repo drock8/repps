@@ -153,6 +153,26 @@ function evidencePackPaths(domain) {
   };
 }
 
+function verificationSnapshotPath(domain) {
+  return path.join(sessionDir(domain), "verification-input-snapshot.json");
+}
+
+function verificationAdjudicationPath(domain) {
+  return path.join(sessionDir(domain), "verification-adjudication.json");
+}
+
+function verificationManifestPath(domain) {
+  return path.join(sessionDir(domain), "verification-manifest.json");
+}
+
+function verificationAttemptsDir(domain) {
+  return path.join(sessionDir(domain), "verification-attempts");
+}
+
+function verificationReplayLeaseDir(domain) {
+  return path.join(sessionDir(domain), "verification-replay-leases");
+}
+
 function reportMarkdownPath(domain) {
   return path.join(sessionDir(domain), "report.md");
 }
@@ -186,6 +206,11 @@ module.exports = {
   staticArtifactsJsonlPath,
   staticScanResultsJsonlPath,
   trafficJsonlPath,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
+  verificationManifestPath,
+  verificationReplayLeaseDir,
   verificationRoundPaths,
+  verificationSnapshotPath,
   waveAssignmentsPath,
 };
