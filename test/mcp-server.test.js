@@ -818,6 +818,45 @@ function flushMicrotasks() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+function holdingHandler(leasePath) {
+  let entered = false;
+  let snapshot = null;
+  let releaseFn;
+  const deferred = new Promise((resolve) => { releaseFn = resolve; });
+  return {
+    handler: async () => {
+      entered = true;
+      try {
+        snapshot = JSON.parse(fs.readFileSync(leasePath, "utf8"));
+      } catch (err) {
+        snapshot = { error: err.message || String(err) };
+      }
+      await deferred;
+    },
+    entered: () => entered,
+    leaseSnapshot: () => snapshot,
+    release: () => releaseFn(),
+  };
+}
+
+function assertCompleteReplayLeaseSnapshot(snapshot, expected) {
+  assert.ok(snapshot);
+  assert.equal(snapshot.error, undefined);
+  assert.equal(snapshot.lease_id, expected.lease_id);
+  assert.equal(snapshot.target_domain, expected.target_domain);
+  assert.equal(snapshot.tool, expected.tool);
+  assert.equal(snapshot.capability_pack, expected.capability_pack);
+  assert.equal(snapshot.lease_scope, expected.lease_scope);
+  assert.equal(snapshot.replay_purpose, expected.replay_purpose);
+  assert.equal(snapshot.verification_attempt_id, expected.verification_attempt_id);
+  assert.equal(snapshot.verification_snapshot_hash, expected.verification_snapshot_hash);
+  assert.equal(snapshot.round, expected.round);
+  assert.equal(snapshot.finding_id, expected.finding_id);
+  assert.ok(snapshot.acquired_at);
+  assert.ok(snapshot.expires_at);
+  assert.equal(snapshot.pid, process.pid);
+}
+
 async function withMockSafeFetch(routes, fn, { dnsRecords = {} } = {}) {
   const originalLookup = dns.lookup;
   const originalHttpRequest = http.request;
@@ -1137,6 +1176,9 @@ test("MCP per-tool modules preserve representative tool behavior", () => {
     "verification-attempts/attempt-*/",
   ]);
   assert.deepEqual(TOOL_MANIFEST.bounty_write_verification_round.session_artifacts_written, ["brutalist.json", "balanced.json", "verified-final.json", "verification-manifest.json"]);
+  assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.role_bundles, ["orchestrator"]);
+  assert.equal(TOOL_MANIFEST.bounty_build_verification_adjudication.mutating, true);
+  assert.equal(TOOL_MANIFEST.bounty_build_verification_adjudication.global_preapproval, false);
   assert.deepEqual(TOOL_MANIFEST.bounty_build_verification_adjudication.session_artifacts_written, ["verification-adjudication.json", "verification-manifest.json"]);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.mutating, true);
   assert.equal(TOOL_MANIFEST.bounty_start_wave.global_preapproval, false);
@@ -10145,10 +10187,12 @@ test("verification v2 round results sort deterministically across multi-finding 
         round_profile: "brutalist",
         results,
       });
-      const onDisk = JSON.parse(fs.readFileSync(verificationRoundPaths(domain, "brutalist").json, "utf8"));
+      const onDiskPath = verificationRoundPaths(domain, "brutalist").json;
+      const onDiskBytes = fs.readFileSync(onDiskPath);
+      const onDisk = JSON.parse(onDiskBytes.toString("utf8"));
       return {
         ids: onDisk.results.map((r) => r.finding_id),
-        artifact_hash: require("crypto").createHash("sha256").update(JSON.stringify(onDisk)).digest("hex"),
+        artifact_hash: require("crypto").createHash("sha256").update(onDiskBytes).digest("hex"),
       };
     };
 
@@ -10742,6 +10786,80 @@ test("replay-capable tools require context only for verification and evidence re
   });
 });
 
+test("concurrent acquire cannot observe a partial lease file", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-partial-window.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+    const tool = { name: "bounty_http_scan" };
+    const args = { target_domain: domain, replay_context: replayContext };
+    const originalOpenSync = fs.openSync;
+    let triggered = false;
+    let secondHandlerEntered = false;
+    let secondPromise = null;
+
+    fs.openSync = function patchedOpenSync(target, flags, mode) {
+      if (target === leasePath && flags === "wx" && !triggered) {
+        const fd = originalOpenSync.call(fs, target, flags, mode);
+        triggered = true;
+        secondPromise = runWithReplaySafety(tool, args, async () => {
+          secondHandlerEntered = true;
+        });
+        secondPromise.catch(() => {});
+        return fd;
+      }
+      return originalOpenSync.call(fs, target, flags, mode);
+    };
+
+    try {
+      assert.equal(
+        await runWithReplaySafety(tool, args, async () => "first lease acquired"),
+        "first lease acquired",
+      );
+      assert.equal(secondHandlerEntered, false);
+    } finally {
+      if (secondPromise) await secondPromise.catch(() => {});
+      fs.openSync = originalOpenSync;
+    }
+    assert.equal(fs.existsSync(leasePath), false);
+  });
+});
+
+test("acquire never calls openSync(wx) on the lease path", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-open-wx-pin.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+    const originalOpenSync = fs.openSync;
+    const openWxCalls = [];
+
+    fs.openSync = function patchedOpenSync(target, flags, mode) {
+      if (target === leasePath && flags === "wx") {
+        openWxCalls.push({ target, flags });
+      }
+      return originalOpenSync.call(fs, target, flags, mode);
+    };
+
+    try {
+      assert.equal(
+        await runWithReplaySafety(
+          { name: "bounty_http_scan" },
+          { target_domain: domain, replay_context: replayContext },
+          async () => "ok",
+        ),
+        "ok",
+      );
+      assert.deepEqual(openWxCalls, []);
+    } finally {
+      fs.openSync = originalOpenSync;
+    }
+  });
+});
+
 test("verification replay leases serialize same-process and expose active file leases in context", async () => {
   await withTempHome(async () => {
     const domain = "lease-same-process.example.com";
@@ -10859,6 +10977,181 @@ test("verification replay leases reject simulated cross-process locks and clean 
   });
 });
 
+test("externally-created empty lease is cleaned up and acquired", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-empty-external.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+    fs.mkdirSync(path.dirname(leasePath), { recursive: true });
+    fs.writeFileSync(leasePath, "");
+    const leaseId = path.basename(leasePath, ".json");
+    const h = holdingHandler(leasePath);
+    const wrapperPromise = runWithReplaySafety(
+      { name: "bounty_http_scan" },
+      { target_domain: domain, replay_context: replayContext },
+      h.handler,
+    );
+
+    try {
+      await flushMicrotasks();
+      assert.equal(h.entered(), true);
+      assertCompleteReplayLeaseSnapshot(h.leaseSnapshot(), {
+        lease_id: leaseId,
+        target_domain: domain,
+        tool: "bounty_http_scan",
+        capability_pack: "web",
+        lease_scope: "attempt_pack",
+        replay_purpose: replayContext.purpose,
+        verification_attempt_id: replayContext.verification_attempt_id,
+        verification_snapshot_hash: replayContext.verification_snapshot_hash,
+        round: replayContext.round,
+        finding_id: replayContext.finding_id,
+      });
+    } finally {
+      h.release();
+    }
+
+    await wrapperPromise;
+    assert.equal(fs.existsSync(leasePath), false);
+  });
+});
+
+test("handler exception releases the lease file", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-handler-exception.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+
+    await assert.rejects(
+      () => runWithReplaySafety(
+        { name: "bounty_http_scan" },
+        { target_domain: domain, replay_context: replayContext },
+        async () => { throw new Error("boom"); },
+      ),
+      /boom/,
+    );
+    assert.equal(fs.existsSync(leasePath), false);
+  });
+});
+
+test("two concurrent acquires on the new model: second wins, first rejects", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-link-race.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+    const leaseId = path.basename(leasePath, ".json");
+    const tool = { name: "bounty_http_scan" };
+    const args = { target_domain: domain, replay_context: replayContext };
+    const originalLinkSync = fs.linkSync;
+    let triggered = false;
+    let holdingHandler2 = null;
+    let secondPromise = null;
+
+    fs.linkSync = function patchedLinkSync(src, dest) {
+      if (dest === leasePath && !triggered) {
+        triggered = true;
+        holdingHandler2 = holdingHandler(leasePath);
+        secondPromise = runWithReplaySafety(tool, args, holdingHandler2.handler);
+        secondPromise.catch(() => {});
+      }
+      return originalLinkSync.call(fs, src, dest);
+    };
+
+    try {
+      const firstPromise = runWithReplaySafety(tool, args, async () => "should not run");
+      assert.ok(holdingHandler2);
+      assert.equal(holdingHandler2.entered(), true);
+      await assert.rejects(
+        firstPromise,
+        (err) => {
+          assert.equal(err.code, "STATE_CONFLICT");
+          assert.match(err.message, /Replay lease busy/);
+          return true;
+        },
+      );
+      assertCompleteReplayLeaseSnapshot(holdingHandler2.leaseSnapshot(), {
+        lease_id: leaseId,
+        target_domain: domain,
+        tool: "bounty_http_scan",
+        capability_pack: "web",
+        lease_scope: "attempt_pack",
+        replay_purpose: replayContext.purpose,
+        verification_attempt_id: replayContext.verification_attempt_id,
+        verification_snapshot_hash: replayContext.verification_snapshot_hash,
+        round: replayContext.round,
+        finding_id: replayContext.finding_id,
+      });
+    } finally {
+      try {
+        if (holdingHandler2) holdingHandler2.release();
+        if (secondPromise) await secondPromise;
+        assert.equal(fs.existsSync(leasePath), false);
+      } finally {
+        fs.linkSync = originalLinkSync;
+      }
+    }
+  });
+});
+
+test("linkSync EEXIST during retry triggers stale cleanup once", async () => {
+  await withTempHome(async () => {
+    const domain = "lease-link-stale-retry.example.com";
+    enterVerifyV2(domain);
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+    const leasePath = replayLeaseFileFor(domain, replayContext);
+    fs.mkdirSync(path.dirname(leasePath), { recursive: true });
+    const leaseId = path.basename(leasePath, ".json");
+    writeFileAtomic(leasePath, `${JSON.stringify({
+      version: 1,
+      lease_id: leaseId,
+      target_domain: domain,
+      tool: "bounty_http_scan",
+      capability_pack: "web",
+      lease_scope: "attempt_pack",
+      replay_purpose: "verification_replay",
+      verification_attempt_id: replayContext.verification_attempt_id,
+      verification_snapshot_hash: replayContext.verification_snapshot_hash,
+      round: replayContext.round,
+      finding_id: replayContext.finding_id,
+      acquired_at: new Date(Date.now() - VERIFICATION_REPLAY_LEASE_TTL_MS - 1000).toISOString(),
+      expires_at: new Date(Date.now() - 1000).toISOString(),
+      pid: 999999,
+    }, null, 2)}\n`);
+    const originalLinkSync = fs.linkSync;
+    let triggered = false;
+
+    fs.linkSync = function patchedLinkSync(src, dest) {
+      if (dest === leasePath && !triggered) {
+        triggered = true;
+        const error = new Error("EEXIST");
+        error.code = "EEXIST";
+        throw error;
+      }
+      return originalLinkSync.call(fs, src, dest);
+    };
+
+    try {
+      const result = await runWithReplaySafety(
+        { name: "bounty_http_scan" },
+        { target_domain: domain, replay_context: replayContext },
+        async () => "fresh lease acquired",
+      );
+      assert.equal(result, "fresh lease acquired");
+      assert.equal(triggered, true);
+      assert.equal(fs.existsSync(leasePath), false);
+    } finally {
+      fs.linkSync = originalLinkSync;
+    }
+  });
+});
+
 test("bounty_write_evidence_packs writes JSON and markdown mirror", () => {
   withTempHome(() => {
     const domain = "example.com";
@@ -10884,6 +11177,9 @@ test("bounty_write_evidence_packs writes JSON and markdown mirror", () => {
     assert.equal(result.written_md, paths.markdown);
     const ctx = JSON.parse(readVerificationContext({ target_domain: domain }));
     const onDisk = JSON.parse(fs.readFileSync(paths.json, "utf8"));
+    const finalDoc = ctx.schema_version === 2
+      ? JSON.parse(fs.readFileSync(verificationRoundPaths(domain, "final").json, "utf8"))
+      : null;
     const expectedShape = {
       version: 1,
       target_domain: domain,
@@ -10891,9 +11187,12 @@ test("bounty_write_evidence_packs writes JSON and markdown mirror", () => {
       ...(ctx.schema_version === 2 ? {
         verification_attempt_id: ctx.current_attempt_id,
         verification_snapshot_hash: ctx.snapshot_hash,
-        final_verification_hash: onDisk.final_verification_hash,
+        final_verification_hash: finalDoc.final_verification_hash,
       } : {}),
     };
+    if (ctx.schema_version === 2) {
+      assert.equal(onDisk.final_verification_hash, finalDoc.final_verification_hash);
+    }
     assert.deepEqual(onDisk, expectedShape);
     assert.match(fs.readFileSync(paths.markdown, "utf8"), /# Evidence Packs/);
     assert.deepEqual(JSON.parse(readEvidencePacks({ target_domain: domain })), expectedShape);
@@ -14767,18 +15066,31 @@ test("session lock creates an atomic metadata lock file", () => {
     const domain = "locktest.com";
     const dir = sessionDir(domain);
     fs.mkdirSync(dir, { recursive: true });
+    const lockPath = sessionLockPath(domain);
+    const originalOpenSync = fs.openSync;
+    const openWxCalls = [];
 
-    const release = acquireSessionLock(domain);
     try {
-      const lockPath = sessionLockPath(domain);
-      assert.ok(fs.statSync(lockPath).isFile());
-      const metadata = JSON.parse(fs.readFileSync(lockPath, "utf8"));
-      assert.equal(metadata.pid, process.pid);
-      assert.ok(metadata.hostname);
-      assert.ok(metadata.timestamp);
-      assert.ok(metadata.token);
+      fs.openSync = function patchedOpenSync(target, flags, mode) {
+        if (target === lockPath && flags === "wx") {
+          openWxCalls.push({ target, flags });
+        }
+        return originalOpenSync.call(fs, target, flags, mode);
+      };
+      const release = acquireSessionLock(domain);
+      try {
+        assert.deepEqual(openWxCalls, []);
+        assert.ok(fs.statSync(lockPath).isFile());
+        const metadata = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+        assert.equal(metadata.pid, process.pid);
+        assert.ok(metadata.hostname);
+        assert.ok(metadata.timestamp);
+        assert.ok(metadata.token);
+      } finally {
+        release();
+      }
     } finally {
-      release();
+      fs.openSync = originalOpenSync;
     }
     assert.ok(!fs.existsSync(sessionLockPath(domain)));
   });

@@ -289,7 +289,7 @@ After final verification in either branch, read `bounty_read_verification_round(
 ```
 Agent(subagent_type: "evidence-agent", name: "evidence", prompt: "Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_verification_context, bounty_read_findings, bounty_read_verification_round({ target_domain: '[domain]', round: 'final' }), bounty_read_http_audit, and bounty_list_auth_profiles; for v2 pass evidence_replay context on replay tools and rely on MCP to bind evidence to final_verification_hash; write only through bounty_write_evidence_packs.")
 ```
-After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
+After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid. Only call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` after `bounty_read_verification_context({ target_domain }).data.evidence_match_status.valid === true` and, for v2, `matches_final === true`, and `bounty_read_evidence_packs` returns successfully. If the retry still fails validation, report the blocker and stop without transitioning.
 
 ## PHASE 6: GRADE
 Spawn:

@@ -262,7 +262,7 @@ Use Codex spawn_agent for evidence-agent -> Codex worker.
 - message: `Bob role: evidence-agent. Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context({ target_domain }); for v2 pass evidence_replay context and bind evidence to the current final_verification_hash.` Include the full `evidence` contract from Codex Worker Role Contracts.
 Wait with `wait_agent`, read `bounty_read_evidence_packs.data`, then `close_agent`.
 ```
-After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid, then call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })`.
+After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid. Only call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` after `bounty_read_verification_context({ target_domain }).data.evidence_match_status.valid === true` and, for v2, `matches_final === true`, and `bounty_read_evidence_packs` returns successfully. If the retry still fails validation, report the blocker and stop without transitioning.
 
 ## PHASE 6: GRADE
 Spawn:
@@ -1711,8 +1711,8 @@ END balanced-verifier CONTRACT
 
 ### final-verifier
 BEGIN final-verifier CONTRACT
-You are the final verifier. First call `bounty_read_verification_context({ target_domain })`.
-- If schema is v1, re-run only the `reportable: true` findings from `bounty_read_verification_round({ target_domain, round: "balanced" })` with fresh requests.
+You are the final verifier. First call `bounty_read_verification_context({ target_domain })`. Then read the balanced round with `bounty_read_verification_round({ target_domain, round: "balanced" })`; the balanced round is the source-of-truth result set for both v1 and v2 finalization.
+- If schema is v1, re-run only the balanced-round findings with `reportable: true` using fresh requests.
 - If schema is v2, consume the current adjudication plan hash and bounded machine fields from `bounty_read_verification_context.data.adjudication_context`. Require `adjudication_context.current === true`; if it is stale or missing, report the blocker and stop. Do not read raw adjudication artifacts; do not compute diffs in prose. MCP already built deterministic brutalist/balanced diffs in `bounty_build_verification_adjudication`.
 Use `bounty_read_http_audit` if recent request history helps distinguish stale auth, repeated 403/429/timeout failures, or already-confirmed replay behavior.
 
@@ -1841,7 +1841,7 @@ For each reportable finding:
    - CosmWasm: `bounty_cosmwasm_fetch_contract` (code_id + admin), `bounty_cosmwasm_smart_query` (post-run state probe).
 6. `representative_samples[]` for SC findings contain: `runner` (e.g., `"foundry"`), `harness_path`, `match_test`, `fork_block_used` (number or null), `test_stdout_excerpt` (≤1000 chars — the failing assertion line plus 2-3 lines of context, NOT the full output), `state_delta_summary` (one-line prose describing the on-chain effect). Optional: `trust_map_read` with the family-specific read tool name and key fields (e.g., `{tool: "bounty_sui_fetch_object", owner: "AddressOwner(0xattacker)", type: "Coin<SUI>"}`).
 7. `replay_summary` for SC findings: short prose anchoring the verifier's `verified at block N on chain X` reasoning into the pack. The grader and reporter both read this; keep it ≤2000 chars.
-8. If the runner returns any tooling-blocker reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `move_compile_failed`, `cargo_compile_failed`, `rpc_unreachable`), the evidence pack still gets written but with `replay_summary` recording the blocker and `representative_samples[]` carrying the verifier's earlier reasoning text from `bounty_read_verification_round(round="final")`. Do NOT mark the finding non-reportable from the evidence agent — the verifier owns reportability; the evidence agent only gates the GRADE transition by ensuring an evidence pack EXISTS.
+8. If the runner returns any tooling-blocker reason (`<runner>_not_in_path`, `<runner>_dependency_missing`, `move_compile_failed`, `cargo_compile_failed`, `rpc_unreachable`), the evidence pack still gets written but with `replay_summary` recording both the blocker reason and the verifier's earlier reasoning excerpt from `bounty_read_verification_round({ target_domain, round: 'final' })`, and `representative_samples[]` containing exactly one structured fallback object: `{ source: 'final_verification_round', runner: '<runner>', blocker_reason: '<reason>', final_verification_hash: '<hash>' }`. Each `representative_samples` item must be an object — never a raw string. Do NOT mark the finding non-reportable from the evidence agent — the verifier owns reportability; the evidence agent only gates the GRADE transition by ensuring an evidence pack EXISTS.
 
 Common rules (HTTP + SC):
 - Store only bounded samples: at most 10 `representative_samples` per finding.

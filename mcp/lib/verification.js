@@ -27,6 +27,7 @@ const {
 const {
   loadJsonDocumentStrict,
   writeFileAtomic,
+  writeFileExclusiveAtomic,
 } = require("./storage.js");
 const {
   ERROR_CODES,
@@ -1191,38 +1192,27 @@ function acquireReplayLease({
       leaseScope,
       context,
     });
-    let fd = null;
-    try {
-      fd = fs.openSync(filePath, "wx");
-      fs.writeFileSync(fd, `${JSON.stringify(metadata, null, 2)}\n`);
-      fs.closeSync(fd);
-      fd = null;
+    const payload = `${JSON.stringify(metadata, null, 2)}\n`;
+    if (writeFileExclusiveAtomic(filePath, payload)) {
       return { filePath, metadata };
-    } catch (error) {
-      if (fd != null) {
-        try { fs.closeSync(fd); } catch {}
-      }
-      if (error && error.code === "EEXIST") {
-        const existing = readReplayLeaseFile(filePath);
-        if (cleanupStaleReplayLease(filePath)) continue;
-        throw new ToolError(ERROR_CODES.STATE_CONFLICT, `Replay lease busy for ${leaseScope}: ${keyHash}`, {
-          active_lease: existing && isPlainObject(existing)
-            ? {
-              lease_id: existing.lease_id || keyHash,
-              tool: existing.tool || null,
-              capability_pack: existing.capability_pack || policy.capability_pack,
-              replay_purpose: existing.replay_purpose || null,
-              verification_attempt_id: existing.verification_attempt_id || null,
-              round: existing.round || null,
-              finding_id: existing.finding_id || null,
-              acquired_at: existing.acquired_at || null,
-              expires_at: existing.expires_at || null,
-            }
-            : null,
-        });
-      }
-      throw error;
     }
+    const existing = readReplayLeaseFile(filePath);
+    if (cleanupStaleReplayLease(filePath)) continue;
+    throw new ToolError(ERROR_CODES.STATE_CONFLICT, `Replay lease busy for ${leaseScope}: ${keyHash}`, {
+      active_lease: existing && isPlainObject(existing)
+        ? {
+          lease_id: existing.lease_id || keyHash,
+          tool: existing.tool || null,
+          capability_pack: existing.capability_pack || policy.capability_pack,
+          replay_purpose: existing.replay_purpose || null,
+          verification_attempt_id: existing.verification_attempt_id || null,
+          round: existing.round || null,
+          finding_id: existing.finding_id || null,
+          acquired_at: existing.acquired_at || null,
+          expires_at: existing.expires_at || null,
+        }
+        : null,
+    });
   }
   throw new ToolError(ERROR_CODES.STATE_CONFLICT, `Replay lease busy for ${leaseScope}: ${keyHash}`);
 }
