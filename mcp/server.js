@@ -25,6 +25,7 @@
 //           bounty_promote_surface_leads, bounty_route_surfaces,
 //           bounty_get_context_budget, bounty_select_technique_packs,
 //           bounty_read_technique_pack, bounty_log_technique_attempt,
+//           bounty_read_capability_playbook,
 //           bounty_read_verification_context,
 //           bounty_build_verification_adjudication
 
@@ -175,6 +176,9 @@ const {
   resolveHunterKnowledge,
 } = require("./lib/hunter-brief.js");
 const {
+  readCapabilityPlaybook,
+} = require("./lib/capability-playbooks.js");
+const {
   getContextBudget,
 } = require("./lib/context-budget.js");
 const {
@@ -303,6 +307,7 @@ module.exports = {
   redactUrlSensitiveValues,
   filterExclusionsByHosts,
   readHunterBrief,
+  readCapabilityPlaybook,
   readPipelineAnalytics,
   readPipelineEvents,
   readSurfaceLeads,

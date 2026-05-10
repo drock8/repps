@@ -357,33 +357,40 @@ test("shared orchestrator keeps launch mechanics adapter-owned", () => {
   assert.doesNotMatch(body, /Agent\(subagent_type|subagent_type|run_in_background|SubagentStop|Claude Code/);
 });
 
-test("orchestrator playbook documents the doc-vs-behavior differential workflow", () => {
+test("orchestrator playbook guidance lives in external playbooks and rendered skills keep it", () => {
   const body = readFile("prompts/roles/orchestrator.md");
-  assert.match(body, /Doc-vs-Behavior Differential/);
-  assert.match(body, /bounty_ingest_schema_doc/);
-  assert.match(body, /bounty_query_schema_contracts/);
-  assert.match(body, /bounty_run_doc_delta/);
-  assert.match(body, /OpenAPI 3.*GraphQL SDL.*Postman v2\.1|GraphQL SDL.*Postman v2\.1/);
-  assert.match(body, /severity_class.*security/);
-  assert.match(body, /schema_slice/);
-  // Rendered surfaces must carry the same workflow.
-  const claudeSkill = readFile(".claude/skills/bob-hunt/SKILL.md");
-  const codexSkill = readFile("adapters/codex/skills/bob-hunt/SKILL.md");
-  assert.match(claudeSkill, /Doc-vs-Behavior Differential/);
-  assert.match(codexSkill, /Doc-vs-Behavior Differential/);
-});
+  assert.doesNotMatch(body, /Doc-vs-Behavior Differential/);
+  assert.doesNotMatch(body, /Multi-Account Differential/);
+  assert.doesNotMatch(body, /bounty_ingest_schema_doc/);
+  assert.doesNotMatch(body, /bounty_query_schema_contracts/);
+  assert.doesNotMatch(body, /bounty_run_doc_delta/);
+  assert.doesNotMatch(body, /bounty_list_auth_profiles/);
+  assert.doesNotMatch(body, /bounty_run_auth_differential/);
+  assert.doesNotMatch(body, /bounty_read_auth_differential_results/);
+  assert.match(body, /bounty_read_capability_playbook/);
 
-test("orchestrator playbook documents the multi-account differential workflow", () => {
-  const body = readFile("prompts/roles/orchestrator.md");
-  assert.match(body, /Multi-Account Differential/);
-  assert.match(body, /bounty_list_auth_profiles/);
-  assert.match(body, /bounty_run_auth_differential/);
-  assert.match(body, /bounty_read_auth_differential_results/);
-  assert.match(body, /unauth_succeeds_where_auth_blocked/);
-  // Rendered surfaces must carry the same workflow.
+  const docPlaybook = readFile("prompts/playbooks/C2_doc_vs_behavior.md");
+  assert.match(docPlaybook, /Doc-vs-Behavior Differential/);
+  assert.match(docPlaybook, /bounty_ingest_schema_doc/);
+  assert.match(docPlaybook, /bounty_query_schema_contracts/);
+  assert.match(docPlaybook, /bounty_run_doc_delta/);
+  assert.match(docPlaybook, /OpenAPI 3.*GraphQL SDL.*Postman v2\.1|GraphQL SDL.*Postman v2\.1/);
+  assert.match(docPlaybook, /schema_slice/);
+
+  const accountPlaybook = readFile("prompts/playbooks/C4_multi_account_differential.md");
+  assert.match(accountPlaybook, /Multi-Account Differential/);
+  assert.match(accountPlaybook, /bounty_list_auth_profiles/);
+  assert.match(accountPlaybook, /bounty_run_auth_differential/);
+  assert.match(accountPlaybook, /bounty_read_auth_differential_results/);
+  assert.match(accountPlaybook, /unauth_succeeds_where_auth_blocked/);
+
   const claudeSkill = readFile(".claude/skills/bob-hunt/SKILL.md");
   const codexSkill = readFile("adapters/codex/skills/bob-hunt/SKILL.md");
+  assert.match(claudeSkill, /severity_class.*security/);
+  assert.match(codexSkill, /severity_class.*security/);
+  assert.match(claudeSkill, /Doc-vs-Behavior Differential/);
   assert.match(claudeSkill, /Multi-Account Differential/);
+  assert.match(codexSkill, /Doc-vs-Behavior Differential/);
   assert.match(codexSkill, /Multi-Account Differential/);
 });
 

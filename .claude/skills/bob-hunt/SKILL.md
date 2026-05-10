@@ -47,6 +47,7 @@ allowed-tools:
   - mcp__bountyagent__bounty_clear_operator_note
   - mcp__bountyagent__bounty_clear_terminal_block
   - mcp__bountyagent__bounty_report_written
+  - mcp__bountyagent__bounty_read_capability_playbook
   - mcp__bountyagent__bounty_get_context_budget
   - mcp__bountyagent__bounty_select_technique_packs
   - mcp__bountyagent__bounty_read_technique_pack
@@ -172,13 +173,9 @@ Otherwise use the existing four-tier signup flow, in order:
 
 After any successful signup, poll email up to 12 times, extract a code/link, complete verification through `bounty_http_scan` with `target_domain` and `egress_profile`, then repeat the flow for a `victim` profile with a new temp email. Verify auth with `bounty_http_scan` with `target_domain` and `egress_profile` against a protected endpoint and call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status })`.
 
-## Optional: Differential Workflows
+## Optional Workflow Playbooks
 
-Orchestrator-driven differentials run outside the wave/hunter loop and feed `severity_class: "security"` rows into `bounty_record_finding`. Web hunters also see the schema corpus through `schema_slice` in their brief once it's seeded.
-
-**Doc-vs-Behavior Differential.** Ingest OpenAPI 3 / GraphQL SDL / Postman v2.1 with `bounty_ingest_schema_doc` (content-hashed, idempotent), confirm coverage with `bounty_query_schema_contracts`, run per auth profile via `bounty_run_doc_delta({ target_domain, base_url, auth_profile, run_id })`, read with `bounty_read_doc_delta_results({ target_domain, summary_only: true })`. Divergence classes: `security`, `info_leak_potential`, `doc_or_infra`.
-
-**Multi-Account Differential.** Confirm ≥2 profiles via `bounty_list_auth_profiles`, fan with `bounty_run_auth_differential({ target_domain, base_url, endpoints, auth_profiles, run_id })`. Endpoints come from `bounty_query_schema_contracts` or `attack_surface.json`. Names like `guest`/`anon`/`noauth`/`public`/`unauthenticated` auto-flag `sent_with_auth: false` so `unauth_succeeds_where_auth_blocked` fires; otherwise pass `profile_metadata`. Read with `bounty_read_auth_differential_results({ summary_only: true })`.
+Load playbook guidance with `bounty_read_capability_playbook(capability_id)` when you need the orchestrator-driven differential procedures that feed `severity_class: "security"` rows into `bounty_record_finding`.
 
 ## PHASE 3: HUNT
 Read `attack_surface.json` and `bounty_read_state_summary.data` before every wave. Treat MCP ranking from `bounty_wave_status.data` and `bounty_read_hunter_brief.data.ranking_summary` as runtime prioritization, not as a durable `attack_surface.json` rewrite. `explored` means completed surface IDs only; `dead_ends` and `waf_blocked_endpoints` are endpoint/path exclusions only; `lead_surface_ids` and promoted deep leads route later waves.
@@ -347,3 +344,14 @@ Post-REPORT user intent stays flexible:
 On user request after REPORT, call `bounty_transition_phase({ target_domain, to_phase: "EXPLORE" })`, read `attack_surface.json` and `bounty_read_state_summary.data`, run the same wave system and launch barrier as HUNT, then transition to CHAIN and run CHAIN → VERIFY → GRADE → REPORT on all findings.
 
 Final reminder: agents own recon, hunt, chain, verify, evidence, grade, and report work; the root orchestrator coordinates MCP state and never performs ad-hoc target testing outside AUTH.
+
+## Optional: Differential Workflows
+Orchestrator-driven differentials run outside the wave/hunter loop and feed `severity_class: "security"` rows into `bounty_record_finding`.
+
+### C2_doc_vs_behavior
+**Doc-vs-Behavior Differential.** Ingest OpenAPI 3 / GraphQL SDL / Postman v2.1 with `bounty_ingest_schema_doc` (content-hashed, idempotent), confirm coverage with `bounty_query_schema_contracts`, run per auth profile via `bounty_run_doc_delta({ target_domain, base_url, auth_profile, run_id })`, read with `bounty_read_doc_delta_results({ target_domain, summary_only: true })`. Divergence classes: `security`, `info_leak_potential`, `doc_or_infra`.
+
+Web hunters also see the schema corpus through `schema_slice` in their brief once it's seeded.
+
+### C4_multi_account_differential
+**Multi-Account Differential.** Confirm ≥2 profiles via `bounty_list_auth_profiles`, fan with `bounty_run_auth_differential({ target_domain, base_url, endpoints, auth_profiles, run_id })`. Endpoints come from `bounty_query_schema_contracts` or `attack_surface.json`. Names like `guest`/`anon`/`noauth`/`public`/`unauthenticated` auto-flag `sent_with_auth: false` so `unauth_succeeds_where_auth_blocked` fires; otherwise pass `profile_metadata`. Read with `bounty_read_auth_differential_results({ summary_only: true })`.
