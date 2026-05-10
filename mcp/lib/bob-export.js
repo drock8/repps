@@ -19,6 +19,9 @@ const {
   readSessionArtifactSummary,
 } = require("./pipeline-analytics.js");
 const {
+  replayExecutionPolicy,
+} = require("./verification.js");
+const {
   attackSurfacePath,
   chainAttemptsJsonlPath,
   coverageJsonlPath,
@@ -669,7 +672,41 @@ function renderClusterLines(title, clusters, labelFn) {
   return lines;
 }
 
-function renderSummary({ manifest, problemClusters }) {
+function summarizeReplayBudget(snapshot) {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return null;
+  const totals = {
+    pack_count: snapshot.length,
+    serialized_count: 0,
+    parallel_safe_count: 0,
+    active_leases_total: 0,
+  };
+  for (const pack of snapshot) {
+    if (pack.mode === "serialized") totals.serialized_count += 1;
+    else if (pack.mode === "parallel_safe") totals.parallel_safe_count += 1;
+    if (Array.isArray(pack.active_leases)) totals.active_leases_total += pack.active_leases.length;
+  }
+  return totals;
+}
+
+function renderReplayBudgetSection(snapshot) {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return [];
+  const totals = summarizeReplayBudget(snapshot);
+  const lines = [
+    "## Replay Budget",
+    `- Capability packs: ${totals.pack_count} (${totals.serialized_count} serialized, ${totals.parallel_safe_count} parallel-safe)`,
+    `- Active leases at export time: ${totals.active_leases_total}`,
+    "",
+    "Per-pack replay policy:",
+  ];
+  for (const pack of snapshot) {
+    const concurrency = pack.can_run_rounds_concurrently ? "concurrent rounds OK" : "rounds must serialize";
+    lines.push(`- \`${pack.capability_pack}\` · mode \`${pack.mode}\` · scope \`${pack.lease_scope}\` · ${concurrency} · active leases ${pack.active_leases ? pack.active_leases.length : 0}`);
+  }
+  lines.push("");
+  return lines;
+}
+
+function renderSummary({ manifest, problemClusters, replaySnapshot }) {
   const clusters = problemClusters.clusters;
   const lines = [
     "# Hacker Bob Release Improvement Bundle",
@@ -709,6 +746,7 @@ function renderSummary({ manifest, problemClusters }) {
       (cluster) => `${cluster.code}: ${cluster.count} session${cluster.count === 1 ? "" : "s"} (${cluster.targets.join(", ")})`,
     ),
     "",
+    ...renderReplayBudgetSection(replaySnapshot),
     "This summary is deterministic telemetry clustering. It is not an assessment of target validity or exploitability.",
     "",
   ];
@@ -851,12 +889,17 @@ function exportBobReleaseBundle(options = {}) {
     source_paths: path.join(bundleDir, "source-paths.txt"),
   };
 
+  const replaySnapshot = replayExecutionPolicy();
+  manifest.replay_budget = {
+    snapshot: replaySnapshot,
+    totals: summarizeReplayBudget(replaySnapshot),
+  };
   writeJson(files.manifest, manifest);
   writeJson(files.problem_clusters, problemClusters);
   writeJson(files.sessions, sessionsDocument);
   writeJsonl(files.tool_events, telemetry.toolEvents);
   writeJsonl(files.agent_runs, telemetry.agentRuns);
-  fs.writeFileSync(files.summary, renderSummary({ manifest, problemClusters }), "utf8");
+  fs.writeFileSync(files.summary, renderSummary({ manifest, problemClusters, replaySnapshot }), "utf8");
   fs.writeFileSync(files.AGENT_PROMPT, renderAgentPrompt({ manifest }), "utf8");
   fs.writeFileSync(files.source_paths, renderSourcePaths(sources), "utf8");
 
