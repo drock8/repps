@@ -390,7 +390,7 @@ function checkRegistry(rootPackage, wrapperPackages) {
     checkPackageRegistry(wrapperPackage.name, wrapperPackage.version);
   }
 
-  const access = npm(["access", "ls-packages", "--json"]);
+  const access = npm(["access", "list", "packages", "--json"]);
   if (access.status !== 0) {
     const allNames = [rootPackage.name, ...wrapperPackages.map(({ wrapperPackage }) => wrapperPackage.name)].join(", ");
     warn(`Could not verify npm read-write package access. Ensure the token can read and write ${allNames}.`);
@@ -398,7 +398,7 @@ function checkRegistry(rootPackage, wrapperPackages) {
     return;
   }
 
-  const accessMap = parseJsonOutput(access, "npm access ls-packages");
+  const accessMap = parseJsonOutput(access, "npm access list packages");
   if (!accessMap) return;
   const names = [rootPackage.name, ...wrapperPackages.map(({ wrapperPackage }) => wrapperPackage.name)];
   for (const name of names) {
