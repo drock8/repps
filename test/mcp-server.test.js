@@ -192,6 +192,7 @@ const {
   writeWaveHandoff,
   filterExclusionsByHosts,
   readHunterBrief,
+  readCapabilityPlaybook,
   readStaticArtifactRecordsFromJsonl,
   readStaticScanResultsFromJsonl,
   readTechniqueAttemptRecordsFromJsonl,
@@ -264,6 +265,7 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_clear_terminal_block",
   "bounty_report_written",
   "bounty_read_hunter_brief",
+  "bounty_read_capability_playbook",
   "bounty_get_context_budget",
   "bounty_select_technique_packs",
   "bounty_read_technique_pack",
@@ -1046,6 +1048,7 @@ test("mcp server public exports remain stable", () => {
     "publicIntelPath",
     "rankAttackSurfaces",
     "readAuthJson",
+    "readCapabilityPlaybook",
     "readChainAttempts",
     "readChainAttemptsFromJsonl",
     "readCoverageRecordsFromJsonl",
@@ -1212,6 +1215,23 @@ test("MCP tool registry exposes capability metadata for metric and eval tools", 
       "bounty_query_surface_graph",
     ],
   });
+});
+
+test("bounty_read_capability_playbook reads playbooks and rejects invalid capability IDs", async () => {
+  const valid = await executeTool("bounty_read_capability_playbook", {
+    capability_id: "C2_doc_vs_behavior",
+  });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.data.capability_id, "C2_doc_vs_behavior");
+  assert.equal(valid.data.path, path.join("prompts", "playbooks", "C2_doc_vs_behavior.md"));
+  assert.match(valid.data.playbook, /Doc-vs-Behavior Differential/);
+  assert.match(valid.data.playbook, /schema_slice/);
+
+  for (const capability_id of ["", " C2_doc_vs_behavior", "-bad", "bad space", "a".repeat(129), null, 42]) {
+    const invalid = await executeTool("bounty_read_capability_playbook", { capability_id });
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.error.code, "INVALID_ARGUMENTS");
+  }
 });
 
 test("MCP per-tool modules preserve representative tool behavior", () => {

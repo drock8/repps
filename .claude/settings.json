@@ -67,7 +67,8 @@
       "Bash(echo *)",
       "Read",
       "Glob",
-      "Grep"
+      "Grep",
+      "mcp__bountyagent__bounty_read_capability_playbook"
     ]
   },
   "hooks": {

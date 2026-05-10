@@ -14,6 +14,9 @@ const {
   substituteClaudeHunterPackCatalogue,
   substituteHandoffFieldLimits,
 } = require("../../mcp/lib/capability-packs-rendering.js");
+const {
+  renderCapabilityPlaybookAppendix,
+} = require("../../mcp/lib/capability-playbooks.js");
 const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
@@ -370,10 +373,10 @@ function renderAgentFrontmatter(spec) {
 function roleBody(roleId, { root = DEFAULT_ROOT } = {}) {
   const role = roleDefinition(roleId);
   const body = fs.readFileSync(path.join(root, role.prompt_body), "utf8").replace(/^\n+/, "");
-  return renderClaudePromptBody(roleId, body);
+  return renderClaudePromptBody(roleId, body, { root });
 }
 
-function renderClaudePromptBody(roleId, body) {
+function renderClaudePromptBody(roleId, body, { root = DEFAULT_ROOT } = {}) {
   let document = body;
   if (roleId === "status") {
     document = document.replace(
@@ -396,6 +399,9 @@ function renderClaudePromptBody(roleId, body) {
   document = substituteCapabilityPackVerifierTable(document);
   document = substituteClaudeHunterPackCatalogue(document);
   document = substituteHandoffFieldLimits(document);
+  if (roleId === "orchestrator") {
+    document += renderCapabilityPlaybookAppendix({ root });
+  }
   return document
     .replace(/\/bob:hunt/g, "/bob-hunt")
     .replace(/\/bob:status/g, "/bob-status")

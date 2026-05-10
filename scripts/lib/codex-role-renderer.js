@@ -13,6 +13,9 @@ const {
   substituteCodexHunterPackCatalogue,
   substituteHandoffFieldLimits,
 } = require("../../mcp/lib/capability-packs-rendering.js");
+const {
+  renderCapabilityPlaybookAppendix,
+} = require("../../mcp/lib/capability-playbooks.js");
 const { hunterRoleSpecs } = require("../../mcp/lib/capability-packs.js");
 
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
@@ -297,7 +300,7 @@ function renderCodexPromptBody(roleId, body, options = {}) {
   document = substituteHandoffFieldLimits(document);
   if (roleId === "orchestrator") {
     document = document.replace("## Hard Rules\n", `${codexOrchestratorPreamble()}## Hard Rules\n`);
-    document += `${codexRoleContractAppendix(options)}\n`;
+    document += `${renderCapabilityPlaybookAppendix(options)}${codexRoleContractAppendix(options)}\n`;
   }
   return document;
 }
