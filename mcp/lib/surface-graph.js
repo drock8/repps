@@ -203,11 +203,98 @@ function neighbors({ target_domain, node_type, node_id, direction, limit }) {
   return result;
 }
 
+const SURFACE_SLICE_DEFAULT_LIMIT = 5;
+const SURFACE_SLICE_MAX_LIMIT = 25;
+
+function topByCount(map, limit) {
+  return Array.from(map.entries())
+    .map(([id, count]) => ({ id, count }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.id.localeCompare(b.id);
+    })
+    .slice(0, limit);
+}
+
+function summarizeSurfaceGraphForSurface(domain, surfaceObj, options) {
+  if (surfaceObj == null || typeof surfaceObj !== "object") return null;
+  const surfaceId = typeof surfaceObj.id === "string" ? surfaceObj.id : null;
+  if (!surfaceId) return null;
+  const opts = options || {};
+  const requestedLimit = Number.isInteger(opts.limit) && opts.limit > 0
+    ? opts.limit
+    : SURFACE_SLICE_DEFAULT_LIMIT;
+  const limit = Math.min(requestedLimit, SURFACE_SLICE_MAX_LIMIT);
+  let outgoing;
+  try {
+    outgoing = queryEdges({
+      target_domain: domain,
+      source_type: "surface",
+      source_id: surfaceId,
+      limit: MAX_QUERY_LIMIT,
+    });
+  } catch (_err) {
+    return null;
+  }
+  if (outgoing.total_in_graph === 0) return null;
+  const endpointHits = new Map();
+  const jsFileHits = new Map();
+  const techHits = new Map();
+  const subdomainHits = new Map();
+  const secretHits = new Map();
+  for (const edge of outgoing.edges) {
+    const targetType = edge.target && edge.target.type;
+    const targetId = edge.target && edge.target.id;
+    if (typeof targetId !== "string" || targetId.length === 0) continue;
+    const map = targetType === "endpoint" ? endpointHits
+      : targetType === "js_file" ? jsFileHits
+      : targetType === "tech" ? techHits
+      : targetType === "subdomain" ? subdomainHits
+      : targetType === "secret_marker" ? secretHits
+      : null;
+    if (map == null) continue;
+    map.set(targetId, (map.get(targetId) || 0) + 1);
+  }
+  let claimedAuthHits = new Map();
+  for (const [endpoint] of endpointHits) {
+    let authEdges;
+    try {
+      authEdges = queryEdges({
+        target_domain: domain,
+        source_type: "endpoint",
+        source_id: endpoint,
+        edge_type: "claims_auth",
+        limit: 50,
+      });
+    } catch (_err) {
+      continue;
+    }
+    for (const edge of authEdges.edges) {
+      const scheme = edge.target && edge.target.id;
+      if (typeof scheme !== "string" || scheme.length === 0) continue;
+      claimedAuthHits.set(scheme, (claimedAuthHits.get(scheme) || 0) + 1);
+    }
+  }
+  return {
+    total_in_graph: outgoing.total_in_graph,
+    edges_summarized: outgoing.total_matched,
+    related_endpoints: topByCount(endpointHits, limit),
+    related_js_files: topByCount(jsFileHits, limit),
+    related_subdomains: topByCount(subdomainHits, limit),
+    related_tech: topByCount(techHits, limit),
+    leaked_secret_markers: topByCount(secretHits, limit),
+    claimed_auth_schemes: topByCount(claimedAuthHits, limit),
+    truncated: outgoing.total_matched > outgoing.edges.length,
+    limit,
+  };
+}
+
 module.exports = {
   appendEdges,
   queryEdges,
   neighbors,
   normalizeEdge,
+  summarizeSurfaceGraphForSurface,
   NODE_TYPES,
   EDGE_TYPES,
   DEFAULT_QUERY_LIMIT,
