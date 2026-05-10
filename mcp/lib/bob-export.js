@@ -33,7 +33,11 @@ const {
   statePath,
   techniqueAttemptsJsonlPath,
   techniquePackReadsJsonlPath,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
+  verificationManifestPath,
   verificationRoundPaths,
+  verificationSnapshotPath,
 } = require("./paths.js");
 const {
   bobVersion,
@@ -247,6 +251,11 @@ function existingSourcePathEntries(targetDomain) {
   ];
   const evidence = evidencePackPaths(targetDomain);
   entries.push(["evidence_json", evidence.json], ["evidence_markdown", evidence.markdown]);
+  entries.push(
+    ["verification_snapshot", verificationSnapshotPath(targetDomain)],
+    ["verification_adjudication", verificationAdjudicationPath(targetDomain)],
+    ["verification_manifest", verificationManifestPath(targetDomain)],
+  );
   const grade = gradeArtifactPaths(targetDomain);
   entries.push(["grade_json", grade.json], ["grade_markdown", grade.markdown]);
   for (const round of VERIFICATION_ROUND_VALUES) {
@@ -254,9 +263,28 @@ function existingSourcePathEntries(targetDomain) {
     entries.push([`verification_${round}_json`, roundPaths.json]);
     entries.push([`verification_${round}_markdown`, roundPaths.markdown]);
   }
+  const attemptsDir = verificationAttemptsDir(targetDomain);
+  if (fs.existsSync(attemptsDir)) {
+    for (const filePath of listFilesRecursive(attemptsDir)) {
+      entries.push(["verification_archive", filePath]);
+    }
+  }
   return entries
     .filter(([, filePath]) => fs.existsSync(filePath))
     .map(([kind, filePath]) => ({ kind, path: filePath }));
+}
+
+function listFilesRecursive(root) {
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const filePath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursive(filePath));
+    } else if (entry.isFile()) {
+      files.push(filePath);
+    }
+  }
+  return files.sort();
 }
 
 function readSessions(currentVersion, env) {

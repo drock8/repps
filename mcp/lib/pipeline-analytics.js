@@ -33,7 +33,10 @@ const {
   statePath,
   techniqueAttemptsJsonlPath,
   techniquePackReadsJsonlPath,
+  verificationAdjudicationPath,
+  verificationAttemptsDir,
   verificationRoundPaths,
+  verificationSnapshotPath,
 } = require("./paths.js");
 const {
   appendJsonlLine,
@@ -80,6 +83,11 @@ const PIPELINE_EVENT_TYPES = Object.freeze([
   "coverage_logged",
   "technique_attempt_logged",
   "finding_recorded",
+  "verification_snapshot_created",
+  "verification_adjudication_built",
+  "verification_replay_policy_applied",
+  "verification_attempt_archived",
+  "verification_archive_pruned",
   "verification_written",
   "evidence_written",
   "grade_written",
@@ -221,6 +229,19 @@ function normalizePipelineEvent(targetDomain, type, fields = {}) {
   const overrideReason = capString(fields.override_reason, 1000);
   if (overrideReason) event.override_reason = overrideReason;
 
+  for (const [sourceField, maxChars] of [
+    ["verification_attempt_id", 120],
+    ["verification_snapshot_hash", 128],
+    ["adjudication_plan_hash", 128],
+    ["final_verification_hash", 128],
+    ["capability_pack", 128],
+    ["lease_scope", 80],
+    ["replay_purpose", 80],
+  ]) {
+    const safe = capString(fields[sourceField], maxChars);
+    if (safe) event[sourceField] = safe;
+  }
+
   return event;
 }
 
@@ -332,8 +353,16 @@ function normalizePipelineEventForRead(record, expectedDomain) {
     target_domain: targetDomain,
     type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source", "kind", "identifier_hint"]) {
-    const safe = capString(record[field], field === "surface_id" ? 200 : (field === "kind" || field === "identifier_hint" ? 64 : 120));
+  const fieldCaps = {
+    surface_id: 200,
+    kind: 64,
+    identifier_hint: 64,
+    verification_snapshot_hash: 128,
+    adjudication_plan_hash: 128,
+    final_verification_hash: 128,
+  };
+  for (const field of ["phase", "from_phase", "to_phase", "agent", "surface_id", "status", "block_code", "source", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "adjudication_plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
+    const safe = capString(record[field], fieldCaps[field] || 120);
     if (safe) event[field] = safe;
   }
   const waveNumber = normalizeWaveNumber(record.wave_number);
@@ -686,6 +715,48 @@ function summarizeVerificationArtifacts(targetDomain) {
   let latestMtime = null;
   const errors = [];
   let finalReportableIds = [];
+  const snapshotRead = readJsonSafe(verificationSnapshotPath(targetDomain), "verification input snapshot JSON");
+  const adjudicationRead = readJsonSafe(verificationAdjudicationPath(targetDomain), "verification adjudication JSON");
+  latestMtime = updateLatestIso(latestMtime, snapshotRead.mtime);
+  latestMtime = updateLatestIso(latestMtime, adjudicationRead.mtime);
+  const snapshot = {
+    exists: snapshotRead.exists,
+    schema_version: isPlainObject(snapshotRead.document) && Number.isInteger(snapshotRead.document.schema_version)
+      ? snapshotRead.document.schema_version
+      : null,
+    attempt_id: isPlainObject(snapshotRead.document) ? capString(snapshotRead.document.verification_attempt_id, 120) : null,
+    snapshot_hash: isPlainObject(snapshotRead.document) ? capString(snapshotRead.document.snapshot_hash, 128) : null,
+    finding_count: isPlainObject(snapshotRead.document) && Array.isArray(snapshotRead.document.finding_ids)
+      ? snapshotRead.document.finding_ids.length
+      : 0,
+    input_hashes: isPlainObject(snapshotRead.document) && isPlainObject(snapshotRead.document.input_hashes)
+      ? snapshotRead.document.input_hashes
+      : null,
+    mtime: snapshotRead.mtime,
+    error: snapshotRead.error,
+  };
+  if (snapshotRead.error) errors.push(snapshotRead.error);
+  const adjudication = {
+    exists: adjudicationRead.exists,
+    current_attempt_id: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.verification_attempt_id, 120) : null,
+    snapshot_hash: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.verification_snapshot_hash, 128) : null,
+    adjudication_plan_hash: isPlainObject(adjudicationRead.document) ? capString(adjudicationRead.document.adjudication_plan_hash, 128) : null,
+    agreed_count: isPlainObject(adjudicationRead.document) && Array.isArray(adjudicationRead.document.agreed)
+      ? adjudicationRead.document.agreed.length
+      : 0,
+    disagreement_count: isPlainObject(adjudicationRead.document) && Array.isArray(adjudicationRead.document.disagreements)
+      ? adjudicationRead.document.disagreements.length
+      : 0,
+    replay_required_count: isPlainObject(adjudicationRead.document) && Array.isArray(adjudicationRead.document.replay_required_ids)
+      ? adjudicationRead.document.replay_required_ids.length
+      : 0,
+    qa_sample_count: isPlainObject(adjudicationRead.document) && Array.isArray(adjudicationRead.document.qa_sampled_ids)
+      ? adjudicationRead.document.qa_sampled_ids.length
+      : 0,
+    mtime: adjudicationRead.mtime,
+    error: adjudicationRead.error,
+  };
+  if (adjudicationRead.error) errors.push(adjudicationRead.error);
   for (const round of VERIFICATION_ROUND_VALUES) {
     const paths = verificationRoundPaths(targetDomain, round);
     const read = readJsonSafe(paths.json, `${round} verification round JSON`);
@@ -702,6 +773,11 @@ function summarizeVerificationArtifacts(targetDomain) {
     if (read.error) errors.push(read.error);
     if (isPlainObject(read.document) && Array.isArray(read.document.results)) {
       summary.valid = read.document.target_domain === targetDomain && read.document.round === round;
+      summary.schema_version = read.document.version || null;
+      summary.verification_attempt_id = capString(read.document.verification_attempt_id, 120);
+      summary.verification_snapshot_hash = capString(read.document.verification_snapshot_hash, 128);
+      summary.adjudication_plan_hash = capString(read.document.adjudication_plan_hash, 128);
+      summary.final_verification_hash = capString(read.document.final_verification_hash, 128);
       summary.results_count = read.document.results.length;
       summary.reportable_count = read.document.results.filter((result) => result && result.reportable === true).length;
       summary.confirmed_count = read.document.results.filter((result) => result && result.disposition === "confirmed").length;
@@ -717,7 +793,20 @@ function summarizeVerificationArtifacts(targetDomain) {
     }
     rounds[round] = summary;
   }
+  const schemaVersion = (
+    snapshot.exists ||
+    adjudication.exists ||
+    Object.values(rounds).some((round) => round.schema_version === 2)
+  )
+    ? 2
+    : (Object.values(rounds).some((round) => round.schema_version === 1) ? 1 : null);
   return {
+    schema_version: schemaVersion,
+    current_attempt_id: snapshot.attempt_id,
+    snapshot_hash: snapshot.snapshot_hash,
+    snapshot,
+    adjudication,
+    archived_attempts: summarizeArchivedVerificationAttempts(targetDomain),
     rounds,
     final_results_count: rounds.final.results_count,
     final_reportable_count: rounds.final.reportable_count,
@@ -725,6 +814,34 @@ function summarizeVerificationArtifacts(targetDomain) {
     errors,
     latest_mtime: latestMtime,
   };
+}
+
+function summarizeArchivedVerificationAttempts(targetDomain) {
+  const dir = verificationAttemptsDir(targetDomain);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^attempt-/.test(entry.name))
+    .map((entry) => {
+      const archiveDir = path.join(dir, entry.name);
+      const manifestRead = readJsonSafe(path.join(archiveDir, "manifest.json"), "verification attempt manifest JSON");
+      return {
+        attempt_id: isPlainObject(manifestRead.document) && manifestRead.document.attempt_id
+          ? capString(manifestRead.document.attempt_id, 120)
+          : entry.name.replace(/^attempt-/, ""),
+        archive_dir: archiveDir,
+        archived_at: isPlainObject(manifestRead.document) ? capString(manifestRead.document.archived_at, 80) : null,
+        snapshot_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.snapshot_hash, 128) : null,
+        adjudication_plan_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.adjudication_plan_hash, 128) : null,
+        final_verification_hash: isPlainObject(manifestRead.document) ? capString(manifestRead.document.final_verification_hash, 128) : null,
+        files_count: isPlainObject(manifestRead.document) && isPlainObject(manifestRead.document.files)
+          ? Object.keys(manifestRead.document.files).length
+          : 0,
+        missing_files_count: isPlainObject(manifestRead.document) && Array.isArray(manifestRead.document.missing_files)
+          ? manifestRead.document.missing_files.length
+          : 0,
+      };
+    })
+    .sort((a, b) => String(b.archived_at || "").localeCompare(String(a.archived_at || "")) || a.attempt_id.localeCompare(b.attempt_id));
 }
 
 function summarizeEvidenceArtifacts(targetDomain, finalReportableIds) {
@@ -742,6 +859,9 @@ function summarizeEvidenceArtifacts(targetDomain, finalReportableIds) {
     missing_finding_ids: finalReportableIds.slice(),
     duplicate_finding_ids: [],
     extra_finding_ids: [],
+    verification_attempt_id: isPlainObject(read.document) ? capString(read.document.verification_attempt_id, 120) : null,
+    verification_snapshot_hash: isPlainObject(read.document) ? capString(read.document.verification_snapshot_hash, 128) : null,
+    final_verification_hash: isPlainObject(read.document) ? capString(read.document.final_verification_hash, 128) : null,
     error: read.error,
     mtime: read.mtime,
   };
@@ -793,6 +913,9 @@ function summarizeEvidenceArtifacts(targetDomain, finalReportableIds) {
     summary.missing_finding_ids = [];
     summary.duplicate_finding_ids = [];
     summary.extra_finding_ids = [];
+    summary.verification_attempt_id = validation.document.verification_attempt_id || null;
+    summary.verification_snapshot_hash = validation.document.verification_snapshot_hash || null;
+    summary.final_verification_hash = validation.document.final_verification_hash || null;
     summary.error = null;
   } catch (error) {
     summary.valid = false;
@@ -954,6 +1077,10 @@ function readSessionArtifactSummary(targetDomain) {
       pending_wave: Number.isInteger(state?.pending_wave) ? state.pending_wave : null,
       total_findings: Number.isInteger(state?.total_findings) ? state.total_findings : findings.total,
       hold_count: Number.isInteger(state?.hold_count) ? state.hold_count : 0,
+      verification_schema_version: Number.isInteger(state?.verification_schema_version) ? state.verification_schema_version : null,
+      verification_attempt_id: capString(state?.verification_attempt_id, 120),
+      verification_snapshot_hash: capString(state?.verification_snapshot_hash, 128),
+      verification_entered_at: capString(state?.verification_entered_at, 80),
       mtime: stateRead.mtime,
       error: stateRead.error,
     },
@@ -1143,7 +1270,7 @@ function compactEvent(event) {
     target_domain: event.target_domain,
     type: event.type,
   };
-  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason", "kind", "identifier_hint"]) {
+  for (const field of ["phase", "from_phase", "to_phase", "wave_number", "agent", "surface_id", "status", "block_code", "counts", "source", "force_merge", "force_merge_reason", "override", "override_reason", "kind", "identifier_hint", "verification_attempt_id", "verification_snapshot_hash", "adjudication_plan_hash", "final_verification_hash", "capability_pack", "lease_scope", "replay_purpose"]) {
     if (event[field] != null) compact[field] = event[field];
   }
   return compact;

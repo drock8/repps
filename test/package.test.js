@@ -27,6 +27,10 @@ const LOCAL_INSTALL_METADATA_FILES = new Set([
   ".claude/bob/VERSION",
   ".claude/bob/install.json",
   ".claude/bob/egress-profiles.json",
+  // Operator-local Claude Code session overrides; excluded from package.json's
+  // files glob (only settings.json ships) so npm pack never includes it. The
+  // expectedCanonicalFiles walker should not require it either.
+  ".claude/settings.local.json",
 ]);
 
 function sourceTreeFiles(relativeDir) {

@@ -78,32 +78,32 @@ const CLAUDE_LAUNCH_TEMPLATES = Object.freeze({
   ].join("\n"),
   "{{SPAWN_BRUTALIST_VERIFIER}}": [
     "```",
-    "Agent(subagent_type: \"brutalist-verifier\", name: \"brutalist\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings and bounty_read_chain_attempts for [domain], call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, verify each finding, then write only through bounty_write_verification_round(round='brutalist').\")",
+    "Agent(subagent_type: \"brutalist-verifier\", name: \"brutalist\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context({ target_domain }); for v2 use current_attempt_id and snapshot_hash on writes and verification_replay context, cover exactly the snapshot findings, then write only through bounty_write_verification_round(round='brutalist').\")",
     "```",
   ].join("\n"),
   "{{SPAWN_BALANCED_VERIFIER}}": [
     "```",
-    "Agent(subagent_type: \"balanced-verifier\", name: \"balanced\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings, bounty_read_chain_attempts, and bounty_read_verification_round(round='brutalist'), call bounty_list_auth_profiles before authenticated replays, pass egress_profile on every bounty_http_scan replay, review brutalist decisions, then write only through bounty_write_verification_round(round='balanced').\")",
+    "Agent(subagent_type: \"balanced-verifier\", name: \"balanced\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context({ target_domain }). If v1, read brutalist and preserve the legacy cascade. If v2, do not read brutalist or adjudication; use current_attempt_id and snapshot_hash, pass verification_replay context on replay tools, cover exactly snapshot findings, then write only through bounty_write_verification_round(round='balanced').\")",
     "```",
   ].join("\n"),
   "{{SPAWN_FINAL_VERIFIER}}": [
     "```",
-    "Agent(subagent_type: \"final-verifier\", name: \"final-verify\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. Call bounty_read_findings for [domain], call bounty_read_verification_round(round='balanced'), call bounty_list_auth_profiles before authenticated replays, re-run only reportable survivors with fresh requests using egress_profile, then write only through bounty_write_verification_round(round='final').\")",
+    "Agent(subagent_type: \"final-verifier\", name: \"final-verify\", prompt: \"Session: ~/bounty-agent-sessions/[domain]. Egress profile: [egress_profile]. First call bounty_read_verification_context({ target_domain }). If v2, consume adjudication_context.adjudication_plan_hash from bounty_read_verification_context, do not compute diffs, pass verification_replay context on replay tools, and write round='final' with verification_attempt_id, verification_snapshot_hash, and adjudication_plan_hash. If v1, read balanced and use the legacy final cascade.\")",
     "```",
   ].join("\n"),
   "{{SPAWN_EVIDENCE_AGENT}}": [
     "```",
-    "Agent(subagent_type: \"evidence-agent\", name: \"evidence\", prompt: \"Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_verification_round(round='final'), bounty_read_http_audit, and bounty_list_auth_profiles; collect bounded redacted samples for every final reportable finding using bounty_http_scan with target_domain and egress_profile; write only through bounty_write_evidence_packs.\")",
+    "Agent(subagent_type: \"evidence-agent\", name: \"evidence\", prompt: \"Domain: [domain]. Egress profile: [egress_profile]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_verification_context, bounty_read_findings, bounty_read_verification_round({ target_domain: '[domain]', round: 'final' }), bounty_read_http_audit, and bounty_list_auth_profiles; for v2 pass evidence_replay context on replay tools and rely on MCP to bind evidence to final_verification_hash; write only through bounty_write_evidence_packs.\")",
     "```",
   ].join("\n"),
   "{{SPAWN_GRADER_AGENT}}": [
     "```",
-    "Agent(subagent_type: \"grader\", name: \"grader\", prompt: \"Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), and bounty_read_evidence_packs, score survivors, then write only through bounty_write_grade_verdict.\")",
+    "Agent(subagent_type: \"grader\", name: \"grader\", prompt: \"Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round({ target_domain: '[domain]', round: 'final' }), and bounty_read_evidence_packs, score survivors, then write only through bounty_write_grade_verdict.\")",
     "```",
   ].join("\n"),
   "{{SPAWN_REPORTER_AGENT}}": [
     "```",
-    "Agent(subagent_type: \"report-writer\", name: \"reporter\", prompt: \"Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round(round='final'), bounty_read_evidence_packs, and bounty_read_grade_verdict, then write report.md. For SUBMIT, include only confirmed chain evidence. For SKIP/no reportables, write a concise no-findings closeout with verification, chain-attempt, and blocker summary.\")",
+    "Agent(subagent_type: \"report-writer\", name: \"reporter\", prompt: \"Domain: [domain]. Session: ~/bounty-agent-sessions/[domain]. Call bounty_read_findings, bounty_read_chain_attempts, bounty_read_verification_round({ target_domain: '[domain]', round: 'final' }), bounty_read_evidence_packs, and bounty_read_grade_verdict, then write report.md. For SUBMIT, include only confirmed chain evidence. For SKIP/no reportables, write a concise no-findings closeout with verification, chain-attempt, and blocker summary.\")",
     "```",
   ].join("\n"),
 });

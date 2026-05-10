@@ -16,6 +16,9 @@ const {
 const {
   safeRecordToolTelemetry,
 } = require("./tool-telemetry.js");
+const {
+  runWithReplaySafety,
+} = require("./verification.js");
 
 async function executeTool(name, args) {
   const startedAt = Date.now();
@@ -43,7 +46,7 @@ async function executeTool(name, args) {
   }
 
   try {
-    const data = parseHandlerResult(await tool.handler(safeArgs));
+    const data = parseHandlerResult(await runWithReplaySafety(tool, safeArgs, () => tool.handler(safeArgs)));
     const dataErrorCode = classifyDataError(data);
     if (dataErrorCode) {
       return finish(errorEnvelope(name, dataErrorCode, data.error, data));
