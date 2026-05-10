@@ -268,6 +268,7 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_log_technique_attempt",
   "bounty_read_tool_telemetry",
   "bounty_read_pipeline_analytics",
+  "bounty_read_capability_metrics",
   "bounty_evm_call",
   "bounty_evm_storage_read",
   "bounty_evm_fetch_source",

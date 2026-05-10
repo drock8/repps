@@ -52,6 +52,7 @@ allowed-tools:
   - mcp__bountyagent__bounty_log_technique_attempt
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
+  - mcp__bountyagent__bounty_read_capability_metrics
   - mcp__bountyagent__bounty_record_surface_leads
   - mcp__bountyagent__bounty_read_surface_leads
   - mcp__bountyagent__bounty_promote_surface_leads
