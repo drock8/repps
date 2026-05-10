@@ -239,6 +239,8 @@ Each index is a pre-computed structure that turns one or more capabilities into 
 
 ### I8 — CVE-to-corpus matcher
 
+**Status.** Library shipped (`mcp/lib/cve-scope-matcher.js` + `test/cve-scope-matcher.test.js`, 14 tests passing). `matchCveAgainstScope({ cve_record, surfaces, schema_contracts? })` walks each CVE's `affected_products`, tokenizes vendor + product against a per-surface index built from `tech_stack` (high confidence), tokenized hosts (low confidence), and surface_type. Sorts matches by confidence then by surface_id. `matchCveBatch` aggregates per-CVE results with totals. Matches carry `cve_version_range` (start/end inclusive/exclusive) so downstream version-gating logic has the upstream constraint without re-parsing the CVE. `match_hash` is content-addressed so re-runs against the same scope+CVE record hash identically. Optional `schema_contracts` pass annotates host-matched rows with `schema_corpus_confirms_host` when a contract source URI's hostname matches the same host token. `normalizeTechStackToken` strips `lib-` prefix and `-js`/`-py`/`-rb`/`-go`/`-java`/`-ts` suffixes only when separator-prefixed so legitimate names like `django` and `library` are preserved. **Substrate only** — C8 (live speedrun activation) remains policy-gated; the matcher is usable today for offline triage.
+
 **What it holds.** Index over authorized scope by `(stack, version_range, surface_kind)`. Plus a normalized form of incoming CVE/disclosure data: `(vulnerable_software, version_range, vector, indicator_of_vulnerability)`.
 
 **Failure mode it prevents.** Per-CVE manual triage of which authorized targets are affected.
