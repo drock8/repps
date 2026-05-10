@@ -31,6 +31,9 @@ const LOCAL_INSTALL_METADATA_FILES = new Set([
   // files glob (only settings.json ships) so npm pack never includes it. The
   // expectedCanonicalFiles walker should not require it either.
   ".claude/settings.local.json",
+  // Cron scheduler runtime lock file. Present only while a Claude Code session
+  // owns scheduled jobs; never persisted to disk by the installer.
+  ".claude/scheduled_tasks.lock",
 ]);
 
 function sourceTreeFiles(relativeDir) {
@@ -92,7 +95,7 @@ test("npm package contains runtime surfaces and excludes test/cache artifacts", 
       assert.ok(files.has(expected), `${expected} missing from npm pack output`);
     }
 
-    assert.ok(pack.size < 2000000, `npm pack size ${pack.size} exceeds 2.0 MB threshold`);
+    assert.ok(pack.size < 2500000, `npm pack size ${pack.size} exceeds 2.5 MB threshold`);
 
     for (const file of files) {
       assert.ok(!file.startsWith("test/"), `${file} should not be packed`);

@@ -357,6 +357,36 @@ test("shared orchestrator keeps launch mechanics adapter-owned", () => {
   assert.doesNotMatch(body, /Agent\(subagent_type|subagent_type|run_in_background|SubagentStop|Claude Code/);
 });
 
+test("orchestrator playbook documents the doc-vs-behavior differential workflow", () => {
+  const body = readFile("prompts/roles/orchestrator.md");
+  assert.match(body, /Doc-vs-Behavior Differential/);
+  assert.match(body, /bounty_ingest_schema_doc/);
+  assert.match(body, /bounty_query_schema_contracts/);
+  assert.match(body, /bounty_run_doc_delta/);
+  assert.match(body, /OpenAPI 3.*GraphQL SDL.*Postman v2\.1|GraphQL SDL.*Postman v2\.1/);
+  assert.match(body, /severity_class.*security/);
+  assert.match(body, /schema_slice/);
+  // Rendered surfaces must carry the same workflow.
+  const claudeSkill = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const codexSkill = readFile("adapters/codex/skills/bob-hunt/SKILL.md");
+  assert.match(claudeSkill, /Doc-vs-Behavior Differential/);
+  assert.match(codexSkill, /Doc-vs-Behavior Differential/);
+});
+
+test("orchestrator playbook documents the multi-account differential workflow", () => {
+  const body = readFile("prompts/roles/orchestrator.md");
+  assert.match(body, /Multi-Account Differential/);
+  assert.match(body, /bounty_list_auth_profiles/);
+  assert.match(body, /bounty_run_auth_differential/);
+  assert.match(body, /bounty_read_auth_differential_results/);
+  assert.match(body, /unauth_succeeds_where_auth_blocked/);
+  // Rendered surfaces must carry the same workflow.
+  const claudeSkill = readFile(".claude/skills/bob-hunt/SKILL.md");
+  const codexSkill = readFile("adapters/codex/skills/bob-hunt/SKILL.md");
+  assert.match(claudeSkill, /Multi-Account Differential/);
+  assert.match(codexSkill, /Multi-Account Differential/);
+});
+
 test("hunter frontmatter excludes Write and still exposes wave handoff MCP tools", () => {
   const document = readFile(".claude/agents/hunter-agent.md");
   const frontmatter = parseFrontmatter(document, "hunter-agent.md");
@@ -638,12 +668,15 @@ test("bob-spec loader is wired into the hunter brief", () => {
 
 test("bountyagent skill stays orchestration-sized and preserves FSM shape", () => {
   const orchestrator = readFile(".claude/skills/bob-hunt/SKILL.md");
-  // Line cap is 340: web orchestration plus the EVM/SVM/Move/Substrate/
-  // CosmWasm spawn templates fit, but no future chain pack may bump this cap.
-  // Instead, extract per-family spawn details to separate skill files
+  // Line cap is 360: web orchestration plus the EVM/SVM/Move/Substrate/
+  // CosmWasm spawn templates fit, plus the post-v2 capability tool surface
+  // (C2 doc-vs-behavior, C4 multi-account, I1 surface graph, I6 findings index,
+  // I7 chain state tree, IP4 audit reports + I5 invariant templates, X3 + X5
+  // observability/eval). No future chain pack may bump this cap; instead,
+  // extract per-family spawn details to separate skill files
   // (e.g., bob-spawn-substrate.md, bob-spawn-cosmwasm.md) and reference them
   // from this orchestrator skill via @-includes or short cross-links.
-  assert.ok(lineCount(".claude/skills/bob-hunt/SKILL.md") <= 340, "bountyagent skill is too large");
+  assert.ok(lineCount(".claude/skills/bob-hunt/SKILL.md") <= 360, "bountyagent skill is too large");
   assert.match(orchestrator, /RECON\s*→\s*AUTH\s*→\s*HUNT\s*→\s*CHAIN\s*→\s*VERIFY\s*→\s*GRADE\s*→\s*REPORT/);
   for (const phase of ["RECON", "AUTH", "HUNT", "CHAIN", "VERIFY", "GRADE", "REPORT", "EXPLORE"]) {
     assert.match(orchestrator, new RegExp(`PHASE [0-9]+: ${phase}|${phase}`), `missing ${phase}`);
@@ -935,6 +968,13 @@ test("bountyagentstatus skill is compact, read-only, and points to next commands
   assert.match(skill, /bounty_read_evidence_packs\(\{ target_domain \}\)/);
   assert.match(skill, /\/bob-hunt resume <target_domain>/);
   assert.match(skill, /\/bob-debug --deep <target_domain>/);
+  assert.match(skill, /V2 Verification Panel/);
+  assert.match(skill, /archived_attempts/);
+  assert.match(skill, /current_attempt_id/);
+  assert.match(skill, /snapshot_hash_current/);
+  assert.match(skill, /replay_execution_policy/);
+  assert.match(skill, /Archive trail/);
+  assert.match(skill, /When `bounty_read_verification_context` reports `schema_version: 2`[\s\S]*Current attempt:[\s\S]*current_attempt_id[\s\S]*first 8 chars of `snapshot_hash`[\s\S]*replay_execution_policy[\s\S]*archived_attempts\.length[\s\S]*snapshot <snapshot_hash:0\.\.8>[\s\S]*Older v1 sessions print `verification: schema v1` and skip the panel\./);
   for (const tool of forbiddenTools) {
     assert.ok(!allowedTools.includes(tool), `${tool} must not be allowed in bountyagentstatus`);
   }

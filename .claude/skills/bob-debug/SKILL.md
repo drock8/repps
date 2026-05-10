@@ -19,12 +19,13 @@ allowed-tools:
   - mcp__bountyagent__bounty_read_findings
   - mcp__bountyagent__bounty_read_verification_context
   - mcp__bountyagent__bounty_read_verification_round
+  - mcp__bountyagent__bounty_diff_verification_attempts
   - mcp__bountyagent__bounty_read_evidence_packs
   - mcp__bountyagent__bounty_read_grade_verdict
 ---
 You are the read-only post-session debugger for Bob. Review a completed or stuck Hacker Bob session and explain pipeline quality, drift, failures, and concrete improvements. Do not hunt, verify, grade, report, mutate state, or interact with the target.
 
-**Input:** `$ARGUMENTS` (`--last`, no args, `<target_domain>`, optionally plus `--deep`)
+**Input:** `$ARGUMENTS` (`--last`, no args, `<target_domain>`, optionally plus `--deep`, or `--diff-attempts <prev> <curr>` for cross-attempt v2 inspection)
 
 ## Hard Rules
 - Read-only only. Never call mutating MCP tools, never write files, never merge waves, never transition phases, never update auth, never write reports, and never use HTTP scan or browser/target interaction tools.
@@ -36,6 +37,7 @@ You are the read-only post-session debugger for Bob. Review a completed or stuck
 - No args or `--last`: inspect the latest local session under `~/bounty-agent-sessions`.
 - `<target_domain>`: inspect that specific session directory.
 - `--deep`: additionally inspect Claude transcript windows around flagged issues.
+- `--diff-attempts <prev> <curr>`: cross-attempt v2 verification diff. Each token is either an archive id from `bounty_read_verification_context.data.archived_attempts[*].attempt_id`, or the literal string `current` for the live attempt. Calls `bounty_diff_verification_attempts({ target_domain, attempt_a: <prev>, attempt_b: <curr> })` and prints the snapshot / adjudication / final hash matches plus the per-file divergence (only-in-a, only-in-b, and content-changed entries with truncated 16-char hashes). Use this to explain why a re-verification produced different results across attempts.
 - If both a domain and `--deep` are present, debug that domain deeply. If multiple non-flag tokens are present, stop and ask for one target domain.
 
 Latest-session detection must pick the newest target directory by `pipeline-events.jsonl` mtime. If no pipeline event file exists, fall back in order to `state.json`, `grade.json`, `report.md`, then directory mtime.

@@ -122,6 +122,42 @@ function staticArtifactsJsonlPath(domain) {
   return path.join(sessionDir(domain), "static-artifacts.jsonl");
 }
 
+function schemaContractsJsonlPath(domain) {
+  return path.join(sessionDir(domain), "schema-contracts.jsonl");
+}
+
+function docDeltaResultsPath(domain) {
+  return path.join(sessionDir(domain), "doc-delta-results.json");
+}
+
+function authDifferentialResultsPath(domain) {
+  return path.join(sessionDir(domain), "auth-differential-results.json");
+}
+
+function findingsIndexJsonlPath(domain) {
+  return path.join(sessionDir(domain), "findings-index.jsonl");
+}
+
+function surfaceGraphJsonlPath(domain) {
+  return path.join(sessionDir(domain), "surface-graph.jsonl");
+}
+
+function chainTreeJsonlPath(domain) {
+  return path.join(sessionDir(domain), "chain-tree.jsonl");
+}
+
+function auditReportsJsonlPath(domain) {
+  return path.join(sessionDir(domain), "audit-reports.jsonl");
+}
+
+function invariantRunsJsonlPath(domain) {
+  return path.join(sessionDir(domain), "invariant-runs.jsonl");
+}
+
+function symbolSurfaceIndexPath(domain) {
+  return path.join(sessionDir(domain), "symbol-surface-index.json");
+}
+
 function staticScanResultsJsonlPath(domain) {
   return path.join(sessionDir(domain), "static-scan-results.jsonl");
 }
@@ -201,6 +237,15 @@ module.exports = {
   surfaceRoutesPath,
   techniqueAttemptsJsonlPath,
   techniquePackReadsJsonlPath,
+  auditReportsJsonlPath,
+  authDifferentialResultsPath,
+  chainTreeJsonlPath,
+  docDeltaResultsPath,
+  findingsIndexJsonlPath,
+  invariantRunsJsonlPath,
+  schemaContractsJsonlPath,
+  surfaceGraphJsonlPath,
+  symbolSurfaceIndexPath,
   staticArtifactImportDir,
   staticArtifactPath,
   staticArtifactsJsonlPath,

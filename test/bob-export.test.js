@@ -205,6 +205,15 @@ test("Bob export creates a version-scoped deterministic improvement bundle", () 
     assert.deepEqual(sessions.sessions.map((session) => session.target_domain), ["current.example"]);
     assert.ok(sessions.sessions[0].event_log.events.every((event) => event.bob_version === "9.9.9"));
 
+    assert.ok(manifest.replay_budget, "replay_budget present in manifest");
+    assert.ok(Array.isArray(manifest.replay_budget.snapshot));
+    assert.ok(manifest.replay_budget.totals);
+    assert.equal(typeof manifest.replay_budget.totals.pack_count, "number");
+    const summaryMd = fs.readFileSync(path.join(first.bundle_dir, "summary.md"), "utf8");
+    assert.match(summaryMd, /## Replay Budget/);
+    assert.match(summaryMd, /Capability packs:/);
+    assert.match(summaryMd, /Per-pack replay policy:/);
+
     const toolEvents = readJsonl(path.join(first.bundle_dir, "tool-events.filtered.jsonl"));
     assert.equal(toolEvents.length, 2);
     assert.ok(toolEvents.every((event) => event.bob_version === "9.9.9"));

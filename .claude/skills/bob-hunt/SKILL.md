@@ -10,10 +10,24 @@ allowed-tools:
   - mcp__bountyagent__bounty_read_surface_routes
   - mcp__bountyagent__bounty_import_http_traffic
   - mcp__bountyagent__bounty_public_intel
+  - mcp__bountyagent__bounty_ingest_schema_doc
+  - mcp__bountyagent__bounty_query_schema_contracts
+  - mcp__bountyagent__bounty_run_doc_delta
+  - mcp__bountyagent__bounty_read_doc_delta_results
+  - mcp__bountyagent__bounty_run_auth_differential
+  - mcp__bountyagent__bounty_read_auth_differential_results
+  - mcp__bountyagent__bounty_record_finding
   - mcp__bountyagent__bounty_list_findings
+  - mcp__bountyagent__bounty_index_finding
+  - mcp__bountyagent__bounty_query_findings_index
   - mcp__bountyagent__bounty_read_chain_attempts
+  - mcp__bountyagent__bounty_append_chain_node
+  - mcp__bountyagent__bounty_query_chain_tree
+  - mcp__bountyagent__bounty_chain_frontier
+  - mcp__bountyagent__bounty_chain_ancestry
   - mcp__bountyagent__bounty_read_verification_round
   - mcp__bountyagent__bounty_read_verification_context
+  - mcp__bountyagent__bounty_diff_verification_attempts
   - mcp__bountyagent__bounty_build_verification_adjudication
   - mcp__bountyagent__bounty_read_evidence_packs
   - mcp__bountyagent__bounty_read_grade_verdict
@@ -39,9 +53,21 @@ allowed-tools:
   - mcp__bountyagent__bounty_log_technique_attempt
   - mcp__bountyagent__bounty_read_tool_telemetry
   - mcp__bountyagent__bounty_read_pipeline_analytics
+  - mcp__bountyagent__bounty_read_capability_metrics
+  - mcp__bountyagent__bounty_evaluate_capabilities
+  - mcp__bountyagent__bounty_ingest_audit_report
+  - mcp__bountyagent__bounty_query_audit_reports
+  - mcp__bountyagent__bounty_suggest_invariants
+  - mcp__bountyagent__bounty_run_invariant_for_finding
+  - mcp__bountyagent__bounty_read_invariant_runs
+  - mcp__bountyagent__bounty_extract_routes
+  - mcp__bountyagent__bounty_build_symbol_surface_index
+  - mcp__bountyagent__bounty_summarize_diff_impact
   - mcp__bountyagent__bounty_record_surface_leads
   - mcp__bountyagent__bounty_read_surface_leads
   - mcp__bountyagent__bounty_promote_surface_leads
+  - mcp__bountyagent__bounty_build_surface_graph
+  - mcp__bountyagent__bounty_query_surface_graph
   - mcp__bountyagent__bounty_http_scan
   - mcp__bountyagent__bounty_temp_email
   - mcp__bountyagent__bounty_signup_detect
@@ -80,8 +106,7 @@ All Bob MCP calls return `{ ok, data, meta }` or `{ ok: false, error, meta }`. F
 
 MCP-owned session artifacts:
 - `bounty_import_http_traffic` writes imported Burp/HAR history to `traffic.jsonl`.
-- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs.
-- MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default. Pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
+- `bounty_http_scan` writes Bob request audit to `http-audit.jsonl`, including `egress_profile`, `egress_region`, and geofence warnings in audit and analytics summaries; it never records proxy URLs. MCP HTTP tools allow localhost, private networks, internal hostnames, and cloud metadata-style hostnames by default; pass `block_internal_hosts: true` only when the user or program rules require rejecting those destinations.
 - `bounty_public_intel` writes optional public bounty intel to `public-intel.json`.
 - `bounty_import_static_artifact` writes redacted token contract source under `static-imports/` and metadata to `static-artifacts.jsonl`.
 - `bounty_static_scan` scans imported artifacts only and writes results to `static-scan-results.jsonl`.
@@ -146,6 +171,14 @@ Otherwise use the existing four-tier signup flow, in order:
 ```
 
 After any successful signup, poll email up to 12 times, extract a code/link, complete verification through `bounty_http_scan` with `target_domain` and `egress_profile`, then repeat the flow for a `victim` profile with a new temp email. Verify auth with `bounty_http_scan` with `target_domain` and `egress_profile` against a protected endpoint and call `bounty_transition_phase({ target_domain, to_phase: "HUNT", auth_status })`.
+
+## Optional: Differential Workflows
+
+Orchestrator-driven differentials run outside the wave/hunter loop and feed `severity_class: "security"` rows into `bounty_record_finding`. Web hunters also see the schema corpus through `schema_slice` in their brief once it's seeded.
+
+**Doc-vs-Behavior Differential.** Ingest OpenAPI 3 / GraphQL SDL / Postman v2.1 with `bounty_ingest_schema_doc` (content-hashed, idempotent), confirm coverage with `bounty_query_schema_contracts`, run per auth profile via `bounty_run_doc_delta({ target_domain, base_url, auth_profile, run_id })`, read with `bounty_read_doc_delta_results({ target_domain, summary_only: true })`. Divergence classes: `security`, `info_leak_potential`, `doc_or_infra`.
+
+**Multi-Account Differential.** Confirm ≥2 profiles via `bounty_list_auth_profiles`, fan with `bounty_run_auth_differential({ target_domain, base_url, endpoints, auth_profiles, run_id })`. Endpoints come from `bounty_query_schema_contracts` or `attack_surface.json`. Names like `guest`/`anon`/`noauth`/`public`/`unauthenticated` auto-flag `sent_with_auth: false` so `unauth_succeeds_where_auth_blocked` fires; otherwise pass `profile_metadata`. Read with `bounty_read_auth_differential_results({ summary_only: true })`.
 
 ## PHASE 3: HUNT
 Read `attack_surface.json` and `bounty_read_state_summary.data` before every wave. Treat MCP ranking from `bounty_wave_status.data` and `bounty_read_hunter_brief.data.ranking_summary` as runtime prioritization, not as a durable `attack_surface.json` rewrite. `explored` means completed surface IDs only; `dead_ends` and `waf_blocked_endpoints` are endpoint/path exclusions only; `lead_surface_ids` and promoted deep leads route later waves.
