@@ -150,6 +150,10 @@ function auditReportsJsonlPath(domain) {
   return path.join(sessionDir(domain), "audit-reports.jsonl");
 }
 
+function invariantRunsJsonlPath(domain) {
+  return path.join(sessionDir(domain), "invariant-runs.jsonl");
+}
+
 function staticScanResultsJsonlPath(domain) {
   return path.join(sessionDir(domain), "static-scan-results.jsonl");
 }
@@ -234,6 +238,7 @@ module.exports = {
   chainTreeJsonlPath,
   docDeltaResultsPath,
   findingsIndexJsonlPath,
+  invariantRunsJsonlPath,
   schemaContractsJsonlPath,
   surfaceGraphJsonlPath,
   staticArtifactImportDir,

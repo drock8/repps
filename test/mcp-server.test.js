@@ -273,6 +273,8 @@ const EXPECTED_TOOL_NAMES = [
   "bounty_ingest_audit_report",
   "bounty_query_audit_reports",
   "bounty_suggest_invariants",
+  "bounty_run_invariant_for_finding",
+  "bounty_read_invariant_runs",
   "bounty_evm_call",
   "bounty_evm_storage_read",
   "bounty_evm_fetch_source",

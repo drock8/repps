@@ -72,6 +72,8 @@ const TOOL_MODULES = Object.freeze([
   require("./ingest-audit-report.js"),
   require("./query-audit-reports.js"),
   require("./suggest-invariants.js"),
+  require("./run-invariant-for-finding.js"),
+  require("./read-invariant-runs.js"),
   require("./evm-call.js"),
   require("./evm-storage-read.js"),
   require("./evm-fetch-source.js"),

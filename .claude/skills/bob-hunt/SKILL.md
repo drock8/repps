@@ -57,6 +57,8 @@ allowed-tools:
   - mcp__bountyagent__bounty_ingest_audit_report
   - mcp__bountyagent__bounty_query_audit_reports
   - mcp__bountyagent__bounty_suggest_invariants
+  - mcp__bountyagent__bounty_run_invariant_for_finding
+  - mcp__bountyagent__bounty_read_invariant_runs
   - mcp__bountyagent__bounty_record_surface_leads
   - mcp__bountyagent__bounty_read_surface_leads
   - mcp__bountyagent__bounty_promote_surface_leads
