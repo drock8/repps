@@ -686,6 +686,7 @@ test("v2 verification prompt contracts use context, independent rounds, adjudica
   assert.match(orchestrator, /bounty_read_verification_context/);
   assert.match(orchestrator, /schema_version === 2/);
   assert.match(orchestrator, /bounty_build_verification_adjudication/);
+  assert.match(orchestrator, /adjudication_context/);
   assert.match(orchestrator, /adjudication_plan_hash/);
   assert.doesNotMatch(orchestrator.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
   assert.match(orchestrator, /replay_execution_policy/);
@@ -702,6 +703,7 @@ test("v2 verification prompt contracts use context, independent rounds, adjudica
   assert.match(balanced, /round: "balanced"/);
 
   assert.match(final, /adjudication_plan_hash/);
+  assert.match(final, /adjudication_context/);
   assert.doesNotMatch(final.replaceAll("adjudication_plan_hash", ""), /\bplan_hash\b/);
   assert.match(final, /do not compute diffs/i);
   assert.match(final, /inherited_confidence_reasons/);
