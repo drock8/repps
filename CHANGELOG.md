@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix Spread Detection Thresholds and First Rep (2026-05-21)
+
+### Fixed
+- First rep was always missed — `lastHighTimeRef` started at 0 so the duration check (`now - 0 < 8s`) always failed. Calibration now initializes state to HIGH with a current timestamp so the first HIGH→LOW→HIGH cycle counts.
+- Dead zone between HIGH (0.70) and LOW (0.45) was too wide — person could come back up to ~0.6 spread and get stuck without triggering HIGH. Tightened to HIGH > 0.55, LOW < 0.40.
+
 ## Body Spread Detection (2026-05-21)
 
 ### Changed

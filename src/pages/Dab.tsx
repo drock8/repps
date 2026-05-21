@@ -14,8 +14,8 @@ type Screen = "detecting" | "summary";
 const CALIBRATION_FRAMES = 10;
 
 const DEFAULT_THRESHOLDS = {
-  highSpread: 0.70,
-  lowSpread: 0.45,
+  highSpread: 0.55,
+  lowSpread: 0.40,
   maxDuration: 8000,
 };
 
@@ -173,7 +173,10 @@ export default function Dab() {
                 const avg = calibrationSamples.current.reduce((s, v) => s + v, 0) / calibrationSamples.current.length;
                 if (avg > 0.1) {
                   baselineSpreadRef.current = avg;
+                  repStateRef.current = "HIGH";
+                  lastHighTimeRef.current = performance.now();
                   setCalibrated(true);
+                  setCurrentState("HIGH");
                 } else {
                   calibrationSamples.current = [];
                 }
