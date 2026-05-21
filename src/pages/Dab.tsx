@@ -11,24 +11,6 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
-function speak(text: string, rate = 1.1) {
-  if (!("speechSynthesis" in window)) return;
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = rate;
-  utter.pitch = 1.0;
-  utter.volume = 1.0;
-  if (speechSynthesis.speaking) speechSynthesis.cancel();
-  setTimeout(() => speechSynthesis.speak(utter), 50);
-}
-
-const ENCOURAGEMENT: Record<number, string> = {
-  3: "Nice!",
-  5: "Keep going!",
-  10: "Beast mode!",
-  15: "Unstoppable!",
-  20: "Legendary!",
-};
-
 const DEFAULT_THRESHOLDS = {
   highNose: 0.4,
   lowNose: 0.55,
@@ -148,7 +130,6 @@ export default function Dab() {
 
         setLoadStage("Let's go!");
         setLoadProgress(100);
-        speak("Let's go!");
         setLoading(false);
 
         const detect = () => {
@@ -212,8 +193,6 @@ export default function Dab() {
                   const count = repCountRef.current;
                   setReps(count);
                   if (!tuneMode) insertRep(profile!.id);
-                  const cheer = ENCOURAGEMENT[count];
-                  speak(cheer ? `${count}. ${cheer}` : `${count}`);
                 }
                 lastHighTimeRef.current = now;
                 hasBeenLowRef.current = false;
@@ -261,7 +240,6 @@ export default function Dab() {
 
   const handleStop = async () => {
     stopCamera();
-    if (repCountRef.current > 0) speak("Great work!");
 
     const [userResult, globalResult] = await Promise.all([
       supabase
