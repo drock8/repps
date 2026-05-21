@@ -180,8 +180,8 @@ export default function Dab() {
             const lAnkle = lm[27];
             const rAnkle = lm[28];
 
-            const avgAnkleY = (lAnkle.y + rAnkle.y) / 2;
-            const currentHeight = avgAnkleY - nose.y;
+            const keyYs = [nose.y, lShoulder.y, rShoulder.y, lHip.y, rHip.y, lAnkle.y, rAnkle.y];
+            const currentHeight = Math.max(...keyYs) - Math.min(...keyYs);
 
             if (!standingHeightRef.current) {
               const keyLandmarks = [nose, lShoulder, rShoulder, lHip, rHip, lAnkle, rAnkle];

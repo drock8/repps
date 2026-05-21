@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix negative compression ratio during burpees (2026-05-22)
+
+### Fixed
+- Height measure (`ankleY - noseY`) could go negative or spike above 1.0 when nose dropped below ankles in frame coordinates during a burpee — produced ratios like `2.95` and `-2.34`, breaking detection
+- Replaced with vertical spread of all 7 key landmarks (`max(Y) - min(Y)`), which is always positive and collapses naturally when the body compresses during the down phase
+
 ## Multi-Signal Burpee Detection (2026-05-22)
 
 ### Changed
