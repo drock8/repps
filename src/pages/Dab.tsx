@@ -15,7 +15,9 @@ const CALIBRATION_FRAMES = 10;
 
 const DEFAULT_THRESHOLDS = {
   noseDropRatio: 0.30,
-  hipFloorRatio: 0.10,
+  noseDownRatio: 0.55,
+  shoulderDownRatio: 0.60,
+  hipFloorRatio: 0.20,
   maxDuration: 8000,
 };
 
@@ -38,8 +40,8 @@ export default function Dab() {
 
   const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
 
-  const calibrationSamples = useRef<{ noseY: number; ankleY: number }[]>([]);
-  const baselineRef = useRef<{ noseY: number; ankleY: number; height: number } | null>(null);
+  const calibrationSamples = useRef<{ noseY: number; shoulderY: number; ankleY: number }[]>([]);
+  const baselineRef = useRef<{ noseY: number; shoulderY: number; ankleY: number; height: number } | null>(null);
 
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
@@ -165,29 +167,31 @@ export default function Dab() {
           if (result.landmarks.length > 0) {
             const lm = result.landmarks[0];
             const noseY = lm[0].y;
-            const leftAnkle = lm[27];
-            const rightAnkle = lm[28];
-            const ankleY = Math.max(leftAnkle.y, rightAnkle.y);
+            const shoulderY = Math.min(lm[11].y, lm[12].y);
             const leftHipY = lm[23].y;
+            const ankleY = Math.max(lm[27].y, lm[28].y);
 
             if (!baselineRef.current) {
-              calibrationSamples.current.push({ noseY, ankleY });
+              calibrationSamples.current.push({ noseY, shoulderY, ankleY });
               if (calibrationSamples.current.length >= CALIBRATION_FRAMES) {
                 const samples = calibrationSamples.current;
                 const avgNose = samples.reduce((s, v) => s + v.noseY, 0) / samples.length;
+                const avgShoulder = samples.reduce((s, v) => s + v.shoulderY, 0) / samples.length;
                 const avgAnkle = samples.reduce((s, v) => s + v.ankleY, 0) / samples.length;
-                baselineRef.current = {
-                  noseY: avgNose,
-                  ankleY: avgAnkle,
-                  height: avgAnkle - avgNose,
-                };
-                setCalibrated(true);
+                const height = avgAnkle - avgNose;
+                if (height > 0.15) {
+                  baselineRef.current = { noseY: avgNose, shoulderY: avgShoulder, ankleY: avgAnkle, height };
+                  setCalibrated(true);
+                } else {
+                  calibrationSamples.current = [];
+                }
               }
             }
 
             if (baselineRef.current) {
               const b = baselineRef.current;
               const noseDropFromTop = (noseY - b.noseY) / b.height;
+              const shoulderDropFromTop = (shoulderY - b.shoulderY) / b.height;
               const hipDistFromAnkle = (b.ankleY - leftHipY) / b.height;
 
               setNoseRatio(noseDropFromTop);
@@ -197,7 +201,10 @@ export default function Dab() {
               const t = thresholdsRef.current;
 
               const isHigh = noseDropFromTop < t.noseDropRatio;
-              const isLow = hipDistFromAnkle < t.hipFloorRatio;
+              const noseIsDown = noseDropFromTop > t.noseDownRatio;
+              const shoulderIsDown = shoulderDropFromTop > t.shoulderDownRatio;
+              const hipIsDown = hipDistFromAnkle < t.hipFloorRatio;
+              const isLow = noseIsDown || shoulderIsDown || hipIsDown;
 
               let newState: RepState = repStateRef.current;
               if (isHigh) newState = "HIGH";
@@ -222,7 +229,8 @@ export default function Dab() {
                 repStateRef.current = newState;
                 setCurrentState(newState);
                 setStateLog((prev) => {
-                  const entry = `${newState} noseDrop=${noseDropFromTop.toFixed(2)} hipDist=${hipDistFromAnkle.toFixed(2)}`;
+                  const trigger = noseIsDown ? "nose" : shoulderIsDown ? "shldr" : hipIsDown ? "hip" : "";
+                  const entry = `${newState} nD=${noseDropFromTop.toFixed(2)} sD=${shoulderDropFromTop.toFixed(2)} hA=${hipDistFromAnkle.toFixed(2)} [${trigger}]`;
                   const next = [entry, ...prev];
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
@@ -426,9 +434,27 @@ export default function Dab() {
                   }}
                 />
                 <TuneSlider
+                  label="Nose down ratio (LOW trigger)"
+                  value={tuneValues.noseDownRatio}
+                  min={0.4} max={0.8} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.noseDownRatio = v;
+                    setTuneValues((p) => ({ ...p, noseDownRatio: v }));
+                  }}
+                />
+                <TuneSlider
+                  label="Shoulder down ratio (LOW trigger)"
+                  value={tuneValues.shoulderDownRatio}
+                  min={0.3} max={0.8} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.shoulderDownRatio = v;
+                    setTuneValues((p) => ({ ...p, shoulderDownRatio: v }));
+                  }}
+                />
+                <TuneSlider
                   label="Hip-to-ankle ratio (floor threshold)"
                   value={tuneValues.hipFloorRatio}
-                  min={0.02} max={0.25} step={0.01}
+                  min={0.02} max={0.35} step={0.01}
                   onChange={(v) => {
                     thresholdsRef.current.hipFloorRatio = v;
                     setTuneValues((p) => ({ ...p, hipFloorRatio: v }));

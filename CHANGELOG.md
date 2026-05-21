@@ -15,6 +15,22 @@
 ### Changed
 - Home page: replaced Phase 4 placeholder with `<ActivityFeed />` between target progress and DAB NOW button
 
+## Multi-Signal LOW Detection for Burpees (2026-05-21)
+
+### Changed
+- LOW (down) detection now uses three signals — any one triggers it:
+  1. **Nose** (primary): nose dropped >55% of body height
+  2. **Shoulders** (secondary): shoulders dropped >60% of body height — catches people looking up at their phone while on the ground
+  3. **Hips** (tertiary): hips within 20% of body height from ankles
+- Hip floor threshold loosened from 10% to 20% of body height
+- Calibration now also captures standing shoulder position as baseline
+- Calibration rejects bad baselines (body height < 15% of frame) and retries
+- State log shows which trigger fired (`[nose]`, `[shldr]`, or `[hip]`)
+
+### Added
+- Shoulder down ratio slider in tune mode
+- Nose down ratio slider in tune mode
+
 ## Body-Relative Burpee Detection (2026-05-21)
 
 ### Changed
