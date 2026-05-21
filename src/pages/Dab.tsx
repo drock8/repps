@@ -14,8 +14,8 @@ type Screen = "detecting" | "summary";
 const CALIBRATION_FRAMES = 10;
 
 const DEFAULT_THRESHOLDS = {
-  highSpread: 0.55,
-  lowSpread: 0.40,
+  highSpread: 0.48,
+  lowSpread: 0.35,
   maxDuration: 8000,
 };
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Reduce Rep Count Lag (2026-05-21)
+
+### Fixed
+- Reps were counting 2-3 seconds after completing the burpee — spread ratio was hovering below HIGH threshold on the way up. Lowered HIGH from 0.55→0.48 and LOW from 0.40→0.35 so the rep registers as soon as the person starts rising.
+
 ## Fix Spread Detection Thresholds and First Rep (2026-05-21)
 
 ### Fixed
