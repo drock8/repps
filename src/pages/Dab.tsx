@@ -13,6 +13,8 @@ type Screen = "detecting" | "summary";
 
 const CALIBRATION_FRAMES = 15;
 const CALIBRATION_STABILITY = 0.08;
+const MIN_VISIBILITY = 0.6;
+const MIN_TORSO_GAP = 0.10;
 
 const DEFAULT_THRESHOLDS = {
   noseDropLow: 0.25,
@@ -190,24 +192,33 @@ export default function Dab() {
             const rShoulder = lm[12];
             const lHip = lm[23];
             const rHip = lm[24];
+            const lAnkle = lm[27];
+            const rAnkle = lm[28];
 
             const shoulderY = (lShoulder.y + rShoulder.y) / 2;
             const hipY = (lHip.y + rHip.y) / 2;
             const shoulderHipGap = hipY - shoulderY;
 
             if (!baselineRef.current) {
-              calibrationSamples.current.push({
-                noseY: nose.y,
-                shoulderHipGap,
-              });
+              const keyLandmarks = [nose, lShoulder, rShoulder, lHip, rHip, lAnkle, rAnkle];
+              const allVisible = keyLandmarks.every((l) => (l.visibility ?? 0) > MIN_VISIBILITY);
+              const isUpright = shoulderHipGap > MIN_TORSO_GAP && nose.y < shoulderY;
+
+              if (allVisible && isUpright) {
+                calibrationSamples.current.push({
+                  noseY: nose.y,
+                  shoulderHipGap,
+                });
+              } else {
+                calibrationSamples.current = [];
+              }
+
               if (calibrationSamples.current.length >= CALIBRATION_FRAMES) {
                 const samples = calibrationSamples.current;
                 const noseYs = samples.map((s) => s.noseY);
-                const noseMin = Math.min(...noseYs);
-                const noseMax = Math.max(...noseYs);
-                const noseRange = noseMax - noseMin;
+                const noseRange = Math.max(...noseYs) - Math.min(...noseYs);
                 const avgGap = samples.reduce((s, v) => s + v.shoulderHipGap, 0) / samples.length;
-                if (avgGap > 0.05 && noseRange < CALIBRATION_STABILITY) {
+                if (noseRange < CALIBRATION_STABILITY) {
                   const avgNoseY = noseYs.reduce((s, v) => s + v, 0) / noseYs.length;
                   baselineRef.current = { noseY: avgNoseY, shoulderHipGap: avgGap };
                   repStateRef.current = "HIGH";
