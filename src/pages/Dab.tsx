@@ -18,7 +18,7 @@ const MIN_LOW_DWELL_MS = 150;
 
 const DEFAULT_THRESHOLDS = {
   highRatio: 0.72,
-  lowRatio: 0.52,
+  lowRatio: 0.58,
   maxDuration: 12000,
 };
 
