@@ -1,5 +1,12 @@
 # Changelog
 
+## Slower Bubbles with 3D Sphere Styling (2026-05-21)
+
+### Changed
+- Rise speed slowed ~3× (10–18s, was 4–7s) so names are easy to read
+- 3D sphere look: specular highlight in upper-left, dark bottom hemisphere, rim lighting on sides, drop shadow beneath
+- Stronger backdrop blur (10px) for more depth against the page
+
 ## Circular Bubbles Rising from Bottom (2026-05-21)
 
 ### Changed

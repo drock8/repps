@@ -44,18 +44,18 @@ body {
 
 .activity-bubble {
   border-radius: 50%;
-  background: radial-gradient(
-    circle at 35% 25%,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(38, 42, 48, 0.45) 60%,
-    rgba(38, 42, 48, 0.55) 100%
-  );
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 20%),
+    radial-gradient(circle at 65% 75%, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 40%),
+    radial-gradient(circle at 50% 50%, rgba(38, 42, 48, 0.35) 0%, rgba(38, 42, 48, 0.55) 100%);
   box-shadow:
-    inset 0 -3px 6px rgba(0, 0, 0, 0.2),
-    inset 0 2px 4px rgba(255, 255, 255, 0.12),
-    0 0 20px rgba(255, 155, 47, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    inset 0 -6px 12px rgba(0, 0, 0, 0.35),
+    inset 0 6px 10px rgba(255, 255, 255, 0.1),
+    inset 3px 0 8px rgba(255, 255, 255, 0.04),
+    inset -3px 0 8px rgba(255, 255, 255, 0.04),
+    0 0 24px rgba(255, 155, 47, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }

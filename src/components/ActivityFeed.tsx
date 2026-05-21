@@ -19,8 +19,8 @@ interface Bubble {
 }
 
 const MAX_BUBBLES = 10;
-const MIN_DURATION = 4000;
-const MAX_DURATION = 7000;
+const MIN_DURATION = 10000;
+const MAX_DURATION = 18000;
 const BURST_WINDOW = 5000;
 const BUBBLE_SIZE = 72;
 
