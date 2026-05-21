@@ -1,5 +1,18 @@
 # Changelog
 
+## Profile avatar + spacing improvements (2026-05-22)
+
+### Fixed
+- Google avatar not showing: existing profiles had null `avatar_url` because `ignoreDuplicates` skipped the upsert — now syncs from Google metadata on each sign-in if missing
+
+### Added
+- Avatar photo upload: tap avatar circle to pick a custom photo, uploads to Supabase Storage `avatars` bucket
+- Upload overlay ("Edit") appears on hover/tap
+
+### Changed
+- Profile page spacing tightened: card padding p-6→p-4, card gaps reduced, stats cards side-by-side in flex row
+- Sign out button margin reduced
+
 ## Phase 6 — Profile + First-Login Gender Prompt (2026-05-22)
 
 ### Added

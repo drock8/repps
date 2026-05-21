@@ -62,6 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let p = await fetchProfile(user.id);
     if (!p) {
       p = await ensureProfile(user);
+    } else {
+      const meta = user.user_metadata;
+      const googleAvatar = meta?.avatar_url || meta?.picture || null;
+      if (googleAvatar && !p.avatar_url) {
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: googleAvatar })
+          .eq("id", p.id);
+        p = { ...p, avatar_url: googleAvatar };
+      }
     }
     setProfile(p);
   };

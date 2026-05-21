@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
 
@@ -24,6 +24,8 @@ export default function Profile() {
   const [editingGender, setEditingGender] = useState(false);
   const [savingGender, setSavingGender] = useState(false);
   const [totalReps, setTotalReps] = useState<number | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -89,6 +91,33 @@ export default function Profile() {
     setEditingGender(false);
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    const ext = file.name.split(".").pop();
+    const path = `${profile.id}/avatar.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true });
+    if (uploadError) {
+      console.error("Avatar upload failed:", uploadError);
+      setUploadingAvatar(false);
+      return;
+    }
+    const { data: urlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(path);
+    const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+    await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", profile.id);
+    await refreshProfile();
+    setUploadingAvatar(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const memberSince = new Date(profile.created_at).toLocaleDateString(
     "en-US",
     { month: "long", day: "numeric", year: "numeric" }
@@ -99,26 +128,44 @@ export default function Profile() {
       <h1 className="text-display-md">Profile</h1>
 
       {/* Avatar */}
-      <div className="flex justify-center mt-6">
-        {profile.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt={profile.name}
-            referrerPolicy="no-referrer"
-            className="w-20 h-20 rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center">
-            <span className="text-display-md text-ink-inverse">
-              {profile.name.charAt(0).toUpperCase()}
+      <div className="flex justify-center mt-4">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingAvatar}
+          className="relative group"
+        >
+          {profile.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={profile.name}
+              referrerPolicy="no-referrer"
+              className="w-20 h-20 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center">
+              <span className="text-display-md text-ink-inverse">
+                {profile.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+          <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200">
+            <span className="text-micro text-ink-primary uppercase">
+              {uploadingAvatar ? "..." : "Edit"}
             </span>
           </div>
-        )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarUpload}
+          className="hidden"
+        />
       </div>
 
       {/* Name card */}
       {editingName ? (
-        <div className="bg-bg-surface rounded-lg p-6 mt-6">
+        <div className="bg-bg-surface rounded-lg p-4 mt-3">
           <p className="text-micro text-ink-muted uppercase tracking-wide">
             Name
           </p>
@@ -136,7 +183,7 @@ export default function Profile() {
           {nameError && (
             <p className="text-caption text-error mt-2">{nameError}</p>
           )}
-          <div className="flex gap-3 mt-4">
+          <div className="flex gap-3 mt-3">
             <button
               onClick={handleSaveName}
               disabled={savingName}
@@ -155,7 +202,7 @@ export default function Profile() {
       ) : (
         <button
           onClick={handleStartEditName}
-          className="w-full text-left bg-bg-surface rounded-lg p-6 mt-6 transition-colors duration-200 ease-apple active:bg-bg-elevated"
+          className="w-full text-left bg-bg-surface rounded-lg p-4 mt-3 transition-colors duration-200 ease-apple active:bg-bg-elevated"
         >
           <p className="text-micro text-ink-muted uppercase tracking-wide">
             Name
@@ -166,7 +213,7 @@ export default function Profile() {
 
       {/* Gender card */}
       {editingGender ? (
-        <div className="bg-bg-surface rounded-lg p-6 mt-4">
+        <div className="bg-bg-surface rounded-lg p-4 mt-2">
           <p className="text-micro text-ink-muted uppercase tracking-wide">
             Gender
           </p>
@@ -196,7 +243,7 @@ export default function Profile() {
       ) : (
         <button
           onClick={() => setEditingGender(true)}
-          className="w-full text-left bg-bg-surface rounded-lg p-6 mt-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
+          className="w-full text-left bg-bg-surface rounded-lg p-4 mt-2 transition-colors duration-200 ease-apple active:bg-bg-elevated"
         >
           <p className="text-micro text-ink-muted uppercase tracking-wide">
             Gender
@@ -206,26 +253,27 @@ export default function Profile() {
       )}
 
       {/* Stats */}
-      <div className="bg-bg-surface rounded-lg p-6 mt-4">
-        <p className="text-micro text-ink-muted uppercase tracking-wide">
-          Your Total Reps
-        </p>
-        <p className="text-display-lg text-accent mt-1 tabular-nums">
-          {totalReps !== null ? totalReps.toLocaleString() : "—"}
-        </p>
-      </div>
-
-      <div className="bg-bg-surface rounded-lg p-6 mt-4">
-        <p className="text-micro text-ink-muted uppercase tracking-wide">
-          Member Since
-        </p>
-        <p className="text-body mt-1">{memberSince}</p>
+      <div className="flex gap-2 mt-3">
+        <div className="flex-1 bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Total Reps
+          </p>
+          <p className="text-display-lg text-accent mt-1 tabular-nums">
+            {totalReps !== null ? totalReps.toLocaleString() : "—"}
+          </p>
+        </div>
+        <div className="flex-1 bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Member Since
+          </p>
+          <p className="text-body mt-1">{memberSince}</p>
+        </div>
       </div>
 
       {/* Sign out */}
       <button
         onClick={signOut}
-        className="mt-8 w-full bg-bg-elevated text-ink-primary font-semibold text-body rounded-pill py-3 px-6 transition-all duration-200 ease-apple active:scale-95"
+        className="mt-6 w-full bg-bg-elevated text-ink-primary font-semibold text-body rounded-pill py-3 px-6 transition-all duration-200 ease-apple active:scale-95"
       >
         Sign out
       </button>
