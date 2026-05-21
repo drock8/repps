@@ -15,10 +15,11 @@ export default function Layout() {
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false;
   const title = PAGE_TITLES[pathname] || "";
+  const scrollable = pathname === "/leaderboard";
 
   return (
-    <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col">
-      <header className="sticky top-0 z-40 bg-bg-base">
+    <div className={`h-screen bg-bg-base text-ink-primary flex flex-col ${scrollable ? "" : "overflow-hidden"}`}>
+      <header className="sticky top-0 z-40 bg-bg-base flex-shrink-0">
         <div className="mx-auto max-w-md px-4 pt-4 pb-1">
           <div className="relative flex items-center justify-center h-7">
             <img src="/repps-logo.png" alt="REPPs" className="absolute left-0 h-8" />

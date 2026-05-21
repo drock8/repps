@@ -1,5 +1,10 @@
 # Changelog
 
+## Lock scroll on Home and Profile (2026-05-22)
+
+### Fixed
+- Home and Profile pages showed a scrollbar despite having no overflow content — layout now uses `h-screen overflow-hidden` on all pages except Leaderboard
+
 ## Sticky header/filters and tighter Home spacing (2026-05-22)
 
 ### Changed
