@@ -13,11 +13,13 @@ type Screen = "detecting" | "summary";
 
 const CALIBRATION_FRAMES = 30;
 const MIN_VISIBILITY = 0.5;
+const SMOOTHING_WINDOW = 4;
+const MIN_LOW_DWELL_MS = 150;
 
 const DEFAULT_THRESHOLDS = {
-  highRatio: 0.85,
-  lowRatio: 0.40,
-  maxDuration: 8000,
+  highRatio: 0.72,
+  lowRatio: 0.52,
+  maxDuration: 12000,
 };
 
 export default function Dab() {
@@ -36,9 +38,11 @@ export default function Dab() {
   const lastHighTimeRef = useRef(0);
   const hasBeenLowRef = useRef(false);
   const repCountRef = useRef(0);
+  const lowEnteredTimeRef = useRef(0);
 
   const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
 
+  const ratioBufferRef = useRef<number[]>([]);
   const calibrationHeights = useRef<number[]>([]);
   const standingHeightRef = useRef<number>(0);
 
@@ -144,7 +148,6 @@ export default function Dab() {
         let frameCount = 0;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) {
-            console.log("[dab] detect loop EXIT: cancelled=", cancelled, "video=", !!videoRef.current, "canvas=", !!canvasRef.current, "lm=", !!landmarkerRef.current);
             return;
           }
 
@@ -155,7 +158,7 @@ export default function Dab() {
           }
           lastDetectTime = now;
           frameCount++;
-          if (frameCount % 50 === 0) console.log("[dab] frame", frameCount, "landmarks=", standingHeightRef.current ? "calibrated" : "calibrating");
+          if (tuneMode && frameCount % 50 === 0) console.log("[dab] frame", frameCount, "calibrated=", !!standingHeightRef.current);
 
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
@@ -191,11 +194,20 @@ export default function Dab() {
             const lAnkle = lm[27];
             const rAnkle = lm[28];
 
-            const keyYs = [nose.y, lShoulder.y, rShoulder.y, lHip.y, rHip.y, lAnkle.y, rAnkle.y];
-            const currentHeight = Math.max(...keyYs) - Math.min(...keyYs);
+            const keyLandmarks = [nose, lShoulder, rShoulder, lHip, rHip, lAnkle, rAnkle];
+
+            const visibleYs: number[] = [];
+            for (const l of keyLandmarks) {
+              if ((l.visibility ?? 0) > MIN_VISIBILITY) visibleYs.push(l.y);
+            }
+            const coreVisible = [lShoulder, rShoulder, lHip, rHip].every(
+              (l) => (l.visibility ?? 0) > MIN_VISIBILITY
+            );
+            const currentHeight = visibleYs.length >= 4 && coreVisible
+              ? Math.max(...visibleYs) - Math.min(...visibleYs)
+              : 0;
 
             if (!standingHeightRef.current) {
-              const keyLandmarks = [nose, lShoulder, rShoulder, lHip, rHip, lAnkle, rAnkle];
               const allVisible = keyLandmarks.every((l) => (l.visibility ?? 0) > MIN_VISIBILITY);
               const shoulderY = (lShoulder.y + rShoulder.y) / 2;
               const hipY = (lHip.y + rHip.y) / 2;
@@ -225,10 +237,10 @@ export default function Dab() {
 
               if (calibrationHeights.current.length >= CALIBRATION_FRAMES) {
                 const sorted = [...calibrationHeights.current].sort((a, b) => a - b);
-                standingHeightRef.current = sorted[Math.floor(sorted.length * 0.9)];
-                console.log("[dab] CALIBRATED standingHeight=", standingHeightRef.current);
+                standingHeightRef.current = sorted[Math.floor(sorted.length * 0.5)];
                 repStateRef.current = "HIGH";
                 lastHighTimeRef.current = performance.now();
+                ratioBufferRef.current = [];
                 setCalibrated(true);
                 setShowReady(true);
                 setCurrentState("HIGH");
@@ -236,15 +248,20 @@ export default function Dab() {
               }
             }
 
-            if (standingHeightRef.current) {
-              const r = Math.min(currentHeight / standingHeightRef.current, 1.0);
+            if (standingHeightRef.current && currentHeight > 0) {
+              const rawR = Math.min(currentHeight / standingHeightRef.current, 1.0);
+
+              const buf = ratioBufferRef.current;
+              buf.push(rawR);
+              if (buf.length > SMOOTHING_WINDOW) buf.shift();
+              const r = buf.reduce((a, b) => a + b, 0) / buf.length;
+
               const now = performance.now();
               const t = thresholdsRef.current;
 
               if (now - lastSignalUpdateRef.current > 100) {
                 lastSignalUpdateRef.current = now;
                 setRatio(r);
-                console.log("[dab] ratio=", r.toFixed(3), "state=", repStateRef.current);
               }
 
               let newState: RepState = repStateRef.current;
@@ -252,30 +269,39 @@ export default function Dab() {
               else if (r < t.lowRatio) newState = "LOW";
 
               if (newState !== repStateRef.current) {
-                console.log("[dab] STATE", repStateRef.current, "→", newState, "ratio=", r.toFixed(3));
+                if (newState === "LOW") {
+                  lowEnteredTimeRef.current = now;
+                  hasBeenLowRef.current = false;
+                }
+
+                const lowDwell = now - lowEnteredTimeRef.current;
+                if (repStateRef.current === "LOW" && lowDwell < MIN_LOW_DWELL_MS) {
+                  animationIdRef.current = requestAnimationFrame(detect);
+                  return;
+                }
+
+                if (repStateRef.current === "LOW" && newState === "HIGH") {
+                  hasBeenLowRef.current = true;
+                }
+
                 if (newState === "HIGH") {
-                  const elapsed = now - lastHighTimeRef.current;
-                  console.log("[dab] HIGH: hasBeenLow=", hasBeenLowRef.current, "elapsed=", elapsed.toFixed(0), "maxDur=", t.maxDuration);
                   if (
                     hasBeenLowRef.current &&
                     now - lastHighTimeRef.current < t.maxDuration
                   ) {
                     repCountRef.current += 1;
                     const count = repCountRef.current;
-                    console.log("[dab] REP COUNTED! #", count);
                     setReps(count);
                     navigator.vibrate?.(100);
                     if (!tuneMode) insertRep(profile!.id);
                   }
                   lastHighTimeRef.current = now;
                   hasBeenLowRef.current = false;
-                } else if (newState === "LOW") {
-                  hasBeenLowRef.current = true;
                 }
                 repStateRef.current = newState;
                 setCurrentState(newState);
                 setStateLog((prev) => {
-                  const entry = `${newState} ratio=${r.toFixed(2)}`;
+                  const entry = `${newState} r=${r.toFixed(2)} raw=${rawR.toFixed(2)}`;
                   const next = [entry, ...prev];
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
@@ -570,7 +596,7 @@ export default function Dab() {
                 <TuneSlider
                   label="HIGH ratio (standing)"
                   value={tuneValues.highRatio}
-                  min={0.5} max={0.98} step={0.01}
+                  min={0.5} max={0.95} step={0.01}
                   onChange={(v) => {
                     thresholdsRef.current.highRatio = v;
                     setTuneValues((p) => ({ ...p, highRatio: v }));
@@ -579,7 +605,7 @@ export default function Dab() {
                 <TuneSlider
                   label="LOW ratio (down)"
                   value={tuneValues.lowRatio}
-                  min={0.1} max={0.7} step={0.01}
+                  min={0.2} max={0.7} step={0.01}
                   onChange={(v) => {
                     thresholdsRef.current.lowRatio = v;
                     setTuneValues((p) => ({ ...p, lowRatio: v }));
@@ -601,6 +627,8 @@ export default function Dab() {
                       repCountRef.current = 0;
                       repStateRef.current = "UNKNOWN";
                       hasBeenLowRef.current = false;
+                      lowEnteredTimeRef.current = 0;
+                      ratioBufferRef.current = [];
                       setStateLog([]);
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
@@ -620,10 +648,12 @@ export default function Dab() {
                     onClick={() => {
                       standingHeightRef.current = 0;
                       calibrationHeights.current = [];
+                      ratioBufferRef.current = [];
                       setCalibrated(false);
                       setCalibrationCount(0);
                       repStateRef.current = "UNKNOWN";
                       hasBeenLowRef.current = false;
+                      lowEnteredTimeRef.current = 0;
                       setStateLog([]);
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
