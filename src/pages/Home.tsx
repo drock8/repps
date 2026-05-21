@@ -8,6 +8,17 @@ function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+function formatCountdown(targetDate: string): string {
+  const now = new Date();
+  const target = new Date(targetDate + "T23:59:59");
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) return "Target date reached!";
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  if (days > 0) return `${days}d ${hours}h remaining`;
+  return `${hours}h remaining`;
+}
+
 function useAnimatedCounter(target: number, duration = 600) {
   const [display, setDisplay] = useState(target);
   const currentRef = useRef(target);
@@ -48,6 +59,7 @@ function useAnimatedCounter(target: number, duration = 600) {
 interface Settings {
   globalTarget: number;
   targetLabel: string;
+  targetDate: string | null;
 }
 
 export default function Home() {
@@ -69,12 +81,13 @@ export default function Home() {
     const { data } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["global_target", "target_label"]);
+      .in("key", ["global_target", "target_label", "target_date"]);
     if (data) {
       const map = Object.fromEntries(data.map((r) => [r.key, r.value]));
       setSettings({
         globalTarget: parseInt(map.global_target, 10) || 100,
         targetLabel: map.target_label || "",
+        targetDate: map.target_date || null,
       });
     }
   }, []);
@@ -130,6 +143,11 @@ export default function Home() {
             <p className="text-caption text-ink-muted mt-1">
               {percentage.toFixed(1)}%
             </p>
+            {settings.targetDate && (
+              <p className="text-caption text-ink-primary mt-1">
+                {formatCountdown(settings.targetDate)}
+              </p>
+            )}
           </div>
         </>
       )}
