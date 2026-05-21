@@ -1,5 +1,12 @@
 # Changelog
 
+## Custom bottom nav icons (2026-05-22)
+
+### Changed
+- Bottom nav tabs now use custom PNG icons (REPPs logo for Home, bar chart+star for Leaderboard, person silhouette for Profile) instead of emoji
+- Active/inactive state uses opacity (100% vs 40%) instead of text color change
+- Labels use accent color consistently
+
 ## Debug OAuth login + calibration alignment UX (2026-05-22)
 
 ### Added

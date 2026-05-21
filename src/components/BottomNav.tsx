@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom";
 
 const tabs = [
-  { to: "/leaderboard", label: "Leaderboard", icon: "🏆" },
-  { to: "/", label: "Home", icon: "⚡", end: true },
-  { to: "/profile", label: "Profile", icon: "👤" },
+  { to: "/leaderboard", label: "Leaderboard", icon: "/icon-leaderboard.png", end: false },
+  { to: "/", label: "Home", icon: "/icon-home.png", end: true },
+  { to: "/profile", label: "Profile", icon: "/icon-profile.png", end: false },
 ];
 
 export default function BottomNav() {
@@ -18,13 +18,13 @@ export default function BottomNav() {
             to={tab.to}
             end={tab.end}
             className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[44px] transition-colors duration-200 ease-apple ${
-                isActive ? "text-accent" : "text-ink-muted"
+              `flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[44px] transition-opacity duration-200 ease-apple ${
+                isActive ? "opacity-100" : "opacity-40"
               }`
             }
           >
-            <span className="text-xl leading-none">{tab.icon}</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide">
+            <img src={tab.icon} alt={tab.label} className="h-6 w-6 object-contain" />
+            <span className="text-[10px] font-bold uppercase tracking-wide text-accent">
               {tab.label}
             </span>
           </NavLink>
