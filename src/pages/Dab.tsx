@@ -500,7 +500,7 @@ export default function Dab() {
             </svg>
 
             {/* Instruction card */}
-            <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center px-4">
+            <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
               <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-4 text-center max-w-xs">
                 <p className="text-body-lg text-ink-primary font-semibold">
                   {alignmentStatus === "no-pose" && "Step into frame"}
