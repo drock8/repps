@@ -11,13 +11,13 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
-const CALIBRATION_FRAMES = 30;
-const CALIBRATION_STABILITY = 0.05;
+const CALIBRATION_FRAMES = 15;
+const CALIBRATION_STABILITY = 0.08;
 
 const DEFAULT_THRESHOLDS = {
   noseDropLow: 0.25,
   noseDropHigh: 0.10,
-  debounceMs: 600,
+  debounceMs: 400,
   maxDuration: 8000,
 };
 
