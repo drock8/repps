@@ -173,13 +173,15 @@ export default function Dab() {
 
           const drawer = new DrawingUtils(ctx);
           for (const landmarks of result.landmarks) {
+            const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+            const accentSecondary = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
             drawer.drawLandmarks(landmarks, {
               radius: 3,
-              color: "#FF9B2F",
-              fillColor: "#FFC857",
+              color: accent,
+              fillColor: accentSecondary,
             });
             drawer.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
-              color: "#FF9B2F80",
+              color: accent + "80",
               lineWidth: 2,
             });
           }
@@ -450,7 +452,7 @@ export default function Dab() {
                 <circle
                   cx="0" cy="-130" r="22"
                   fill="none"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -459,7 +461,7 @@ export default function Dab() {
                 <rect
                   x="-30" y="-105" width="60" height="80" rx="8"
                   fill="none"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -467,7 +469,7 @@ export default function Dab() {
                 {/* Left leg */}
                 <line
                   x1="-15" y1="-25" x2="-20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -475,7 +477,7 @@ export default function Dab() {
                 {/* Right leg */}
                 <line
                   x1="15" y1="-25" x2="20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -483,7 +485,7 @@ export default function Dab() {
                 {/* Left arm */}
                 <line
                   x1="-30" y1="-95" x2="-45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -491,7 +493,7 @@ export default function Dab() {
                 {/* Right arm */}
                 <line
                   x1="30" y1="-95" x2="45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
                   strokeWidth="2"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
@@ -519,7 +521,7 @@ export default function Dab() {
                     className="h-full rounded-pill transition-all duration-150 ease-apple"
                     style={{
                       width: `${(calibrationCount / CALIBRATION_FRAMES) * 100}%`,
-                      backgroundColor: alignmentStatus === "aligned" ? "#FF9B2F" : "#5C6066",
+                      backgroundColor: alignmentStatus === "aligned" ? "var(--color-accent)" : "#5C6066",
                     }}
                   />
                 </div>

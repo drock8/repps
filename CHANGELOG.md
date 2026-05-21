@@ -1,5 +1,21 @@
 # Changelog
 
+## Switchable theme system — orange ↔ electric blue (2026-05-22)
+
+### Added
+- CSS custom property palette system (`--color-accent`, `--color-accent-secondary`, `--color-accent-glow`, `--color-accent-glow-secondary`) with orange (default) and blue (`[data-theme="blue"]`) variants
+- `ThemeContext` reads `theme` key from Supabase `settings` table on app load and applies `data-theme` attribute to `<html>`
+- Blue asset set: `Repps-Blue-Logo.png`, `Repps-Blue-Icon.png`, `Leaderboard-Blue-Icon.png`, `Profile-Blue-Icon.png`, `repps-blue-icon-192.png`, `repps-blue-icon-512.png`
+- Theme-aware favicon — dynamically swapped at runtime via ThemeContext
+
+### Changed
+- Tailwind `accent` colors now reference CSS vars instead of hardcoded hex
+- All hardcoded `#FF9B2F` / `#FFC857` / `rgba(255,200,87,0.4)` / `rgba(255,155,47,0.1)` replaced with CSS var references across Dab, Home, Leaderboard, Profile, ActivityFeed
+- Gradients (`.repps-gradient`, `.repps-gradient-text`) use CSS vars
+- Header logo, bottom nav icons, and Add to Home Screen banner are theme-aware
+- `theme-color` meta tag and manifest set to neutral dark (`#111315`) to work with both themes
+- To switch: set `settings.theme` to `"blue"` or `"orange"` in Supabase Studio
+
 ## LFG button on Home (2026-05-22)
 
 ### Changed

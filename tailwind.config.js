@@ -11,8 +11,8 @@ export default {
           input: "#2A2E33",
         },
         accent: {
-          DEFAULT: "#FF9B2F",
-          gold: "#FFC857",
+          DEFAULT: "var(--color-accent)",
+          gold: "var(--color-accent-secondary)",
         },
         ink: {
           primary: "#F5F2EA",

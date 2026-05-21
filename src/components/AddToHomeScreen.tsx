@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTheme } from "../contexts/ThemeContext";
 
 const DISMISSED_KEY = "repps_a2hs_dismissed";
 
@@ -10,6 +11,7 @@ function isStandalone() {
 }
 
 export default function AddToHomeScreen() {
+  const theme = useTheme();
   const [visible, setVisible] = useState(false);
   const isIOS =
     /iPad|iPhone|iPod/.test(navigator.userAgent) &&
@@ -33,7 +35,7 @@ export default function AddToHomeScreen() {
       <div className="mx-4 mb-6 w-full max-w-md bg-bg-surface rounded-2xl p-5 shadow-xl animate-[slideUp_300ms_ease-apple]">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <img src="/repps-icon-192.png" alt="REPPs" className="w-12 h-12 rounded-xl" />
+            <img src={theme === "blue" ? "/repps-blue-icon-192.png" : "/repps-icon-192.png"} alt="REPPs" className="w-12 h-12 rounded-xl" />
             <div>
               <p className="text-body-lg font-bold text-ink-primary">Add REPPs to Home Screen</p>
               <p className="text-caption text-ink-muted mt-0.5">Quick access, full-screen experience</p>

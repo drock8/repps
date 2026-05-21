@@ -6,6 +6,18 @@
 
 :root {
   font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+
+  --color-accent: #FF9B2F;
+  --color-accent-secondary: #FFC857;
+  --color-accent-glow: 255, 155, 47;
+  --color-accent-glow-secondary: 255, 200, 87;
+}
+
+[data-theme="blue"] {
+  --color-accent: #2D7AFF;
+  --color-accent-secondary: #5EEDFF;
+  --color-accent-glow: 45, 122, 255;
+  --color-accent-glow-secondary: 94, 237, 255;
 }
 
 body {
@@ -17,11 +29,11 @@ body {
 }
 
 .repps-gradient {
-  background: linear-gradient(135deg, #FF9B2F 0%, #FFC857 100%);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-secondary) 100%);
 }
 
 .repps-gradient-text {
-  background: linear-gradient(135deg, #FF9B2F 0%, #FFC857 100%);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-secondary) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -58,7 +70,7 @@ body {
     inset 0 6px 10px rgba(255, 255, 255, 0.1),
     inset 3px 0 8px rgba(255, 255, 255, 0.04),
     inset -3px 0 8px rgba(255, 255, 255, 0.04),
-    0 0 24px rgba(255, 155, 47, 0.1),
+    0 0 24px rgba(var(--color-accent-glow), 0.1),
     0 4px 16px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);

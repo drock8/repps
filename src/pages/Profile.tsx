@@ -44,7 +44,7 @@ export default function Profile() {
         </p>
         <button
           onClick={signInWithGoogle}
-          className="w-32 h-32 rounded-full bg-accent text-ink-inverse font-bold text-[18px] flex items-center justify-center text-center leading-tight transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
+          className="w-32 h-32 rounded-full bg-accent text-ink-inverse font-bold text-[18px] flex items-center justify-center text-center leading-tight transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)]"
         >
           Sign in<br />with<br />Google
         </button>

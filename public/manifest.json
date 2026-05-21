@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#111315",
-  "theme_color": "#FF9B2F",
+  "theme_color": "#111315",
   "icons": [
     {
       "src": "/repps-icon-192.png",

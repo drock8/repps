@@ -1,12 +1,22 @@
 import { NavLink } from "react-router-dom";
+import { useTheme } from "../contexts/ThemeContext";
 
-const tabs = [
+const TABS_ORANGE = [
   { to: "/leaderboard", label: "Leaderboard", icon: "/icon-leaderboard.png", end: false },
   { to: "/", label: "Home", icon: "/icon-home.png", end: true },
   { to: "/profile", label: "Profile", icon: "/icon-profile.png", end: false },
 ];
 
+const TABS_BLUE = [
+  { to: "/leaderboard", label: "Leaderboard", icon: "/Leaderboard-Blue-Icon.png", end: false },
+  { to: "/", label: "Home", icon: "/Repps-Blue-Icon.png", end: true },
+  { to: "/profile", label: "Profile", icon: "/Profile-Blue-Icon.png", end: false },
+];
+
 export default function BottomNav() {
+  const theme = useTheme();
+  const tabs = theme === "blue" ? TABS_BLUE : TABS_ORANGE;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50">
       <div className="mx-auto max-w-md bg-bg-surface border-t border-divider flex items-center justify-around"
