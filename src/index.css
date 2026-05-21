@@ -1,3 +1,29 @@
+@import url('https://rsms.me/inter/inter.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  font-family: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #111315;
+  color: #F5F2EA;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.repps-gradient {
+  background: linear-gradient(135deg, #FF9B2F 0%, #FFC857 100%);
+}
+
+.repps-gradient-text {
+  background: linear-gradient(135deg, #FF9B2F 0%, #FFC857 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
