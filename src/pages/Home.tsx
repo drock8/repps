@@ -107,11 +107,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center text-center pt-12">
-      <p className="text-micro text-ink-secondary uppercase tracking-wide">
-        🌍 Total Global Burpees
-      </p>
-      <p className="text-display-xl repps-gradient-text mt-2 tabular-nums">
+      <p className="text-headline text-ink-primary">GBT</p>
+      <p className="text-display-xl repps-gradient-text mt-1 tabular-nums">
         {formatNumber(animatedCount)}
+      </p>
+      <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">
+        Global Burpee Total
       </p>
 
       {settings && (
