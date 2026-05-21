@@ -149,8 +149,15 @@ export default function Dab() {
         setLoadProgress(100);
         setLoading(false);
 
+        let detecting = false;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) return;
+
+          if (detecting) {
+            animationIdRef.current = requestAnimationFrame(detect);
+            return;
+          }
+          detecting = true;
 
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
@@ -265,6 +272,7 @@ export default function Dab() {
             }
           }
 
+          detecting = false;
           animationIdRef.current = requestAnimationFrame(detect);
         };
         detect();
