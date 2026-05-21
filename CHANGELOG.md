@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix Bubble Rise Speed (2026-05-21)
+
+### Fixed
+- Bubbles were still racing up in 3–5s despite 10–18s duration — the 85% keyframe was missing a transform, so CSS interpolated the full distance between 8% and 100% unevenly. Added explicit transform at 90% keyframe so movement is steady across the full duration.
+
 ## Slower Bubbles with 3D Sphere Styling (2026-05-21)
 
 ### Changed
