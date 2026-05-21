@@ -17,16 +17,18 @@ export default function Layout() {
   const title = PAGE_TITLES[pathname] || "";
 
   return (
-    <div className="min-h-screen bg-bg-base text-ink-primary">
-      <header className="mx-auto max-w-md px-4 pt-4 pb-1">
-        <div className="relative flex items-center justify-center h-7">
-          <img src="/repps-logo.png" alt="REPPs" className="absolute left-0 h-8" />
-          <span className="text-caption font-semibold text-ink-secondary uppercase tracking-wide">
-            {title}
-          </span>
+    <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col">
+      <header className="sticky top-0 z-40 bg-bg-base">
+        <div className="mx-auto max-w-md px-4 pt-4 pb-1">
+          <div className="relative flex items-center justify-center h-7">
+            <img src="/repps-logo.png" alt="REPPs" className="absolute left-0 h-8" />
+            <span className="text-caption font-semibold text-ink-secondary uppercase tracking-wide">
+              {title}
+            </span>
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-md px-4 pt-2 pb-24">
+      <main className="mx-auto max-w-md w-full px-4 pt-2 pb-24 flex-1">
         <Outlet />
       </main>
       {!showGenderPrompt && <BottomNav />}

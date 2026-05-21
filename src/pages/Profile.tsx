@@ -123,7 +123,7 @@ export default function Profile() {
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col overflow-hidden">
       {/* Sign out icon top-right */}
       <div className="flex justify-end">
         <button

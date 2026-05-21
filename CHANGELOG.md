@@ -1,5 +1,13 @@
 # Changelog
 
+## Sticky header/filters and tighter Home spacing (2026-05-22)
+
+### Changed
+- Header (logo + page title) is now sticky at the top across all pages, matching the bottom nav
+- Home page: reduced gap above GBT counter and between activity feed and DAB NOW button by 50%
+- Leaderboard: GBT section and gender/time filter tabs stay fixed; only the ranked list scrolls
+- Profile: disabled unnecessary scroll since all content fits in one viewport
+
 ## Custom bottom nav icons (2026-05-22)
 
 ### Changed

@@ -230,49 +230,52 @@ export default function Leaderboard() {
   }, [gender, period, fetchLeaderboard]);
 
   return (
-    <div>
-      <div className="flex flex-col items-center mt-2 mb-6">
-        <p className="text-headline text-ink-primary">GBT</p>
-        <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
-          {formatNumber(totalReps)}
-        </p>
-        <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">
-          Global Burpee Total
-        </p>
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
+      <div className="flex-shrink-0 bg-bg-base">
+        <div className="flex flex-col items-center mt-2 mb-4">
+          <p className="text-headline text-ink-primary">GBT</p>
+          <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
+            {formatNumber(totalReps)}
+          </p>
+          <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">
+            Global Burpee Total
+          </p>
+        </div>
+
+        <div className="flex gap-1 mb-3">
+          {GENDER_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setGender(tab.value)}
+              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                gender === tab.value
+                  ? "bg-accent text-ink-inverse font-bold"
+                  : "bg-transparent text-ink-secondary font-medium"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-1 mb-4">
+          {TIME_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setPeriod(tab.value)}
+              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                period === tab.value
+                  ? "bg-accent text-ink-inverse font-bold"
+                  : "bg-transparent text-ink-secondary font-medium"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex gap-1 mb-3">
-        {GENDER_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setGender(tab.value)}
-            className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-              gender === tab.value
-                ? "bg-accent text-ink-inverse font-bold"
-                : "bg-transparent text-ink-secondary font-medium"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-1 mb-6">
-        {TIME_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setPeriod(tab.value)}
-            className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-              period === tab.value
-                ? "bg-accent text-ink-inverse font-bold"
-                : "bg-transparent text-ink-secondary font-medium"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
+      <div className="flex-1 overflow-y-auto min-h-0">
       {loading ? (
         <div className="py-12 text-center">
           <p className="text-body text-ink-muted">Loading...</p>
@@ -346,6 +349,7 @@ export default function Leaderboard() {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -119,7 +119,7 @@ export default function Home() {
     : 0;
 
   return (
-    <div className="flex flex-col items-center text-center pt-12">
+    <div className="flex flex-col items-center text-center pt-6">
       <p className="text-headline text-ink-primary">GBT</p>
       <p className="text-display-xl repps-gradient-text mt-1 tabular-nums">
         {formatNumber(animatedCount)}
@@ -152,11 +152,11 @@ export default function Home() {
         </>
       )}
 
-      <div className="mt-12 w-full">
+      <div className="mt-6 w-full">
         <ActivityFeed />
       </div>
 
-      <div className="mt-6 flex flex-col items-center">
+      <div className="mt-3 flex flex-col items-center">
         {profile ? (
           <div className="flex flex-col items-center">
             <button
