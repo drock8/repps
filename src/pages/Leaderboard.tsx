@@ -241,12 +241,12 @@ export default function Leaderboard() {
         </p>
       </div>
 
-      <div className="flex gap-2 mb-3 overflow-x-auto">
+      <div className="flex gap-1 mb-3">
         {GENDER_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setGender(tab.value)}
-            className={`px-4 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+            className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
               gender === tab.value
                 ? "bg-accent text-ink-inverse font-bold"
                 : "bg-transparent text-ink-secondary font-medium"
@@ -257,12 +257,12 @@ export default function Leaderboard() {
         ))}
       </div>
 
-      <div className="flex gap-2 mb-6 overflow-x-auto">
+      <div className="flex gap-1 mb-6">
         {TIME_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setPeriod(tab.value)}
-            className={`px-4 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+            className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
               period === tab.value
                 ? "bg-accent text-ink-inverse font-bold"
                 : "bg-transparent text-ink-secondary font-medium"

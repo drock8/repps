@@ -123,7 +123,7 @@ export default function Profile() {
   );
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-8rem)]">
+    <div className="flex flex-col">
       {/* Sign out icon top-right */}
       <div className="flex justify-end">
         <button
@@ -290,8 +290,8 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Sign out button pinned near bottom */}
-      <div className="mt-auto pt-4">
+      {/* Sign out button */}
+      <div className="mt-6">
         <button
           onClick={signOut}
           className="w-full bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 px-6 transition-all duration-200 ease-apple active:scale-95"
