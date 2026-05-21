@@ -11,6 +11,24 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
+function speak(text: string, rate = 1.1) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = rate;
+  utter.pitch = 1.0;
+  utter.volume = 1.0;
+  speechSynthesis.speak(utter);
+}
+
+const ENCOURAGEMENT: Record<number, string> = {
+  3: "Nice!",
+  5: "Keep going!",
+  10: "Beast mode!",
+  15: "Unstoppable!",
+  20: "Legendary!",
+};
+
 const DEFAULT_THRESHOLDS = {
   highNose: 0.4,
   lowNose: 0.55,
@@ -33,6 +51,7 @@ export default function Dab() {
   const repStateRef = useRef<RepState>("UNKNOWN");
   const lastHighTimeRef = useRef(0);
   const hasBeenLowRef = useRef(false);
+  const repCountRef = useRef(0);
 
   const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
 
@@ -43,7 +62,7 @@ export default function Dab() {
   const [torsoGap, setTorsoGap] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [loadStage, setLoadStage] = useState("Initializing…");
+  const [loadStage, setLoadStage] = useState("Powering up…");
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
@@ -85,14 +104,14 @@ export default function Dab() {
 
     const init = async () => {
       try {
-        setLoadStage("Loading vision runtime…");
+        setLoadStage("Powering up Burpee Detector…");
         setLoadProgress(10);
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
         );
         if (cancelled) return;
 
-        setLoadStage("Loading pose model…");
+        setLoadStage("Starting camera…");
         setLoadProgress(40);
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -109,7 +128,7 @@ export default function Dab() {
         }
         landmarkerRef.current = landmarker;
 
-        setLoadStage("Starting camera…");
+        setLoadStage("Get ready to rumble…");
         setLoadProgress(75);
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
@@ -125,8 +144,9 @@ export default function Dab() {
           await videoRef.current.play();
         }
 
-        setLoadStage("Ready");
+        setLoadStage("Let's go!");
         setLoadProgress(100);
+        speak("Let's go!");
         setLoading(false);
 
         const detect = () => {
@@ -183,8 +203,12 @@ export default function Dab() {
                   hasBeenLowRef.current &&
                   now - lastHighTimeRef.current < t.maxDuration
                 ) {
-                  setReps((r) => r + 1);
+                  repCountRef.current += 1;
+                  const count = repCountRef.current;
+                  setReps(count);
                   if (!tuneMode) insertRep(profile!.id);
+                  const cheer = ENCOURAGEMENT[count];
+                  speak(cheer ? `${count}. ${cheer}` : `${count}`);
                 }
                 lastHighTimeRef.current = now;
                 hasBeenLowRef.current = false;
@@ -232,6 +256,7 @@ export default function Dab() {
 
   const handleStop = async () => {
     stopCamera();
+    if (repCountRef.current > 0) speak("Great work!");
 
     const [userResult, globalResult] = await Promise.all([
       supabase
@@ -422,6 +447,7 @@ export default function Dab() {
                   <button
                     onClick={() => {
                       setReps(0);
+                      repCountRef.current = 0;
                       repStateRef.current = "UNKNOWN";
                       hasBeenLowRef.current = false;
                       setStateLog([]);
