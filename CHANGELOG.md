@@ -1,5 +1,14 @@
 # Changelog
 
+## Profile layout polish (2026-05-22)
+
+### Changed
+- Consistent 8px gap between all profile cards (wrapped in single flex gap-2 container)
+- Avatar edit indicator: persistent orange camera icon badge on bottom-right instead of hover overlay
+- Sign out in two places: icon in top-right header + full-width button pinned just above nav bar
+- Profile title left-aligned in header row (space reserved for logo on left)
+- Sign out button pushed to bottom of viewport via flex mt-auto
+
 ## Profile avatar + spacing improvements (2026-05-22)
 
 ### Fixed
