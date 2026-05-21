@@ -38,7 +38,7 @@ const DEFAULT_THRESHOLDS = {
 };
 
 export default function Dab() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
@@ -74,10 +74,10 @@ export default function Dab() {
   const [tuneOpen, setTuneOpen] = useState(true);
   const [stateLog, setStateLog] = useState<string[]>([]);
 
-  // Auth guard
+  // Auth guard — wait for auth to finish loading before redirecting
   useEffect(() => {
-    if (!profile) navigate("/", { replace: true });
-  }, [profile, navigate]);
+    if (!authLoading && !profile) navigate("/", { replace: true });
+  }, [authLoading, profile, navigate]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);
@@ -276,7 +276,7 @@ export default function Dab() {
     setScreen("summary");
   };
 
-  if (!profile) return null;
+  if (authLoading || !profile) return null;
 
   if (screen === "summary") {
     return (
@@ -338,6 +338,7 @@ export default function Dab() {
         {tuneMode && (
           <p className="text-micro text-accent uppercase mb-1">Tune Mode</p>
         )}
+        <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
         <p className="text-display-xl text-accent tabular-nums">{reps}</p>
       </div>
 
