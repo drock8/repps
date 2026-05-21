@@ -1,5 +1,10 @@
 # Changelog
 
+## LFG button on Home (2026-05-22)
+
+### Changed
+- Signed-out CTA button: "Join the Fun!" → "LFG!" with larger text (28px → 44px)
+
 ## PWA setup + Add to Home Screen banner (2026-05-22)
 
 ### Added

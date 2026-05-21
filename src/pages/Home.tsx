@@ -171,9 +171,9 @@ export default function Home() {
           <div className="flex flex-col items-center">
             <button
               onClick={signInWithGoogle}
-              className="w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
+              className="w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[44px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
             >
-              Join<br />the<br />Fun!
+              LFG!
             </button>
             <button
               onClick={signInWithGoogle}
