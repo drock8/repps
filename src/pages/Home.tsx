@@ -138,29 +138,32 @@ export default function Home() {
         <ActivityFeed />
       </div>
 
-      <div className="mt-16 w-full max-w-sm">
+      <div className="mt-6 flex flex-col items-center">
         {profile ? (
-          <button
-            onClick={() => navigate("/dab")}
-            className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
-          >
-            DAB NOW ⚡
-          </button>
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => navigate("/dab")}
+              className="w-32 h-32 rounded-full bg-accent text-ink-inverse font-bold text-body-lg flex items-center justify-center transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
+            >
+              DAB NOW ⚡
+            </button>
+            <p className="text-caption text-ink-muted mt-3">Drop a Burpee</p>
+          </div>
         ) : (
-          <>
+          <div className="flex flex-col items-center">
             <button
               onClick={signInWithGoogle}
-              className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
+              className="w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
             >
-              JOIN THE FUN
+              Join<br />the<br />Fun!
             </button>
             <button
               onClick={signInWithGoogle}
-              className="mt-3 text-caption text-ink-secondary"
+              className="mt-4 text-caption text-ink-secondary"
             >
               Already have an account? Sign in
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

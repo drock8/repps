@@ -38,15 +38,15 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div>
-        <p className="text-body text-ink-muted mt-4">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
+        <p className="text-body text-ink-muted mb-8">
           Sign in to see your profile
         </p>
         <button
           onClick={signInWithGoogle}
-          className="mt-6 bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+          className="w-32 h-32 rounded-full bg-accent text-ink-inverse font-bold text-[18px] flex items-center justify-center text-center leading-tight transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(255,200,87,0.4)]"
         >
-          Sign in with Google
+          Sign in<br />with<br />Google
         </button>
       </div>
     );
