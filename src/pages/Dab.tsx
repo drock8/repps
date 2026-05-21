@@ -141,8 +141,12 @@ export default function Dab() {
         setLoading(false);
 
         let lastDetectTime = 0;
+        let frameCount = 0;
         const detect = () => {
-          if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) return;
+          if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) {
+            console.log("[dab] detect loop EXIT: cancelled=", cancelled, "video=", !!videoRef.current, "canvas=", !!canvasRef.current, "lm=", !!landmarkerRef.current);
+            return;
+          }
 
           const now = performance.now();
           if (now - lastDetectTime < 80) {
@@ -150,6 +154,8 @@ export default function Dab() {
             return;
           }
           lastDetectTime = now;
+          frameCount++;
+          if (frameCount % 50 === 0) console.log("[dab] frame", frameCount, "landmarks=", standingHeightRef.current ? "calibrated" : "calibrating");
 
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
@@ -220,6 +226,7 @@ export default function Dab() {
               if (calibrationHeights.current.length >= CALIBRATION_FRAMES) {
                 const sorted = [...calibrationHeights.current].sort((a, b) => a - b);
                 standingHeightRef.current = sorted[Math.floor(sorted.length * 0.9)];
+                console.log("[dab] CALIBRATED standingHeight=", standingHeightRef.current);
                 repStateRef.current = "HIGH";
                 lastHighTimeRef.current = performance.now();
                 setCalibrated(true);
@@ -237,6 +244,7 @@ export default function Dab() {
               if (now - lastSignalUpdateRef.current > 100) {
                 lastSignalUpdateRef.current = now;
                 setRatio(r);
+                console.log("[dab] ratio=", r.toFixed(3), "state=", repStateRef.current);
               }
 
               let newState: RepState = repStateRef.current;
@@ -244,13 +252,17 @@ export default function Dab() {
               else if (r < t.lowRatio) newState = "LOW";
 
               if (newState !== repStateRef.current) {
+                console.log("[dab] STATE", repStateRef.current, "→", newState, "ratio=", r.toFixed(3));
                 if (newState === "HIGH") {
+                  const elapsed = now - lastHighTimeRef.current;
+                  console.log("[dab] HIGH: hasBeenLow=", hasBeenLowRef.current, "elapsed=", elapsed.toFixed(0), "maxDur=", t.maxDuration);
                   if (
                     hasBeenLowRef.current &&
                     now - lastHighTimeRef.current < t.maxDuration
                   ) {
                     repCountRef.current += 1;
                     const count = repCountRef.current;
+                    console.log("[dab] REP COUNTED! #", count);
                     setReps(count);
                     navigator.vibrate?.(100);
                     if (!tuneMode) insertRep(profile!.id);
