@@ -384,7 +384,7 @@ export default function Dab() {
           onClick={handleStop}
           className="w-full max-w-sm mx-auto block bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
         >
-          STOP
+          DONE
         </button>
       </div>
 
