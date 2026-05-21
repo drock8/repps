@@ -19,9 +19,10 @@ interface Bubble {
 }
 
 const MAX_BUBBLES = 10;
-const MIN_DURATION = 2500;
-const MAX_DURATION = 5000;
+const MIN_DURATION = 4000;
+const MAX_DURATION = 7000;
 const BURST_WINDOW = 5000;
+const BUBBLE_SIZE = 72;
 
 export default function ActivityFeed() {
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -84,9 +85,9 @@ export default function ActivityFeed() {
         }
 
         const bubbleId = `${userId}-${now}`;
-        const left = 5 + Math.random() * 75;
+        const left = 5 + Math.random() * 70;
         const duration = MIN_DURATION + Math.random() * (MAX_DURATION - MIN_DURATION);
-        const riseDistance = 140 + Math.random() * 80;
+        const riseDistance = window.innerHeight + 80;
 
         const newBubble: Bubble = {
           id: bubbleId,
@@ -143,45 +144,52 @@ export default function ActivityFeed() {
   }, [loadProfiles, spawnBubble]);
 
   return (
-    <div className="relative h-56 w-full overflow-hidden">
+    <>
       {!hasReceivedRep && bubbles.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="h-24 flex items-center justify-center">
           <p className="text-body text-ink-muted">
             Be the first to drop a burpee
           </p>
         </div>
       )}
 
-      {bubbles.map((bubble) => (
-        <div
-          key={bubble.id}
-          className="activity-bubble absolute bottom-0 rounded-pill px-4 py-2 flex items-center gap-2"
-          style={{
-            left: `${bubble.left}%`,
-            "--rise-distance": `-${bubble.riseDistance}px`,
-            animation: `bubble-rise ${bubble.duration}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
-          } as React.CSSProperties}
-        >
-          {bubble.avatarUrl ? (
-            <img
-              src={bubble.avatarUrl}
-              alt=""
-              referrerPolicy="no-referrer"
-              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-            />
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-accent text-ink-inverse flex items-center justify-center text-caption font-bold flex-shrink-0">
-              {bubble.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <span className="text-body text-ink-primary font-semibold whitespace-nowrap">
-            {bubble.name}
-          </span>
-          <span className="text-accent font-bold whitespace-nowrap">
-            +{bubble.count}
-          </span>
-        </div>
-      ))}
-    </div>
+      {hasReceivedRep && bubbles.length === 0 && <div className="h-24" />}
+
+      <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden">
+        {bubbles.map((bubble) => (
+          <div
+            key={bubble.id}
+            className="activity-bubble absolute flex flex-col items-center justify-center"
+            style={{
+              left: `${bubble.left}%`,
+              bottom: `-${BUBBLE_SIZE}px`,
+              width: `${BUBBLE_SIZE}px`,
+              height: `${BUBBLE_SIZE}px`,
+              "--rise-distance": `-${bubble.riseDistance}px`,
+              animation: `bubble-rise ${bubble.duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`,
+            } as React.CSSProperties}
+          >
+            {bubble.avatarUrl ? (
+              <img
+                src={bubble.avatarUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-accent/80 text-ink-inverse flex items-center justify-center text-caption font-bold">
+                {bubble.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-micro text-ink-primary/90 font-semibold leading-tight mt-0.5 max-w-full truncate px-1">
+              {bubble.name.split(" ")[0]}
+            </span>
+            <span className="text-micro text-accent font-bold leading-tight">
+              +{bubble.count}
+            </span>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

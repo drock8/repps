@@ -1,5 +1,14 @@
 # Changelog
 
+## Circular Bubbles Rising from Bottom (2026-05-21)
+
+### Changed
+- Bubbles are now circular spheres (border-radius: 50%) with content stacked vertically (avatar, first name, +N)
+- Bubbles spawn from below the nav bar and rise the full viewport height via a fixed overlay (z-30, pointer-events-none)
+- More translucent glass look: lower opacity radial gradient, stronger backdrop blur, subtle orange ambient glow
+- Slower rise times (4–7s) for a more ambient, lava-lamp feel
+- Empty state placeholder reserves layout space without the overlay
+
 ## Reduce Rep Count Lag (2026-05-21)
 
 ### Fixed
