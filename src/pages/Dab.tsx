@@ -13,12 +13,12 @@ type Screen = "detecting" | "summary";
 
 function speak(text: string, rate = 1.1) {
   if (!("speechSynthesis" in window)) return;
-  speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.rate = rate;
   utter.pitch = 1.0;
   utter.volume = 1.0;
-  speechSynthesis.speak(utter);
+  if (speechSynthesis.speaking) speechSynthesis.cancel();
+  setTimeout(() => speechSynthesis.speak(utter), 50);
 }
 
 const ENCOURAGEMENT: Record<number, string> = {
@@ -33,6 +33,7 @@ const DEFAULT_THRESHOLDS = {
   highNose: 0.4,
   lowNose: 0.55,
   lowGap: 0.15,
+  lowHip: 0.75,
   maxDuration: 8000,
 };
 
@@ -60,6 +61,7 @@ export default function Dab() {
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
   const [noseY, setNoseY] = useState(0);
   const [torsoGap, setTorsoGap] = useState(0);
+  const [hipY, setHipY] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStage, setLoadStage] = useState("Powering up…");
@@ -186,12 +188,15 @@ export default function Dab() {
             const leftHip = lm[23];
             const gap = Math.abs(leftShoulder.y - leftHip.y);
             setTorsoGap(gap);
+            setHipY(leftHip.y);
 
             const now = performance.now();
             const t = thresholdsRef.current;
 
             const isHigh = y < t.highNose;
-            const isLow = y > t.lowNose && gap < t.lowGap;
+            const noseDown = y > t.lowNose && gap < t.lowGap;
+            const hipDown = leftHip.y > t.lowHip;
+            const isLow = noseDown || hipDown;
 
             let newState: RepState = repStateRef.current;
             if (isHigh) newState = "HIGH";
@@ -218,7 +223,7 @@ export default function Dab() {
               repStateRef.current = newState;
               setCurrentState(newState);
               setStateLog((prev) => {
-                const entry = `${newState} n=${y.toFixed(2)} g=${gap.toFixed(2)}`;
+                const entry = `${newState} n=${y.toFixed(2)} h=${leftHip.y.toFixed(2)} g=${gap.toFixed(2)}`;
                 const next = [entry, ...prev];
                 return next.length > 20 ? next.slice(0, 20) : next;
               });
@@ -330,6 +335,9 @@ export default function Dab() {
     <div className="flex flex-col items-center -mx-4 -mt-6">
       {/* Rep counter overlay */}
       <div className="w-full text-center py-4 relative z-10">
+        {tuneMode && (
+          <p className="text-micro text-accent uppercase mb-1">Tune Mode</p>
+        )}
         <p className="text-display-xl text-accent tabular-nums">{reps}</p>
       </div>
 
@@ -386,6 +394,7 @@ export default function Dab() {
           <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
             <span>{currentState}</span>
             <span>nose {noseY.toFixed(2)}</span>
+            <span>hip {hipY.toFixed(2)}</span>
             <span>gap {torsoGap.toFixed(2)}</span>
           </div>
         </div>
@@ -393,13 +402,13 @@ export default function Dab() {
 
       {/* Tune mode panel */}
       {tuneMode && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 px-2">
+        <div className="fixed bottom-[76px] left-0 right-0 z-[60] px-2">
           <div className="mx-auto max-w-md bg-bg-surface border border-divider rounded-lg overflow-hidden">
             <button
               onClick={() => setTuneOpen((o) => !o)}
               className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
             >
-              <span>Tune Panel — {currentState} — nose {noseY.toFixed(2)} — gap {torsoGap.toFixed(2)}</span>
+              <span>Tune — {currentState} — nose {noseY.toFixed(2)} — hip {hipY.toFixed(2)} — gap {torsoGap.toFixed(2)}</span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
             {tuneOpen && (
@@ -432,6 +441,15 @@ export default function Dab() {
                   onChange={(v) => {
                     thresholdsRef.current.lowGap = v;
                     setTuneValues((p) => ({ ...p, lowGap: v }));
+                  }}
+                />
+                <TuneSlider
+                  label="LOW hip Y (alt trigger)"
+                  value={tuneValues.lowHip}
+                  min={0.5} max={0.95} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.lowHip = v;
+                    setTuneValues((p) => ({ ...p, lowHip: v }));
                   }}
                 />
                 <TuneSlider
