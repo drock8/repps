@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import GenderPrompt from "./GenderPrompt";
+import AddToHomeScreen from "./AddToHomeScreen";
 import { useAuth } from "../contexts/AuthContext";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -34,6 +35,7 @@ export default function Layout() {
       </main>
       {!showGenderPrompt && <BottomNav />}
       {showGenderPrompt && <GenderPrompt />}
+      {profile && !showGenderPrompt && <AddToHomeScreen />}
     </div>
   );
 }

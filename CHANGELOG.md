@@ -1,5 +1,18 @@
 # Changelog
 
+## PWA setup + Add to Home Screen banner (2026-05-22)
+
+### Added
+- Web app manifest (`manifest.json`) with standalone display, dark background, orange theme color
+- PWA icons at 192px and 512px generated from REPPs R icon
+- Apple-mobile-web-app meta tags for iOS home screen support
+- "Add to Home Screen" dismissible banner — appears once after login with platform-specific instructions (iOS share icon vs Android menu), X to close, persists dismissal to localStorage
+- `slideUp` keyframe animation for the banner entrance
+
+### Changed
+- Favicon updated from purple lightning bolt SVG to REPPs R icon (PNG)
+- Page title updated from "repps" to "REPPs"
+
 ## Lock scroll on Home and Profile (2026-05-22)
 
 ### Fixed

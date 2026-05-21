@@ -1,0 +1,23 @@
+{
+  "name": "REPPs",
+  "short_name": "REPPs",
+  "description": "AI-verified social burpees. Micro-effort. Macro momentum.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111315",
+  "theme_color": "#FF9B2F",
+  "icons": [
+    {
+      "src": "/repps-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/repps-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
