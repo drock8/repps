@@ -8,6 +8,7 @@ export interface Profile {
   id: string;
   name: string;
   gender: Gender;
+  gender_set: boolean;
   avatar_url: string | null;
   created_at: string;
 }

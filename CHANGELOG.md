@@ -1,5 +1,29 @@
 # Changelog
 
+## Phase 6 — Profile + First-Login Gender Prompt (2026-05-22)
+
+### Added
+- First-login gender prompt: full-screen overlay blocks the app when `gender_set` is `false`, asks "How do you identify?" with 4 options (Female / Male / Non-binary / Prefer not to say)
+- Renders in Layout.tsx so it covers all routes; bottom nav hidden while prompt is showing
+- `GenderPrompt` component (`src/components/GenderPrompt.tsx`)
+- Profile page avatar: Google photo (80px circle, `no-referrer`) or initial-letter fallback with accent background
+- Profile page inline name editing: tap Name card → input with Save/Cancel, 1-50 char validation
+- Profile page inline gender editing: tap Gender card → 4-option list, current selection highlighted, tap to save
+- Profile page stats: "Your Total Reps" (queried from `reps` table) and "Member Since" (from `profiles.created_at`)
+- `gender_set` boolean column on `profiles` table (requires migration — see SQL below)
+
+### Changed
+- `Profile` type in AuthContext now includes `gender_set: boolean`
+- Layout conditionally renders GenderPrompt when `profile.gender_set === false`
+- Profile page fully rewritten with editable fields, stats, and avatar
+- Sign out button restyled per spec: `bg-bg-elevated text-ink-primary font-semibold rounded-pill`
+
+### Migration SQL
+```sql
+ALTER TABLE public.profiles ADD COLUMN gender_set boolean DEFAULT false;
+UPDATE public.profiles SET gender_set = true WHERE gender != 'unspecified';
+```
+
 ## Fix detection lag and clamp ratio (2026-05-22)
 
 ### Fixed
