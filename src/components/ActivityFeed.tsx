@@ -13,11 +13,14 @@ interface Bubble {
   avatarUrl: string | null;
   count: number;
   left: number;
+  duration: number;
+  riseDistance: number;
   spawnedAt: number;
 }
 
 const MAX_BUBBLES = 10;
-const BUBBLE_LIFETIME = 3000;
+const MIN_DURATION = 2500;
+const MAX_DURATION = 5000;
 const BURST_WINDOW = 5000;
 
 export default function ActivityFeed() {
@@ -82,6 +85,8 @@ export default function ActivityFeed() {
 
         const bubbleId = `${userId}-${now}`;
         const left = 5 + Math.random() * 75;
+        const duration = MIN_DURATION + Math.random() * (MAX_DURATION - MIN_DURATION);
+        const riseDistance = 140 + Math.random() * 80;
 
         const newBubble: Bubble = {
           id: bubbleId,
@@ -90,10 +95,12 @@ export default function ActivityFeed() {
           avatarUrl: profile.avatar_url,
           count: 1,
           left,
+          duration,
+          riseDistance,
           spawnedAt: now,
         };
 
-        const timeout = setTimeout(() => removeBubble(bubbleId), BUBBLE_LIFETIME);
+        const timeout = setTimeout(() => removeBubble(bubbleId), duration);
         timeoutsRef.current.set(bubbleId, timeout);
 
         const next = [...prev, newBubble];
@@ -136,7 +143,7 @@ export default function ActivityFeed() {
   }, [loadProfiles, spawnBubble]);
 
   return (
-    <div className="relative h-48 w-full overflow-hidden">
+    <div className="relative h-56 w-full overflow-hidden">
       {!hasReceivedRep && bubbles.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center">
           <p className="text-body text-ink-muted">
@@ -148,12 +155,12 @@ export default function ActivityFeed() {
       {bubbles.map((bubble) => (
         <div
           key={bubble.id}
-          className="absolute bottom-4 rounded-pill px-4 py-2 bg-bg-elevated flex items-center gap-2"
+          className="activity-bubble absolute bottom-0 rounded-pill px-4 py-2 flex items-center gap-2"
           style={{
             left: `${bubble.left}%`,
-            animation:
-              "bubble-lifecycle 3000ms cubic-bezier(0.4, 0, 0.2, 1) forwards",
-          }}
+            "--rise-distance": `-${bubble.riseDistance}px`,
+            animation: `bubble-rise ${bubble.duration}ms cubic-bezier(0.4, 0, 0.2, 1) forwards`,
+          } as React.CSSProperties}
         >
           {bubble.avatarUrl ? (
             <img

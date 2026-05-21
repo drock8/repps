@@ -1,5 +1,18 @@
 # Changelog
 
+## Body Spread Detection (2026-05-21)
+
+### Changed
+- Replaced all position-based detection with **body spread ratio** — measures the vertical distance between the highest landmark (nose/shoulders) and lowest (ankles/hips) relative to calibrated standing spread
+- **HIGH (standing):** spread > 70% of baseline (body is tall in frame)
+- **LOW (down):** spread < 45% of baseline (body is compressed — on the ground)
+- This approach is camera-angle independent: when you drop toward the camera your Y-coordinates barely move, but the spread between your top and bottom landmarks still collapses
+- Calibration now captures average standing spread over 10 frames
+- Tune mode simplified to two sliders: HIGH spread and LOW spread thresholds
+
+### Removed
+- All position-based thresholds (nose drop, shoulder drop, hip-to-ankle) — replaced by single spread metric
+
 ## Phase 4 — Live Activity Feed (2026-05-21)
 
 ### Added
@@ -7,13 +20,16 @@
 - Bubbles show avatar (or initial circle), user name, and rep count (+1, +2, etc.)
 - Burst grouping: multiple reps from the same user within 5 seconds merge into one bubble with incrementing count
 - Profile cache pre-loaded on mount; unknown users fetched inline and cached
-- CSS `@keyframes bubble-lifecycle` — spawn, float upward, fade out over 3 seconds
+- CSS `@keyframes bubble-rise` — spawn from bottom, float upward at varied speeds, fade out
 - `prefers-reduced-motion` variant: fade only, no translate
 - Empty state: "Be the first to drop a burpee" shown until the first rep arrives
 - Max 10 bubbles on screen; oldest removed when cap exceeded
+- Spherical bubble styling: radial gradient shine, inset shadows, glass-edge border, backdrop blur
+- Randomized rise speed (2.5–5s) and distance (140–220px) per bubble for organic feel
 
 ### Changed
 - Home page: replaced Phase 4 placeholder with `<ActivityFeed />` between target progress and DAB NOW button
+- Feed container height increased to h-56 for more room to float
 
 ## Multi-Signal LOW Detection for Burpees (2026-05-21)
 

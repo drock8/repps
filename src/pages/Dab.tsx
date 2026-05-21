@@ -14,10 +14,8 @@ type Screen = "detecting" | "summary";
 const CALIBRATION_FRAMES = 10;
 
 const DEFAULT_THRESHOLDS = {
-  noseDropRatio: 0.30,
-  noseDownRatio: 0.55,
-  shoulderDownRatio: 0.60,
-  hipFloorRatio: 0.20,
+  highSpread: 0.70,
+  lowSpread: 0.45,
   maxDuration: 8000,
 };
 
@@ -40,14 +38,13 @@ export default function Dab() {
 
   const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
 
-  const calibrationSamples = useRef<{ noseY: number; shoulderY: number; ankleY: number }[]>([]);
-  const baselineRef = useRef<{ noseY: number; shoulderY: number; ankleY: number; height: number } | null>(null);
+  const calibrationSamples = useRef<number[]>([]);
+  const baselineSpreadRef = useRef<number>(0);
 
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
-  const [noseRatio, setNoseRatio] = useState(0);
-  const [hipRatio, setHipRatio] = useState(0);
+  const [spreadRatio, setSpreadRatio] = useState(0);
   const [calibrated, setCalibrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -166,21 +163,16 @@ export default function Dab() {
 
           if (result.landmarks.length > 0) {
             const lm = result.landmarks[0];
-            const noseY = lm[0].y;
-            const shoulderY = Math.min(lm[11].y, lm[12].y);
-            const leftHipY = lm[23].y;
-            const ankleY = Math.max(lm[27].y, lm[28].y);
+            const topY = Math.min(lm[0].y, lm[11].y, lm[12].y);
+            const bottomY = Math.max(lm[27].y, lm[28].y, lm[23].y, lm[24].y);
+            const spread = bottomY - topY;
 
-            if (!baselineRef.current) {
-              calibrationSamples.current.push({ noseY, shoulderY, ankleY });
+            if (!baselineSpreadRef.current) {
+              calibrationSamples.current.push(spread);
               if (calibrationSamples.current.length >= CALIBRATION_FRAMES) {
-                const samples = calibrationSamples.current;
-                const avgNose = samples.reduce((s, v) => s + v.noseY, 0) / samples.length;
-                const avgShoulder = samples.reduce((s, v) => s + v.shoulderY, 0) / samples.length;
-                const avgAnkle = samples.reduce((s, v) => s + v.ankleY, 0) / samples.length;
-                const height = avgAnkle - avgNose;
-                if (height > 0.15) {
-                  baselineRef.current = { noseY: avgNose, shoulderY: avgShoulder, ankleY: avgAnkle, height };
+                const avg = calibrationSamples.current.reduce((s, v) => s + v, 0) / calibrationSamples.current.length;
+                if (avg > 0.1) {
+                  baselineSpreadRef.current = avg;
                   setCalibrated(true);
                 } else {
                   calibrationSamples.current = [];
@@ -188,23 +180,15 @@ export default function Dab() {
               }
             }
 
-            if (baselineRef.current) {
-              const b = baselineRef.current;
-              const noseDropFromTop = (noseY - b.noseY) / b.height;
-              const shoulderDropFromTop = (shoulderY - b.shoulderY) / b.height;
-              const hipDistFromAnkle = (b.ankleY - leftHipY) / b.height;
-
-              setNoseRatio(noseDropFromTop);
-              setHipRatio(hipDistFromAnkle);
+            if (baselineSpreadRef.current) {
+              const ratio = spread / baselineSpreadRef.current;
+              setSpreadRatio(ratio);
 
               const now = performance.now();
               const t = thresholdsRef.current;
 
-              const isHigh = noseDropFromTop < t.noseDropRatio;
-              const noseIsDown = noseDropFromTop > t.noseDownRatio;
-              const shoulderIsDown = shoulderDropFromTop > t.shoulderDownRatio;
-              const hipIsDown = hipDistFromAnkle < t.hipFloorRatio;
-              const isLow = noseIsDown || shoulderIsDown || hipIsDown;
+              const isHigh = ratio > t.highSpread;
+              const isLow = ratio < t.lowSpread;
 
               let newState: RepState = repStateRef.current;
               if (isHigh) newState = "HIGH";
@@ -229,8 +213,7 @@ export default function Dab() {
                 repStateRef.current = newState;
                 setCurrentState(newState);
                 setStateLog((prev) => {
-                  const trigger = noseIsDown ? "nose" : shoulderIsDown ? "shldr" : hipIsDown ? "hip" : "";
-                  const entry = `${newState} nD=${noseDropFromTop.toFixed(2)} sD=${shoulderDropFromTop.toFixed(2)} hA=${hipDistFromAnkle.toFixed(2)} [${trigger}]`;
+                  const entry = `${newState} spread=${ratio.toFixed(2)}`;
                   const next = [entry, ...prev];
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
@@ -401,8 +384,7 @@ export default function Dab() {
         <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center">
           <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
             <span>{calibrated ? currentState : "CALIBRATING"}</span>
-            <span>noseDrop {noseRatio.toFixed(2)}</span>
-            <span>hipDist {hipRatio.toFixed(2)}</span>
+            <span>spread {spreadRatio.toFixed(2)}</span>
           </div>
         </div>
       )}
@@ -415,7 +397,7 @@ export default function Dab() {
               onClick={() => setTuneOpen((o) => !o)}
               className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
             >
-              <span>Tune — {calibrated ? currentState : "CALIBRATING"} — noseDrop {noseRatio.toFixed(2)} — hipDist {hipRatio.toFixed(2)}</span>
+              <span>Tune — {calibrated ? currentState : "CALIBRATING"} — spread {spreadRatio.toFixed(2)}</span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
             {tuneOpen && (
@@ -425,39 +407,21 @@ export default function Dab() {
                   {!calibrated && " Stand still — calibrating your height…"}
                 </div>
                 <TuneSlider
-                  label="Nose drop ratio (standing threshold)"
-                  value={tuneValues.noseDropRatio}
-                  min={0.1} max={0.5} step={0.01}
+                  label="HIGH spread (standing)"
+                  value={tuneValues.highSpread}
+                  min={0.4} max={0.95} step={0.01}
                   onChange={(v) => {
-                    thresholdsRef.current.noseDropRatio = v;
-                    setTuneValues((p) => ({ ...p, noseDropRatio: v }));
+                    thresholdsRef.current.highSpread = v;
+                    setTuneValues((p) => ({ ...p, highSpread: v }));
                   }}
                 />
                 <TuneSlider
-                  label="Nose down ratio (LOW trigger)"
-                  value={tuneValues.noseDownRatio}
-                  min={0.4} max={0.8} step={0.01}
+                  label="LOW spread (compressed)"
+                  value={tuneValues.lowSpread}
+                  min={0.15} max={0.6} step={0.01}
                   onChange={(v) => {
-                    thresholdsRef.current.noseDownRatio = v;
-                    setTuneValues((p) => ({ ...p, noseDownRatio: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="Shoulder down ratio (LOW trigger)"
-                  value={tuneValues.shoulderDownRatio}
-                  min={0.3} max={0.8} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.shoulderDownRatio = v;
-                    setTuneValues((p) => ({ ...p, shoulderDownRatio: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="Hip-to-ankle ratio (floor threshold)"
-                  value={tuneValues.hipFloorRatio}
-                  min={0.02} max={0.35} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.hipFloorRatio = v;
-                    setTuneValues((p) => ({ ...p, hipFloorRatio: v }));
+                    thresholdsRef.current.lowSpread = v;
+                    setTuneValues((p) => ({ ...p, lowSpread: v }));
                   }}
                 />
                 <TuneSlider
@@ -493,7 +457,7 @@ export default function Dab() {
                   </button>
                   <button
                     onClick={() => {
-                      baselineRef.current = null;
+                      baselineSpreadRef.current = 0;
                       calibrationSamples.current = [];
                       setCalibrated(false);
                       repStateRef.current = "UNKNOWN";
