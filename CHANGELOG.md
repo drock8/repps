@@ -1,5 +1,12 @@
 # Changelog
 
+## Calibration UX feedback (2026-05-22)
+
+### Added
+- Prominent "Stand still — full body in frame" overlay with progress bar during calibration (replaces tiny debug text)
+- Progress bar fills as calibration frames accumulate (0→30), resets if pose is lost
+- "GO!" flash for 1.5 seconds when calibration succeeds, then detection starts
+
 ## Profile layout polish (2026-05-22)
 
 ### Changed

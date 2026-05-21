@@ -47,6 +47,8 @@ export default function Dab() {
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
   const [ratio, setRatio] = useState(0);
   const [calibrated, setCalibrated] = useState(false);
+  const [calibrationCount, setCalibrationCount] = useState(0);
+  const [showReady, setShowReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStage, setLoadStage] = useState("Powering up…");
@@ -193,8 +195,10 @@ export default function Dab() {
 
               if (allVisible && torsoVertical && currentHeight > 0.15) {
                 calibrationHeights.current.push(currentHeight);
+                setCalibrationCount(calibrationHeights.current.length);
               } else {
                 calibrationHeights.current = [];
+                setCalibrationCount(0);
               }
 
               if (calibrationHeights.current.length >= CALIBRATION_FRAMES) {
@@ -203,7 +207,9 @@ export default function Dab() {
                 repStateRef.current = "HIGH";
                 lastHighTimeRef.current = performance.now();
                 setCalibrated(true);
+                setShowReady(true);
                 setCurrentState("HIGH");
+                setTimeout(() => setShowReady(false), 1500);
               }
             }
 
@@ -373,6 +379,25 @@ export default function Dab() {
             </div>
           </div>
         )}
+        {!loading && !calibrated && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
+            <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-5 text-center">
+              <p className="text-body-lg text-ink-primary font-semibold">Stand still</p>
+              <p className="text-caption text-ink-secondary mt-1">Full body in frame, facing camera</p>
+              <div className="w-32 h-1 bg-bg-input rounded-pill overflow-hidden mt-3 mx-auto">
+                <div
+                  className="h-full bg-accent rounded-pill transition-all duration-150 ease-apple"
+                  style={{ width: `${(calibrationCount / CALIBRATION_FRAMES) * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {showReady && (
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <p className="text-display-lg text-accent font-bold animate-pulse">GO!</p>
+          </div>
+        )}
         <video
           ref={videoRef}
           playsInline
@@ -488,6 +513,7 @@ export default function Dab() {
                       standingHeightRef.current = 0;
                       calibrationHeights.current = [];
                       setCalibrated(false);
+                      setCalibrationCount(0);
                       repStateRef.current = "UNKNOWN";
                       hasBeenLowRef.current = false;
                       setStateLog([]);
