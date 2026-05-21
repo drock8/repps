@@ -11,11 +11,11 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
+const CALIBRATION_FRAMES = 10;
+
 const DEFAULT_THRESHOLDS = {
-  highNose: 0.4,
-  lowNose: 0.55,
-  lowGap: 0.15,
-  lowHip: 0.75,
+  noseDropRatio: 0.30,
+  hipFloorRatio: 0.10,
   maxDuration: 8000,
 };
 
@@ -38,12 +38,15 @@ export default function Dab() {
 
   const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
 
+  const calibrationSamples = useRef<{ noseY: number; ankleY: number }[]>([]);
+  const baselineRef = useRef<{ noseY: number; ankleY: number; height: number } | null>(null);
+
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
-  const [noseY, setNoseY] = useState(0);
-  const [torsoGap, setTorsoGap] = useState(0);
-  const [hipY, setHipY] = useState(0);
+  const [noseRatio, setNoseRatio] = useState(0);
+  const [hipRatio, setHipRatio] = useState(0);
+  const [calibrated, setCalibrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStage, setLoadStage] = useState("Powering up…");
@@ -161,51 +164,69 @@ export default function Dab() {
 
           if (result.landmarks.length > 0) {
             const lm = result.landmarks[0];
-            const nose = lm[0];
-            const y = nose.y;
-            setNoseY(y);
+            const noseY = lm[0].y;
+            const leftAnkle = lm[27];
+            const rightAnkle = lm[28];
+            const ankleY = Math.max(leftAnkle.y, rightAnkle.y);
+            const leftHipY = lm[23].y;
 
-            const leftShoulder = lm[11];
-            const leftHip = lm[23];
-            const gap = Math.abs(leftShoulder.y - leftHip.y);
-            setTorsoGap(gap);
-            setHipY(leftHip.y);
-
-            const now = performance.now();
-            const t = thresholdsRef.current;
-
-            const isHigh = y < t.highNose;
-            const noseDown = y > t.lowNose && gap < t.lowGap;
-            const hipDown = leftHip.y > t.lowHip;
-            const isLow = noseDown || hipDown;
-
-            let newState: RepState = repStateRef.current;
-            if (isHigh) newState = "HIGH";
-            else if (isLow) newState = "LOW";
-
-            if (newState !== repStateRef.current) {
-              if (newState === "HIGH") {
-                if (
-                  hasBeenLowRef.current &&
-                  now - lastHighTimeRef.current < t.maxDuration
-                ) {
-                  repCountRef.current += 1;
-                  const count = repCountRef.current;
-                  setReps(count);
-                  if (!tuneMode) insertRep(profile!.id);
-                }
-                lastHighTimeRef.current = now;
-                hasBeenLowRef.current = false;
-              } else if (newState === "LOW") {
-                hasBeenLowRef.current = true;
+            if (!baselineRef.current) {
+              calibrationSamples.current.push({ noseY, ankleY });
+              if (calibrationSamples.current.length >= CALIBRATION_FRAMES) {
+                const samples = calibrationSamples.current;
+                const avgNose = samples.reduce((s, v) => s + v.noseY, 0) / samples.length;
+                const avgAnkle = samples.reduce((s, v) => s + v.ankleY, 0) / samples.length;
+                baselineRef.current = {
+                  noseY: avgNose,
+                  ankleY: avgAnkle,
+                  height: avgAnkle - avgNose,
+                };
+                setCalibrated(true);
               }
-              repStateRef.current = newState;
-              setCurrentState(newState);
-              setStateLog((prev) => {
-                const entry = `${newState} n=${y.toFixed(2)} h=${leftHip.y.toFixed(2)} g=${gap.toFixed(2)}`;
-                const next = [entry, ...prev];
-                return next.length > 20 ? next.slice(0, 20) : next;
-              });
+            }
+
+            if (baselineRef.current) {
+              const b = baselineRef.current;
+              const noseDropFromTop = (noseY - b.noseY) / b.height;
+              const hipDistFromAnkle = (b.ankleY - leftHipY) / b.height;
+
+              setNoseRatio(noseDropFromTop);
+              setHipRatio(hipDistFromAnkle);
+
+              const now = performance.now();
+              const t = thresholdsRef.current;
+
+              const isHigh = noseDropFromTop < t.noseDropRatio;
+              const isLow = hipDistFromAnkle < t.hipFloorRatio;
+
+              let newState: RepState = repStateRef.current;
+              if (isHigh) newState = "HIGH";
+              else if (isLow) newState = "LOW";
+
+              if (newState !== repStateRef.current) {
+                if (newState === "HIGH") {
+                  if (
+                    hasBeenLowRef.current &&
+                    now - lastHighTimeRef.current < t.maxDuration
+                  ) {
+                    repCountRef.current += 1;
+                    const count = repCountRef.current;
+                    setReps(count);
+                    if (!tuneMode) insertRep(profile!.id);
+                  }
+                  lastHighTimeRef.current = now;
+                  hasBeenLowRef.current = false;
+                } else if (newState === "LOW") {
+                  hasBeenLowRef.current = true;
+                }
+                repStateRef.current = newState;
+                setCurrentState(newState);
+                setStateLog((prev) => {
+                  const entry = `${newState} noseDrop=${noseDropFromTop.toFixed(2)} hipDist=${hipDistFromAnkle.toFixed(2)}`;
+                  const next = [entry, ...prev];
+                  return next.length > 20 ? next.slice(0, 20) : next;
+                });
+              }
             }
           }
 
@@ -371,10 +392,9 @@ export default function Dab() {
       {!tuneMode && (
         <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center">
           <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
-            <span>{currentState}</span>
-            <span>nose {noseY.toFixed(2)}</span>
-            <span>hip {hipY.toFixed(2)}</span>
-            <span>gap {torsoGap.toFixed(2)}</span>
+            <span>{calibrated ? currentState : "CALIBRATING"}</span>
+            <span>noseDrop {noseRatio.toFixed(2)}</span>
+            <span>hipDist {hipRatio.toFixed(2)}</span>
           </div>
         </div>
       )}
@@ -387,48 +407,31 @@ export default function Dab() {
               onClick={() => setTuneOpen((o) => !o)}
               className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
             >
-              <span>Tune — {currentState} — nose {noseY.toFixed(2)} — hip {hipY.toFixed(2)} — gap {torsoGap.toFixed(2)}</span>
+              <span>Tune — {calibrated ? currentState : "CALIBRATING"} — noseDrop {noseRatio.toFixed(2)} — hipDist {hipRatio.toFixed(2)}</span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
             {tuneOpen && (
               <div className="px-3 pb-3 space-y-3">
                 <div className="bg-bg-elevated rounded-md p-2 text-micro text-ink-muted">
                   DB writes disabled in tune mode. Reps count locally only.
+                  {!calibrated && " Stand still — calibrating your height…"}
                 </div>
                 <TuneSlider
-                  label="HIGH nose (standing)"
-                  value={tuneValues.highNose}
-                  min={0.2} max={0.6} step={0.01}
+                  label="Nose drop ratio (standing threshold)"
+                  value={tuneValues.noseDropRatio}
+                  min={0.1} max={0.5} step={0.01}
                   onChange={(v) => {
-                    thresholdsRef.current.highNose = v;
-                    setTuneValues((p) => ({ ...p, highNose: v }));
+                    thresholdsRef.current.noseDropRatio = v;
+                    setTuneValues((p) => ({ ...p, noseDropRatio: v }));
                   }}
                 />
                 <TuneSlider
-                  label="LOW nose (down)"
-                  value={tuneValues.lowNose}
-                  min={0.3} max={0.85} step={0.01}
+                  label="Hip-to-ankle ratio (floor threshold)"
+                  value={tuneValues.hipFloorRatio}
+                  min={0.02} max={0.25} step={0.01}
                   onChange={(v) => {
-                    thresholdsRef.current.lowNose = v;
-                    setTuneValues((p) => ({ ...p, lowNose: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="LOW torso gap"
-                  value={tuneValues.lowGap}
-                  min={0.02} max={0.3} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.lowGap = v;
-                    setTuneValues((p) => ({ ...p, lowGap: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="LOW hip Y (alt trigger)"
-                  value={tuneValues.lowHip}
-                  min={0.5} max={0.95} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.lowHip = v;
-                    setTuneValues((p) => ({ ...p, lowHip: v }));
+                    thresholdsRef.current.hipFloorRatio = v;
+                    setTuneValues((p) => ({ ...p, hipFloorRatio: v }));
                   }}
                 />
                 <TuneSlider
@@ -461,6 +464,19 @@ export default function Dab() {
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
                   >
                     RESET DEFAULTS
+                  </button>
+                  <button
+                    onClick={() => {
+                      baselineRef.current = null;
+                      calibrationSamples.current = [];
+                      setCalibrated(false);
+                      repStateRef.current = "UNKNOWN";
+                      hasBeenLowRef.current = false;
+                      setStateLog([]);
+                    }}
+                    className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
+                  >
+                    RECALIBRATE
                   </button>
                 </div>
                 {stateLog.length > 0 && (

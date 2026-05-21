@@ -1,5 +1,21 @@
 # Changelog
 
+## Body-Relative Burpee Detection (2026-05-21)
+
+### Changed
+- Burpee detection now uses the person's own body height as the reference frame instead of camera frame coordinates
+- First ~10 frames calibrate a standing baseline (nose-to-ankle height) while user stands still
+- **HIGH (standing):** nose has dropped less than 30% of body height from standing position
+- **LOW (down):** hips are within 10% of body height from ankle position (hips near ground)
+- Tune mode sliders updated: 5 frame-based thresholds replaced with 3 body-relative ones (nose drop ratio, hip-to-ankle ratio, max duration)
+- Debug strip shows body-relative values (`noseDrop`, `hipDist`) and `CALIBRATING` state during baseline capture
+
+### Added
+- RECALIBRATE button in tune mode to re-capture standing baseline after repositioning
+
+### Removed
+- Frame-relative thresholds (`highNose`, `lowNose`, `lowGap`, `lowHip`) — no longer needed
+
 ## Phase 2 — Live Home Screen (2026-05-21)
 
 ### Added
