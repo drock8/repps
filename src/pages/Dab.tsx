@@ -136,19 +136,20 @@ export default function Dab() {
         setLoadProgress(100);
         setLoading(false);
 
-        let detecting = false;
+        let lastDetectTime = 0;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) return;
 
-          if (detecting) {
+          const now = performance.now();
+          if (now - lastDetectTime < 80) {
             animationIdRef.current = requestAnimationFrame(detect);
             return;
           }
-          detecting = true;
+          lastDetectTime = now;
 
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
-            performance.now()
+            now
           );
           const ctx = canvasRef.current.getContext("2d");
           if (!ctx) return;
@@ -207,7 +208,7 @@ export default function Dab() {
             }
 
             if (standingHeightRef.current) {
-              const r = currentHeight / standingHeightRef.current;
+              const r = Math.min(currentHeight / standingHeightRef.current, 1.0);
               const now = performance.now();
               const t = thresholdsRef.current;
 
@@ -248,7 +249,6 @@ export default function Dab() {
             }
           }
 
-          detecting = false;
           animationIdRef.current = requestAnimationFrame(detect);
         };
         detect();

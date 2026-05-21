@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix detection lag and clamp ratio (2026-05-22)
+
+### Fixed
+- 20-30 second detection lag: replaced boolean frame-skip guard with timestamp throttle (80ms minimum between `detectForVideo` calls) — prevents rAF callback backlog on mobile CPU
+- Ratio values spiking above 1.0 (saw 2.42) when landmarks jumped to erratic positions — clamped to max 1.0
+
 ## Fix negative compression ratio during burpees (2026-05-22)
 
 ### Fixed
