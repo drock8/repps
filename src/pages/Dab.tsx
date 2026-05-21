@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import {
@@ -11,9 +11,18 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
+const DEFAULT_THRESHOLDS = {
+  highNose: 0.4,
+  lowNose: 0.55,
+  lowGap: 0.15,
+  maxDuration: 8000,
+};
+
 export default function Dab() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tuneMode = searchParams.get("tune") === "1";
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,16 +34,24 @@ export default function Dab() {
   const lastHighTimeRef = useRef(0);
   const hasBeenLowRef = useRef(false);
 
+  const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
+
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
   const [noseY, setNoseY] = useState(0);
   const [torsoGap, setTorsoGap] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadStage, setLoadStage] = useState("Initializing…");
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
+
+  const [tuneValues, setTuneValues] = useState({ ...DEFAULT_THRESHOLDS });
+  const [tuneOpen, setTuneOpen] = useState(true);
+  const [stateLog, setStateLog] = useState<string[]>([]);
 
   // Auth guard
   useEffect(() => {
@@ -68,11 +85,15 @@ export default function Dab() {
 
     const init = async () => {
       try {
+        setLoadStage("Loading vision runtime…");
+        setLoadProgress(10);
         const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
         );
         if (cancelled) return;
 
+        setLoadStage("Loading pose model…");
+        setLoadProgress(40);
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
@@ -88,6 +109,8 @@ export default function Dab() {
         }
         landmarkerRef.current = landmarker;
 
+        setLoadStage("Starting camera…");
+        setLoadProgress(75);
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
         });
@@ -102,6 +125,8 @@ export default function Dab() {
           await videoRef.current.play();
         }
 
+        setLoadStage("Ready");
+        setLoadProgress(100);
         setLoading(false);
 
         const detect = () => {
@@ -143,13 +168,10 @@ export default function Dab() {
             setTorsoGap(gap);
 
             const now = performance.now();
-            const HIGH_THRESHOLD = 0.4;
-            const LOW_THRESHOLD = 0.7;
-            const TORSO_VERTICAL_THRESHOLD = 0.1;
-            const MAX_REP_DURATION_MS = 8000;
+            const t = thresholdsRef.current;
 
-            const isHigh = y < HIGH_THRESHOLD && gap > TORSO_VERTICAL_THRESHOLD;
-            const isLow = y > LOW_THRESHOLD && gap < TORSO_VERTICAL_THRESHOLD;
+            const isHigh = y < t.highNose;
+            const isLow = y > t.lowNose && gap < t.lowGap;
 
             let newState: RepState = repStateRef.current;
             if (isHigh) newState = "HIGH";
@@ -159,10 +181,10 @@ export default function Dab() {
               if (newState === "HIGH") {
                 if (
                   hasBeenLowRef.current &&
-                  now - lastHighTimeRef.current < MAX_REP_DURATION_MS
+                  now - lastHighTimeRef.current < t.maxDuration
                 ) {
                   setReps((r) => r + 1);
-                  insertRep(profile!.id);
+                  if (!tuneMode) insertRep(profile!.id);
                 }
                 lastHighTimeRef.current = now;
                 hasBeenLowRef.current = false;
@@ -171,6 +193,11 @@ export default function Dab() {
               }
               repStateRef.current = newState;
               setCurrentState(newState);
+              setStateLog((prev) => {
+                const entry = `${newState} n=${y.toFixed(2)} g=${gap.toFixed(2)}`;
+                const next = [entry, ...prev];
+                return next.length > 20 ? next.slice(0, 20) : next;
+              });
             }
           }
 
@@ -201,7 +228,7 @@ export default function Dab() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [profile, screen, insertRep]);
+  }, [profile, screen, insertRep, tuneMode]);
 
   const handleStop = async () => {
     stopCamera();
@@ -284,8 +311,14 @@ export default function Dab() {
       {/* Camera + skeleton */}
       <div className="relative w-full" style={{ aspectRatio: "3/4" }}>
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center z-20">
-            <p className="text-body text-ink-secondary">Loading detector…</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-bg-base/80">
+            <p className="text-body text-ink-secondary mb-4">{loadStage}</p>
+            <div className="w-48 h-1 bg-bg-input rounded-pill overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
+                style={{ width: `${loadProgress}%` }}
+              />
+            </div>
           </div>
         )}
         <video
@@ -323,13 +356,136 @@ export default function Dab() {
       </div>
 
       {/* Debug strip */}
-      <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center">
-        <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
-          <span>{currentState}</span>
-          <span>nose {noseY.toFixed(2)}</span>
-          <span>gap {torsoGap.toFixed(2)}</span>
+      {!tuneMode && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center">
+          <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
+            <span>{currentState}</span>
+            <span>nose {noseY.toFixed(2)}</span>
+            <span>gap {torsoGap.toFixed(2)}</span>
+          </div>
         </div>
+      )}
+
+      {/* Tune mode panel */}
+      {tuneMode && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 px-2">
+          <div className="mx-auto max-w-md bg-bg-surface border border-divider rounded-lg overflow-hidden">
+            <button
+              onClick={() => setTuneOpen((o) => !o)}
+              className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
+            >
+              <span>Tune Panel — {currentState} — nose {noseY.toFixed(2)} — gap {torsoGap.toFixed(2)}</span>
+              <span>{tuneOpen ? "▼" : "▲"}</span>
+            </button>
+            {tuneOpen && (
+              <div className="px-3 pb-3 space-y-3">
+                <div className="bg-bg-elevated rounded-md p-2 text-micro text-ink-muted">
+                  DB writes disabled in tune mode. Reps count locally only.
+                </div>
+                <TuneSlider
+                  label="HIGH nose (standing)"
+                  value={tuneValues.highNose}
+                  min={0.2} max={0.6} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.highNose = v;
+                    setTuneValues((p) => ({ ...p, highNose: v }));
+                  }}
+                />
+                <TuneSlider
+                  label="LOW nose (down)"
+                  value={tuneValues.lowNose}
+                  min={0.3} max={0.85} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.lowNose = v;
+                    setTuneValues((p) => ({ ...p, lowNose: v }));
+                  }}
+                />
+                <TuneSlider
+                  label="LOW torso gap"
+                  value={tuneValues.lowGap}
+                  min={0.02} max={0.3} step={0.01}
+                  onChange={(v) => {
+                    thresholdsRef.current.lowGap = v;
+                    setTuneValues((p) => ({ ...p, lowGap: v }));
+                  }}
+                />
+                <TuneSlider
+                  label="Max rep duration (ms)"
+                  value={tuneValues.maxDuration}
+                  min={3000} max={15000} step={500}
+                  onChange={(v) => {
+                    thresholdsRef.current.maxDuration = v;
+                    setTuneValues((p) => ({ ...p, maxDuration: v }));
+                  }}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setReps(0);
+                      repStateRef.current = "UNKNOWN";
+                      hasBeenLowRef.current = false;
+                      setStateLog([]);
+                    }}
+                    className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
+                  >
+                    RESET COUNT
+                  </button>
+                  <button
+                    onClick={() => {
+                      thresholdsRef.current = { ...DEFAULT_THRESHOLDS };
+                      setTuneValues({ ...DEFAULT_THRESHOLDS });
+                    }}
+                    className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
+                  >
+                    RESET DEFAULTS
+                  </button>
+                </div>
+                {stateLog.length > 0 && (
+                  <div className="max-h-24 overflow-y-auto bg-bg-elevated rounded-md p-2 text-micro text-ink-muted tabular-nums space-y-0.5">
+                    {stateLog.map((entry, i) => (
+                      <div key={i}>{entry}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TuneSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between text-micro text-ink-secondary mb-1">
+        <span>{label}</span>
+        <span className="text-ink-primary tabular-nums">{value}</span>
       </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full h-1 appearance-none bg-bg-input rounded-pill outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent"
+      />
     </div>
   );
 }
