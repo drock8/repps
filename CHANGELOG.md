@@ -1,5 +1,22 @@
 # Changelog
 
+## Multi-Signal Burpee Detection (2026-05-22)
+
+### Changed
+- Replaced single spread ratio with three independent signals for detecting LOW (down) and HIGH (standing):
+  1. **Nose drop** — how far nose Y drops from standing baseline, normalized by body height
+  2. **Torso collapse** — shoulder-hip Y gap shrinks as torso goes horizontal
+  3. **Z-depth shift** — nose moves toward camera when person drops to floor
+- LOW triggers if **any** signal fires (OR logic) — catches burpees even when head stays up
+- HIGH triggers if **either** nose recovers or torso is upright (OR logic) — rep counts as soon as you start rising
+- Calibration now captures standing nose Y, shoulder-hip gap, and nose Z as baseline
+- Tune mode shows all three live signals with individual threshold sliders
+- State log shows which signal(s) triggered each transition (e.g. `[nose+torso]`)
+- Throttled debug display updates to every 100ms to reduce render overhead
+
+### Added
+- Haptic vibration (100ms) on each rep count for instant feedback
+
 ## Fix Bubble Rise Speed (2026-05-21)
 
 ### Fixed
