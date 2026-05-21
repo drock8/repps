@@ -1,5 +1,20 @@
 # Changelog
 
+## Phase 4 — Live Activity Feed (2026-05-21)
+
+### Added
+- `ActivityFeed` component with floating bubble animations driven by Supabase Realtime
+- Bubbles show avatar (or initial circle), user name, and rep count (+1, +2, etc.)
+- Burst grouping: multiple reps from the same user within 5 seconds merge into one bubble with incrementing count
+- Profile cache pre-loaded on mount; unknown users fetched inline and cached
+- CSS `@keyframes bubble-lifecycle` — spawn, float upward, fade out over 3 seconds
+- `prefers-reduced-motion` variant: fade only, no translate
+- Empty state: "Be the first to drop a burpee" shown until the first rep arrives
+- Max 10 bubbles on screen; oldest removed when cap exceeded
+
+### Changed
+- Home page: replaced Phase 4 placeholder with `<ActivityFeed />` between target progress and DAB NOW button
+
 ## Body-Relative Burpee Detection (2026-05-21)
 
 ### Changed

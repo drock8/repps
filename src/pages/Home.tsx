@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import ActivityFeed from "../components/ActivityFeed";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -132,8 +133,8 @@ export default function Home() {
         </>
       )}
 
-      <div className="mt-16 text-caption text-ink-muted">
-        (Live feed coming in Phase 4)
+      <div className="mt-12 w-full">
+        <ActivityFeed />
       </div>
 
       <div className="mt-16 w-full max-w-sm">
