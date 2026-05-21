@@ -11,28 +11,25 @@ import {
 type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
 
-const CALIBRATION_FRAMES = 10;
+const CALIBRATION_FRAMES = 30;
+const CALIBRATION_STABILITY = 0.05;
 
 const DEFAULT_THRESHOLDS = {
-  noseDropLow: 0.35,
-  torsoCollapseLow: 0.40,
-  zShiftLow: 0.08,
-  noseDropHigh: 0.15,
-  torsoCollapseHigh: 0.60,
+  noseDropLow: 0.25,
+  noseDropHigh: 0.10,
+  debounceMs: 600,
   maxDuration: 8000,
 };
 
 interface Baseline {
   noseY: number;
   shoulderHipGap: number;
-  noseZ: number;
 }
 
 interface SignalValues {
   noseDrop: number;
   torsoRatio: number;
   zShift: number;
-  trigger: string;
 }
 
 export default function Dab() {
@@ -60,7 +57,7 @@ export default function Dab() {
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
-  const [signals, setSignals] = useState<SignalValues>({ noseDrop: 0, torsoRatio: 0, zShift: 0, trigger: "" });
+  const [signals, setSignals] = useState<SignalValues>({ noseDrop: 0, torsoRatio: 0, zShift: 0 });
   const [calibrated, setCalibrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -74,6 +71,7 @@ export default function Dab() {
   const [tuneOpen, setTuneOpen] = useState(true);
   const [stateLog, setStateLog] = useState<string[]>([]);
   const lastSignalUpdateRef = useRef(0);
+  const lastTransitionTimeRef = useRef(0);
 
   // Auth guard — wait for auth to finish loading before redirecting
   useEffect(() => {
@@ -194,21 +192,24 @@ export default function Dab() {
               calibrationSamples.current.push({
                 noseY: nose.y,
                 shoulderHipGap,
-                noseZ: nose.z,
               });
               if (calibrationSamples.current.length >= CALIBRATION_FRAMES) {
                 const samples = calibrationSamples.current;
-                const avgNoseY = samples.reduce((s, v) => s + v.noseY, 0) / samples.length;
+                const noseYs = samples.map((s) => s.noseY);
+                const noseMin = Math.min(...noseYs);
+                const noseMax = Math.max(...noseYs);
+                const noseRange = noseMax - noseMin;
                 const avgGap = samples.reduce((s, v) => s + v.shoulderHipGap, 0) / samples.length;
-                const avgNoseZ = samples.reduce((s, v) => s + v.noseZ, 0) / samples.length;
-                if (avgGap > 0.05) {
-                  baselineRef.current = { noseY: avgNoseY, shoulderHipGap: avgGap, noseZ: avgNoseZ };
+                if (avgGap > 0.05 && noseRange < CALIBRATION_STABILITY) {
+                  const avgNoseY = noseYs.reduce((s, v) => s + v, 0) / noseYs.length;
+                  baselineRef.current = { noseY: avgNoseY, shoulderHipGap: avgGap };
                   repStateRef.current = "HIGH";
                   lastHighTimeRef.current = performance.now();
+                  lastTransitionTimeRef.current = performance.now();
                   setCalibrated(true);
                   setCurrentState("HIGH");
                 } else {
-                  calibrationSamples.current = [];
+                  calibrationSamples.current = calibrationSamples.current.slice(-10);
                 }
               }
             }
@@ -217,40 +218,26 @@ export default function Dab() {
               const bl = baselineRef.current;
               const noseDrop = (nose.y - bl.noseY) / bl.shoulderHipGap;
               const torsoRatio = shoulderHipGap / bl.shoulderHipGap;
-              const zShift = bl.noseZ - nose.z;
+              const zShift = nose.z;
 
               const now = performance.now();
               const t = thresholdsRef.current;
 
-              const noseIsLow = noseDrop > t.noseDropLow;
-              const torsoIsCollapsed = torsoRatio < t.torsoCollapseLow;
-              const zConfirmsDown = zShift > t.zShiftLow;
-
-              const noseIsHigh = noseDrop < t.noseDropHigh;
-              const torsoIsUpright = torsoRatio > t.torsoCollapseHigh;
-
-              const isLow = noseIsLow || torsoIsCollapsed || zConfirmsDown;
-              const isHigh = noseIsHigh || torsoIsUpright;
-
-              let trigger = "";
-              if (isLow) {
-                const parts: string[] = [];
-                if (noseIsLow) parts.push("nose");
-                if (torsoIsCollapsed) parts.push("torso");
-                if (zConfirmsDown) parts.push("z");
-                trigger = parts.join("+");
-              }
+              const isLow = noseDrop > t.noseDropLow;
+              const isHigh = noseDrop < t.noseDropHigh;
 
               if (now - lastSignalUpdateRef.current > 100) {
                 lastSignalUpdateRef.current = now;
-                setSignals({ noseDrop, torsoRatio, zShift, trigger });
+                setSignals({ noseDrop, torsoRatio, zShift });
               }
 
               let newState: RepState = repStateRef.current;
               if (isHigh) newState = "HIGH";
               else if (isLow) newState = "LOW";
 
-              if (newState !== repStateRef.current) {
+              const sinceLast = now - lastTransitionTimeRef.current;
+              if (newState !== repStateRef.current && sinceLast > t.debounceMs) {
+                lastTransitionTimeRef.current = now;
                 if (newState === "HIGH") {
                   if (
                     hasBeenLowRef.current &&
@@ -270,7 +257,7 @@ export default function Dab() {
                 repStateRef.current = newState;
                 setCurrentState(newState);
                 setStateLog((prev) => {
-                  const entry = `${newState} [${trigger || "recover"}] nose=${noseDrop.toFixed(2)} torso=${torsoRatio.toFixed(2)} z=${zShift.toFixed(3)}`;
+                  const entry = `${newState} nose=${noseDrop.toFixed(2)} torso=${torsoRatio.toFixed(2)} z=${zShift.toFixed(3)}`;
                   const next = [entry, ...prev];
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
@@ -456,17 +443,17 @@ export default function Dab() {
               onClick={() => setTuneOpen((o) => !o)}
               className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
             >
-              <span>Tune — {calibrated ? currentState : "CAL"} — n{signals.noseDrop.toFixed(2)} t{signals.torsoRatio.toFixed(2)} z{signals.zShift.toFixed(3)}{signals.trigger ? ` [${signals.trigger}]` : ""}</span>
+              <span>Tune — {calibrated ? currentState : "CAL"} — n{signals.noseDrop.toFixed(2)} t{signals.torsoRatio.toFixed(2)} z{signals.zShift.toFixed(3)}</span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
             {tuneOpen && (
               <div className="px-3 pb-3 space-y-3">
                 <div className="bg-bg-elevated rounded-md p-2 text-micro text-ink-muted">
-                  DB writes disabled. Signals: nose drop (n), torso ratio (t), z-depth shift (z).
-                  {!calibrated && " Stand still — calibrating…"}
+                  DB writes disabled. Nose drop is primary signal. Stand still to calibrate.
+                  {!calibrated && " Hold steady…"}
                 </div>
                 <TuneSlider
-                  label="Nose drop → LOW"
+                  label="Nose drop → LOW (down)"
                   value={tuneValues.noseDropLow}
                   min={0.1} max={0.8} step={0.01}
                   onChange={(v) => {
@@ -475,39 +462,21 @@ export default function Dab() {
                   }}
                 />
                 <TuneSlider
-                  label="Torso collapse → LOW"
-                  value={tuneValues.torsoCollapseLow}
-                  min={0.1} max={0.8} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.torsoCollapseLow = v;
-                    setTuneValues((p) => ({ ...p, torsoCollapseLow: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="Z-depth shift → LOW"
-                  value={tuneValues.zShiftLow}
-                  min={0.01} max={0.3} step={0.005}
-                  onChange={(v) => {
-                    thresholdsRef.current.zShiftLow = v;
-                    setTuneValues((p) => ({ ...p, zShiftLow: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="Nose recover → HIGH"
+                  label="Nose recover → HIGH (standing)"
                   value={tuneValues.noseDropHigh}
-                  min={0.05} max={0.4} step={0.01}
+                  min={0.02} max={0.4} step={0.01}
                   onChange={(v) => {
                     thresholdsRef.current.noseDropHigh = v;
                     setTuneValues((p) => ({ ...p, noseDropHigh: v }));
                   }}
                 />
                 <TuneSlider
-                  label="Torso upright → HIGH"
-                  value={tuneValues.torsoCollapseHigh}
-                  min={0.3} max={0.95} step={0.01}
+                  label="Debounce (ms)"
+                  value={tuneValues.debounceMs}
+                  min={100} max={1500} step={50}
                   onChange={(v) => {
-                    thresholdsRef.current.torsoCollapseHigh = v;
-                    setTuneValues((p) => ({ ...p, torsoCollapseHigh: v }));
+                    thresholdsRef.current.debounceMs = v;
+                    setTuneValues((p) => ({ ...p, debounceMs: v }));
                   }}
                 />
                 <TuneSlider
