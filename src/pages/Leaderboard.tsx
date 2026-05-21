@@ -231,9 +231,7 @@ export default function Leaderboard() {
 
   return (
     <div>
-      <h1 className="text-headline">Leaderboard</h1>
-
-      <div className="flex flex-col items-center mt-4 mb-6">
+      <div className="flex flex-col items-center mt-2 mb-6">
         <p className="text-headline text-ink-primary">GBT</p>
         <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
           {formatNumber(totalReps)}

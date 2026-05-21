@@ -39,7 +39,6 @@ export default function Profile() {
   if (!profile) {
     return (
       <div>
-        <h1 className="text-display-md">Profile</h1>
         <p className="text-body text-ink-muted mt-4">
           Sign in to see your profile
         </p>
@@ -124,10 +123,9 @@ export default function Profile() {
   );
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-6rem)]">
-      {/* Header row: Profile title left, sign out icon right */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-display-md">Profile</h1>
+    <div className="flex flex-col min-h-[calc(100vh-8rem)]">
+      {/* Sign out icon top-right */}
+      <div className="flex justify-end">
         <button
           onClick={signOut}
           className="flex items-center gap-1.5 text-ink-muted transition-colors duration-200 ease-apple active:text-ink-primary"

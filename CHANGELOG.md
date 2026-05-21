@@ -1,5 +1,15 @@
 # Changelog
 
+## Add REPPs logo and unified page header (2026-05-22)
+
+### Added
+- REPPs logo (`repps-logo.png`) in top-left of every page via Layout header
+- Centered page title (Home / Leaderboard / Profile / DAB) in header row next to logo
+
+### Changed
+- Removed duplicate page titles from Leaderboard and Profile pages
+- Profile signed-out state no longer shows redundant "Profile" heading
+
 ## Calibration UX feedback (2026-05-22)
 
 ### Added
