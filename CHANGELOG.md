@@ -1,5 +1,18 @@
 # Changelog
 
+## Debug OAuth login + calibration alignment UX (2026-05-22)
+
+### Added
+- Console logging on Google OAuth sign-in to diagnose "click does nothing" bug — logs redirectTo URL and signInWithOAuth result
+- Calibration silhouette guide: dashed SVG body outline shows where to stand
+- Alignment feedback during calibration: detects no-pose, too-close, too-far, off-center, and aligned states
+- Instruction card updates dynamically ("Step into frame", "Step back a bit", "Move closer", "Move to center", "Hold still…")
+- Silhouette and progress bar turn accent orange when aligned
+
+### Changed
+- Updated REPPs logo asset
+- Calibration UI moved from centered overlay to bottom card with silhouette background
+
 ## Add REPPs logo and unified page header (2026-05-22)
 
 ### Added

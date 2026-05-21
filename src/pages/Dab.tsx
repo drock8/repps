@@ -57,6 +57,8 @@ export default function Dab() {
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
 
+  const [alignmentStatus, setAlignmentStatus] = useState<"no-pose" | "too-close" | "too-far" | "off-center" | "aligned">("no-pose");
+
   const [tuneValues, setTuneValues] = useState({ ...DEFAULT_THRESHOLDS });
   const [tuneOpen, setTuneOpen] = useState(true);
   const [stateLog, setStateLog] = useState<string[]>([]);
@@ -192,6 +194,20 @@ export default function Dab() {
               const shoulderY = (lShoulder.y + rShoulder.y) / 2;
               const hipY = (lHip.y + rHip.y) / 2;
               const torsoVertical = (hipY - shoulderY) > 0.08;
+
+              if (!allVisible) {
+                setAlignmentStatus("no-pose");
+              } else {
+                const centerX = (lShoulder.x + rShoulder.x + lHip.x + rHip.x) / 4;
+                const offCenter = Math.abs(centerX - 0.5) > 0.15;
+                const tooClose = nose.y < 0.02 || Math.max(lAnkle.y, rAnkle.y) > 0.98;
+                const tooFar = currentHeight < 0.35;
+
+                if (tooClose) setAlignmentStatus("too-close");
+                else if (tooFar) setAlignmentStatus("too-far");
+                else if (offCenter) setAlignmentStatus("off-center");
+                else setAlignmentStatus("aligned");
+              }
 
               if (allVisible && torsoVertical && currentHeight > 0.15) {
                 calibrationHeights.current.push(currentHeight);
@@ -380,15 +396,95 @@ export default function Dab() {
           </div>
         )}
         {!loading && !calibrated && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none">
-            <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-5 text-center">
-              <p className="text-body-lg text-ink-primary font-semibold">Stand still</p>
-              <p className="text-caption text-ink-secondary mt-1">Full body in frame, facing camera</p>
-              <div className="w-32 h-1 bg-bg-input rounded-pill overflow-hidden mt-3 mx-auto">
-                <div
-                  className="h-full bg-accent rounded-pill transition-all duration-150 ease-apple"
-                  style={{ width: `${(calibrationCount / CALIBRATION_FRAMES) * 100}%` }}
+          <div className="absolute inset-0 z-20 pointer-events-none">
+            {/* Silhouette guide */}
+            <svg
+              viewBox="0 0 300 400"
+              className="absolute inset-0 w-full h-full"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <g
+                transform="translate(150, 200)"
+                opacity={alignmentStatus === "aligned" ? 0.6 : 0.35}
+                className="transition-opacity duration-300"
+              >
+                {/* Head */}
+                <circle
+                  cx="0" cy="-130" r="22"
+                  fill="none"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
                 />
+                {/* Torso */}
+                <rect
+                  x="-30" y="-105" width="60" height="80" rx="8"
+                  fill="none"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
+                />
+                {/* Left leg */}
+                <line
+                  x1="-15" y1="-25" x2="-20" y2="65"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
+                />
+                {/* Right leg */}
+                <line
+                  x1="15" y1="-25" x2="20" y2="65"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
+                />
+                {/* Left arm */}
+                <line
+                  x1="-30" y1="-95" x2="-45" y2="-30"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
+                />
+                {/* Right arm */}
+                <line
+                  x1="30" y1="-95" x2="45" y2="-30"
+                  stroke={alignmentStatus === "aligned" ? "#FF9B2F" : "#8D9199"}
+                  strokeWidth="2"
+                  strokeDasharray="6 4"
+                  className="transition-all duration-300"
+                />
+              </g>
+            </svg>
+
+            {/* Instruction card */}
+            <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center px-4">
+              <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-4 text-center max-w-xs">
+                <p className="text-body-lg text-ink-primary font-semibold">
+                  {alignmentStatus === "no-pose" && "Step into frame"}
+                  {alignmentStatus === "too-close" && "Step back a bit"}
+                  {alignmentStatus === "too-far" && "Move closer"}
+                  {alignmentStatus === "off-center" && "Move to center"}
+                  {alignmentStatus === "aligned" && "Hold still…"}
+                </p>
+                <p className="text-caption text-ink-secondary mt-1">
+                  {alignmentStatus === "aligned"
+                    ? "Calibrating your position"
+                    : "Line up with the outline"}
+                </p>
+                <div className="w-32 h-1 bg-bg-input rounded-pill overflow-hidden mt-3 mx-auto">
+                  <div
+                    className="h-full rounded-pill transition-all duration-150 ease-apple"
+                    style={{
+                      width: `${(calibrationCount / CALIBRATION_FRAMES) * 100}%`,
+                      backgroundColor: alignmentStatus === "aligned" ? "#FF9B2F" : "#5C6066",
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
