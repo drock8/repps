@@ -11,6 +11,7 @@
 - Non-scrollable pages now reserve 68px bottom padding to clear the fixed nav bar, preventing content from hiding behind it
 - Added mascot overlays on CTA buttons — LFG mascot bottom-left, DAB mascot top-right, with pointer-events passthrough
 - Added accent-colored glow shadow and gentle breathing pulse animation (2.5s loop) to LFG and DAB NOW buttons
+- Removed duplicate "Be The One to Drop a Burpee" text above LFG button to free vertical space
 - Added `.vercel` to `.gitignore`
 
 ## Three-stat dashboard + milestone countdown (2026-05-22)
