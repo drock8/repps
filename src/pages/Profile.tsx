@@ -38,7 +38,7 @@ export default function Profile() {
         const { count, error } = await supabase
           .from("reps")
           .select("id", { count: "exact", head: true })
-          .eq("user_id", profile.id);
+          .eq("user_id", profile!.id);
         if (cancelled) return;
         if (error) {
           retryCount++;
