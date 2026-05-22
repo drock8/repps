@@ -9,7 +9,8 @@
 - Video thumbnail sized to 13.2rem (slightly wider than LFG button) and centered with bottom padding to clear nav bar
 - Enlarged video play button 50% (3rem → 4.5rem circle, icon 1.25rem → 2rem) for better visibility
 - Non-scrollable pages now reserve 68px bottom padding to clear the fixed nav bar, preventing content from hiding behind it
-- Added mascot overlays on CTA buttons — LFG mascot bottom-left, DAB mascot bottom-right, with pointer-events passthrough
+- Added mascot overlays on CTA buttons — LFG mascot bottom-left, DAB mascot top-right, with pointer-events passthrough
+- Added accent-colored glow shadow and gentle breathing pulse animation (2.5s loop) to LFG and DAB NOW buttons
 - Added `.vercel` to `.gitignore`
 
 ## Three-stat dashboard + milestone countdown (2026-05-22)

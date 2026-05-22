@@ -76,3 +76,13 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
+@keyframes cta-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px 4px rgba(var(--color-accent-glow), 0.3); }
+  50% { transform: scale(1.03); box-shadow: 0 0 28px 8px rgba(var(--color-accent-glow), 0.45); }
+}
+
+.cta-button {
+  box-shadow: 0 0 20px 4px rgba(var(--color-accent-glow), 0.3);
+  animation: cta-pulse 2.5s ease-in-out infinite;
+}
