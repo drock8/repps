@@ -33,7 +33,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-md w-full px-4 pt-2 pb-24 flex-1">
+      <main className={`mx-auto max-w-md w-full px-4 pt-2 flex-1 ${scrollable ? "pb-24 overflow-y-auto" : "overflow-hidden"}`}>
         <Outlet />
       </main>
       {!showGenderPrompt && <BottomNav />}
