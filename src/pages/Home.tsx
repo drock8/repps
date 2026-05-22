@@ -168,20 +168,23 @@ export default function Home() {
           <p className="text-micro text-ink-secondary mt-0.5">burpees</p>
         </div>
         <div className="text-center">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">TPM</p>
-          <p className="text-display-md text-accent tabular-nums leading-tight mt-0.5">
-            {formatNumber(animatedMovers)}
-          </p>
-          <p className="text-micro text-ink-secondary mt-0.5">people</p>
-          <p className="text-micro text-ink-muted">(of 1M)</p>
-        </div>
-        <div className="text-center">
           <p className="text-micro text-ink-muted uppercase tracking-wide">TARGET</p>
           <p className="text-display-md text-ink-primary tabular-nums leading-tight mt-0.5">
             {formatNumber(MILESTONE_TARGET)}
           </p>
           <p className="text-micro text-ink-secondary mt-0.5">by May 31</p>
           <p className="text-micro text-accent font-semibold">{formatCountdown(MILESTONE_DATE)}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-micro text-ink-muted uppercase tracking-wide flex items-center justify-center gap-1">
+            TPM
+            <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-ink-muted/20 text-ink-muted text-[8px] font-bold leading-none cursor-default" title="Total People Moving">i</span>
+          </p>
+          <p className="text-display-md text-accent tabular-nums leading-tight mt-0.5">
+            {formatNumber(animatedMovers)}
+          </p>
+          <p className="text-micro text-ink-secondary mt-0.5">people</p>
+          <p className="text-micro text-ink-muted">(of 1M)</p>
         </div>
       </div>
 
@@ -217,9 +220,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center">
+            <p className="text-caption text-ink-secondary">Be the one to drop a Burpee</p>
             <button
               onClick={signInWithGoogle}
-              className="w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[44px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)]"
+              className="mt-3 w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[44px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)]"
             >
               LFG!
             </button>
@@ -233,8 +237,10 @@ export default function Home() {
         )}
       </div>
 
-      <div className="mt-auto pt-3 w-full">
-        <YouTubeEmbed videoId="pZpr_WPCzf4" />
+      <div className="mt-auto pt-3 flex justify-center">
+        <div className="w-[11rem]">
+          <YouTubeEmbed videoId="pZpr_WPCzf4" />
+        </div>
       </div>
     </div>
   );
