@@ -48,8 +48,8 @@ export default function YouTubeEmbed({ videoId }: YouTubeEmbedProps) {
         className="w-full h-auto block"
       />
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5 ml-0.5">
+        <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-black/60 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8 ml-0.5">
             <path d="M8 5v14l11-7z" />
           </svg>
         </div>

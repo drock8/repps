@@ -7,6 +7,7 @@
 - Added info icon (ⓘ) next to TPM with "Total People Moving" tooltip
 - Added "Be the one to drop a Burpee" tagline above LFG button for unauthenticated users
 - Video thumbnail sized to 13.2rem (slightly wider than LFG button) and centered with bottom padding to clear nav bar
+- Enlarged video play button 50% (3rem → 4.5rem circle, icon 1.25rem → 2rem) for better visibility
 - Added `.vercel` to `.gitignore`
 
 ## Three-stat dashboard + milestone countdown (2026-05-22)
