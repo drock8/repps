@@ -1,5 +1,18 @@
 # Changelog
 
+## Three-stat dashboard + milestone countdown (2026-05-22)
+
+### Changed
+- Home hero section redesigned from single centered counter to three-column stat grid:
+  - **GBT** — Global Burpee Total (gradient text, animated)
+  - **TPM** — Total People Moving with live distinct-user count and "(of 1M)" subtitle
+  - **TARGET** — current milestone target (1,000 by May 31) with countdown timer
+- Progress bar moved below stat row, now shows milestone completion percentage inline
+- Removed settings table fetch from Home (milestone hardcoded for hackathon demo)
+
+### Added
+- `usePeopleMoving` hook (`src/hooks/usePeopleMoving.ts`) — fetches distinct user count from `reps` table, maintains a `Set<user_id>` for O(1) dedup on Realtime INSERTs, re-syncs on visibility change and Realtime reconnect
+
 ## Fix stats disappearing + theme not updating live (2026-05-22)
 
 ### Fixed

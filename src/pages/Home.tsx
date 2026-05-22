@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import ActivityFeed from "../components/ActivityFeed";
+import { usePeopleMoving } from "../hooks/usePeopleMoving";
 import YouTubeEmbed from "../components/YouTubeEmbed";
 
 function formatNumber(n: number): string {
@@ -56,22 +57,14 @@ function useAnimatedCounter(target: number, duration = 600) {
   return display;
 }
 
-interface Settings {
-  globalTarget: number;
-  targetLabel: string;
-  targetDate: string | null;
-}
-
-// Persist last-known values so remounts never flash "0"
+// Persist last-known value so remounts never flash "0"
 let cachedCount: number | null = null;
-let cachedSettings: Settings | null = null;
 
 export default function Home() {
   const { profile, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [totalReps, setTotalReps] = useState(cachedCount ?? 0);
-  const [settings, setSettings] = useState<Settings | null>(cachedSettings);
   const animatedCount = useAnimatedCounter(totalReps);
   const mountedRef = useRef(true);
 
@@ -86,30 +79,18 @@ export default function Home() {
 
     async function fetchData() {
       try {
-        const [countResult, settingsResult] = await Promise.all([
-          supabase.from("reps").select("*", { count: "exact", head: true }),
-          supabase.from("settings").select("key, value").in("key", ["global_target", "target_label", "target_date"]),
-        ]);
+        const { count, error } = await supabase
+          .from("reps")
+          .select("*", { count: "exact", head: true });
 
         if (!mountedRef.current) return;
 
-        if (countResult.count !== null) {
-          cachedCount = countResult.count;
-          setTotalReps(countResult.count);
+        if (count !== null) {
+          cachedCount = count;
+          setTotalReps(count);
         }
 
-        if (settingsResult.data && settingsResult.data.length > 0) {
-          const map = Object.fromEntries(settingsResult.data.map((r) => [r.key, r.value]));
-          const s: Settings = {
-            globalTarget: parseInt(map.global_target, 10) || 100,
-            targetLabel: map.target_label || "",
-            targetDate: map.target_date || null,
-          };
-          cachedSettings = s;
-          setSettings(s);
-        }
-
-        if (countResult.error || settingsResult.error) {
+        if (error) {
           retryCount++;
           retryTimeout = setTimeout(fetchData, Math.min(2000 * retryCount, 10000));
         } else {
@@ -168,43 +149,56 @@ export default function Home() {
     };
   }, []);
 
-  const percentage = settings
-    ? Math.min((totalReps / settings.globalTarget) * 100, 100)
-    : 0;
+  const moverCount = usePeopleMoving();
+  const animatedMovers = useAnimatedCounter(moverCount, 200);
+
+  const MILESTONE_TARGET = 1000;
+  const MILESTONE_DATE = "2026-05-31";
+  const milestonePercent = Math.min((totalReps / MILESTONE_TARGET) * 100, 100);
 
   return (
     <div className="flex flex-col items-center text-center h-full pt-4">
-      <p className="text-headline text-ink-primary">GBT</p>
-      <p className="text-display-xl repps-gradient-text mt-0.5 tabular-nums">
-        {formatNumber(animatedCount)}
-      </p>
-      <p className="text-micro text-ink-secondary uppercase tracking-wide mt-0.5">
-        Global Burpee Total
-      </p>
-
-      {settings && (
-        <>
-          <p className="text-caption text-ink-muted mt-1">
-            {settings.targetLabel}
+      {/* Three-stat row */}
+      <div className="grid grid-cols-3 gap-2 w-full px-2">
+        <div className="text-center">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">GBT</p>
+          <p className="text-display-md repps-gradient-text tabular-nums leading-tight mt-0.5">
+            {formatNumber(animatedCount)}
           </p>
-          <div className="w-full max-w-xs mt-2">
-            <div className="h-1 bg-bg-input rounded-pill overflow-hidden">
-              <div
-                className="h-full bg-accent rounded-pill transition-all duration-600 ease-apple"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-            <p className="text-caption text-ink-muted mt-1">
-              {percentage.toFixed(1)}%
-            </p>
-            {settings.targetDate && (
-              <p className="text-caption text-ink-primary mt-0.5">
-                {formatCountdown(settings.targetDate)}
-              </p>
-            )}
+          <p className="text-micro text-ink-secondary mt-0.5">burpees</p>
+        </div>
+        <div className="text-center">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">TPM</p>
+          <p className="text-display-md text-accent tabular-nums leading-tight mt-0.5">
+            {formatNumber(animatedMovers)}
+          </p>
+          <p className="text-micro text-ink-secondary mt-0.5">people</p>
+          <p className="text-micro text-ink-muted">(of 1M)</p>
+        </div>
+        <div className="text-center">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">TARGET</p>
+          <p className="text-display-md text-ink-primary tabular-nums leading-tight mt-0.5">
+            {formatNumber(MILESTONE_TARGET)}
+          </p>
+          <p className="text-micro text-ink-secondary mt-0.5">by May 31</p>
+          <p className="text-micro text-accent font-semibold">{formatCountdown(MILESTONE_DATE)}</p>
+        </div>
+      </div>
+
+      {/* Milestone progress bar */}
+      <div className="w-full px-4 mt-3">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-bg-input rounded-pill overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-pill transition-all duration-600 ease-apple"
+              style={{ width: `${milestonePercent}%` }}
+            />
           </div>
-        </>
-      )}
+          <p className="text-micro text-accent font-bold tabular-nums whitespace-nowrap">
+            {milestonePercent.toFixed(1)}%
+          </p>
+        </div>
+      </div>
 
       <div className="mt-3 w-full">
         <ActivityFeed />
