@@ -237,8 +237,8 @@ export default function Home() {
         )}
       </div>
 
-      <div className="mt-auto pt-3 flex justify-center">
-        <div className="w-[11rem]">
+      <div className="mt-auto pt-3 pb-3 flex justify-center">
+        <div className="w-[13.2rem]">
           <YouTubeEmbed videoId="pZpr_WPCzf4" />
         </div>
       </div>

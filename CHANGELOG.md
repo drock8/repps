@@ -6,7 +6,7 @@
 - Reordered stat columns to GBT | TARGET | TPM — target countdown now center-stage
 - Added info icon (ⓘ) next to TPM with "Total People Moving" tooltip
 - Added "Be the one to drop a Burpee" tagline above LFG button for unauthenticated users
-- Video thumbnail narrowed to 11rem (slightly wider than LFG button) and centered to fit above nav bar
+- Video thumbnail sized to 13.2rem (slightly wider than LFG button) and centered with bottom padding to clear nav bar
 - Added `.vercel` to `.gitignore`
 
 ## Three-stat dashboard + milestone countdown (2026-05-22)
