@@ -942,13 +942,32 @@ function summarizeGradeArtifact(targetDomain) {
     mtime: read.mtime,
   };
   if (isPlainObject(read.document)) {
-    const verdict = capString(read.document.verdict, 40);
-    summary.valid = read.document.target_domain === targetDomain && GRADE_VERDICT_VALUES.includes(verdict);
-    summary.verdict = verdict;
-    summary.total_score = Number.isFinite(read.document.total_score) ? Math.trunc(read.document.total_score) : null;
-    summary.findings_count = Array.isArray(read.document.findings) ? read.document.findings.length : 0;
-    if (!summary.valid) {
-      summary.error = "grade artifact metadata mismatch";
+    try {
+      const {
+        normalizeGradeVerdictDocument,
+        readFindingsFromJsonl,
+      } = require("./findings.js");
+      const findingIdSet = new Set(readFindingsFromJsonl(targetDomain).map((finding) => finding.id));
+      const normalized = normalizeGradeVerdictDocument(read.document, {
+        expectedDomain: targetDomain,
+        findingIdSet,
+      });
+      const feedback = typeof normalized.feedback === "string" ? normalized.feedback.trim() : "";
+      if (!feedback) {
+        throw new Error("grade verdict feedback is required");
+      }
+      summary.valid = true;
+      summary.verdict = normalized.verdict;
+      summary.total_score = normalized.total_score;
+      summary.findings_count = normalized.findings.length;
+      summary.error = null;
+    } catch (error) {
+      const verdict = capString(read.document.verdict, 40);
+      summary.valid = false;
+      summary.verdict = verdict;
+      summary.total_score = Number.isFinite(read.document.total_score) ? Math.trunc(read.document.total_score) : null;
+      summary.findings_count = Array.isArray(read.document.findings) ? read.document.findings.length : 0;
+      summary.error = `Invalid grade artifact: ${compactErrorMessage(error)}`;
     }
   }
   return summary;
@@ -1336,7 +1355,13 @@ function buildHunterHealth({ targetDomain = null, cutoffMs = null, limit = DEFAU
     agent_run_type: "hunter",
     env,
   });
-  const events = filterByWindow(readResult.events, cutoffMs);
+  const events = filterByWindow(readResult.events, cutoffMs)
+    .filter((event) => !(
+      targetDomain == null &&
+      event.target_domain == null &&
+      event.status === "blocked" &&
+      event.block_code === "missing_marker"
+    ));
   const byStatus = { allowed: 0, blocked: 0 };
   const byBlockCode = {};
   for (const event of events) {
@@ -1405,6 +1430,15 @@ function issue(code, severity, message, evidence = {}) {
   return { code, severity, message, evidence };
 }
 
+function finalSessionArtifactsComplete(artifacts) {
+  if (!phaseAtLeast(artifacts.state.phase, "REPORT")) return false;
+  if (artifacts.state.pending_wave != null) return false;
+  if (!artifacts.verification.rounds.final.valid) return false;
+  if (artifacts.verification.final_reportable_count > 0 && !artifacts.evidence.valid) return false;
+  if (!artifacts.grade.valid) return false;
+  return artifacts.report.present === true;
+}
+
 function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, env = process.env } = {}) {
   const artifacts = readSessionArtifactSummary(targetDomain);
   const eventRead = readPipelineEvents(targetDomain);
@@ -1432,11 +1466,17 @@ function analyzeSession(targetDomain, { cutoffMs = null, limit = DEFAULT_LIMIT, 
     }));
   }
 
-  const blockedHunterRuns = hunterHealth.totals.by_status.blocked || 0;
+  const suppressMissingMarkerNoise = finalSessionArtifactsComplete(artifacts);
+  const hunterBlockCodes = { ...(hunterHealth.totals.by_block_code || {}) };
+  if (suppressMissingMarkerNoise) {
+    delete hunterBlockCodes.missing_marker;
+  }
+  const blockedHunterRuns = Object.values(hunterBlockCodes)
+    .reduce((total, count) => total + (Number.isFinite(count) ? count : 0), 0);
   if (blockedHunterRuns >= 2) {
     issues.push(issue("repeated_hunter_stops", "blocked", "Hunter SubagentStop blocks repeated for this session.", {
       blocked_runs: blockedHunterRuns,
-      by_block_code: hunterHealth.totals.by_block_code,
+      by_block_code: hunterBlockCodes,
     }));
   }
 

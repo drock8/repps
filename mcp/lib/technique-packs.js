@@ -58,9 +58,19 @@ const HUNTER_KNOWLEDGE_MAX_CHARS = 4500;
 const TECHNIQUE_PACK_ID_RE = /^[A-Za-z][A-Za-z0-9_-]{0,127}$/;
 const TECHNIQUE_PACK_ID_ALIASES = Object.freeze({
   "oss-native-code-c-parser-review": "oss-native-code-protocol-memory",
+  "oss-native-code-c-parser-oob": "oss-native-code-protocol-memory",
+  "oss-native-code-oob-parser": "oss-native-code-protocol-memory",
+  "oss-native-code-parser-memory": "oss-native-code-protocol-memory",
+  "oss-native-code-parser-oob": "oss-native-code-protocol-memory",
   "oss-native-code-parser-review": "oss-native-code-protocol-memory",
   "oss-native-code-memory-safety": "oss-native-code-protocol-memory",
+  "oss_native_code_c_parser_oob": "oss-native-code-protocol-memory",
+  "oss_native_code_c_parser_review": "oss-native-code-protocol-memory",
   "oss_native_code_memory_safety": "oss-native-code-protocol-memory",
+  "oss_native_code_oob_parser": "oss-native-code-protocol-memory",
+  "oss_native_code_parser_memory": "oss-native-code-protocol-memory",
+  "oss_native_code_parser_oob": "oss-native-code-protocol-memory",
+  "oss_native_code_parser_review": "oss-native-code-protocol-memory",
   "oss_native_code_protocol_memory": "oss-native-code-protocol-memory",
 });
 const DEFAULT_SUMMARY_ESTIMATED_TOKENS = 500;

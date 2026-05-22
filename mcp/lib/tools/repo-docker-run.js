@@ -1,6 +1,7 @@
 "use strict";
 
 const { repoDockerRun } = require("../repo-env.js");
+const { REPLAY_CONTEXT_SCHEMA } = require("./replay-context-schema.js");
 
 module.exports = Object.freeze({
   name: "bounty_repo_docker_run",
@@ -43,7 +44,8 @@ module.exports = Object.freeze({
       "timeout_ms": {
         "type": "integer",
         "description": "Optional run timeout, 1000..600000 ms."
-      }
+      },
+      "replay_context": REPLAY_CONTEXT_SCHEMA
     },
     "required": [
       "target_domain",

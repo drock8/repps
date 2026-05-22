@@ -36,6 +36,7 @@ const {
 } = require("./sensitive-material.js");
 const {
   computeChainToVerifyGate,
+  computeGradeToReportGate,
   computeHuntToChainGate,
   computeVerifyToGradeGate,
   formatTransitionBlockers,
@@ -593,7 +594,7 @@ function transitionPhase(args) {
       transitionGate = computeVerifyToGradeGate(domain, state);
       transitionGateLabel = "VERIFY -> GRADE";
     } else if (fromPhase === "GRADE" && toPhase === "REPORT") {
-      transitionGate = computeVerifyToGradeGate(domain, state);
+      transitionGate = computeGradeToReportGate(domain, state);
       transitionGateLabel = "GRADE -> REPORT";
     }
     if (transitionGate && transitionGate.transition_blockers.length > 0 && overrideReason == null) {

@@ -1425,6 +1425,18 @@ test("OSS native-code surfaces can select and log a compatible technique pack", 
     }));
     assert.equal(attempt.record.pack_id, "oss-native-code-protocol-memory");
     assert.equal(attempt.record.capability_pack, "oss_native_code");
+
+    const parserOobAttempt = JSON.parse(logTechniqueAttempt({
+      target_domain: domain,
+      wave: "w1",
+      agent: "a1",
+      surface_id: surfaceId,
+      pack_id: "oss-native-code-parser-oob",
+      status: "skipped",
+      outcome: "Alias compatibility regression.",
+      evidence: "Synthetic parser OOB alias should resolve to the canonical native-code pack.",
+    }));
+    assert.equal(parserOobAttempt.record.pack_id, "oss-native-code-protocol-memory");
   });
 });
 
@@ -2149,7 +2161,7 @@ test("pipeline analytics records metadata-only events for a complete synthetic r
         total_score: 45,
         feedback: null,
       }],
-      feedback: null,
+      feedback: "Submit: verified evidence is sufficient for triage.",
     }));
     JSON.parse(transitionPhase({ target_domain: domain, to_phase: "REPORT" }));
     writeFileAtomic(reportMarkdownPath(domain), "# Report\n");
@@ -2318,7 +2330,17 @@ test("pipeline analytics backfills legacy sessions from artifacts without an eve
       target_domain: domain,
       verdict: "SUBMIT",
       total_score: 45,
-      findings: [{ finding_id: "F-1", total_score: 45 }],
+      findings: [{
+        finding_id: "F-1",
+        impact: 20,
+        proof_quality: 10,
+        severity_accuracy: 5,
+        chain_potential: 5,
+        report_quality: 5,
+        total_score: 45,
+        feedback: "Legacy evidence was complete enough to submit.",
+      }],
+      feedback: "Submit: legacy final verification and evidence are present.",
     }, null, 2)}\n`);
     writeFileAtomic(reportMarkdownPath(domain), "# Legacy report\n");
 
@@ -2516,6 +2538,65 @@ test("pipeline analytics flags missing evidence only for final reportable findin
   });
 });
 
+test("pipeline analytics flags REPORT sessions without a valid grade", () => {
+  withTempHome(() => {
+    const domain = "missing-grade-report.example.com";
+    seedSessionState(domain, { phase: "REPORT" });
+    seedFinding(domain);
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Not reproducible.",
+    }]);
+
+    const analytics = JSON.parse(readPipelineAnalytics({ target_domain: domain, include_events: true }));
+    assert.equal(analytics.sessions[0].health.status, "blocked");
+    assert.ok(analytics.sessions[0].health.reasons.includes("missing_grade"));
+    assert.ok(analytics.bottlenecks.some((bottleneck) => bottleneck.code === "missing_grade"));
+  });
+});
+
+test("pipeline analytics suppresses targetless missing-marker hunter noise after complete reports", () => {
+  withTempHome(() => {
+    const domain = "complete-report-marker-noise.example.com";
+    seedSessionState(domain, { phase: "REPORT", hunt_wave: 1 });
+    seedFinding(domain);
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Not reproducible.",
+    }]);
+    writeGradeVerdict({
+      target_domain: domain,
+      verdict: "SKIP",
+      total_score: 0,
+      findings: [],
+      feedback: "No reportable medium-or-higher findings survived final verification.",
+    });
+    writeFileAtomic(reportMarkdownPath(domain), "# No findings\n");
+
+    for (const ts of ["2026-04-24T00:00:00.000Z", "2026-04-24T00:01:00.000Z"]) {
+      appendAgentRunTelemetryEvent(buildAgentRunTelemetryEvent({
+        status: "blocked",
+        blockCode: "missing_marker",
+        now: new Date(ts),
+      }));
+    }
+
+    const sessionAnalytics = JSON.parse(readPipelineAnalytics({ target_domain: domain, include_events: true }));
+    assert.equal(sessionAnalytics.sessions[0].health.reasons.includes("repeated_hunter_stops"), false);
+    assert.equal(sessionAnalytics.bottlenecks.some((bottleneck) => bottleneck.code === "repeated_hunter_stops"), false);
+
+    const crossSession = JSON.parse(readPipelineAnalytics({ include_events: true }));
+    assert.equal(crossSession.hunter_health.totals.by_status.blocked, 0);
+    assert.equal(Object.prototype.hasOwnProperty.call(crossSession.hunter_health.totals.by_block_code, "missing_marker"), false);
+  });
+});
+
 test("pipeline analytics flags only HOLD as needs_attention; both SKIP variants are healthy by construction", () => {
   // writeGradeVerdict rejects any SKIP that does not satisfy
   // `!hasReportableMedium || total_score < GRADE_HOLD_MIN_SCORE`. SKIP at
@@ -2532,6 +2613,7 @@ test("pipeline analytics flags only HOLD as needs_attention; both SKIP variants 
       verdict: "SKIP",
       total_score: 0,
       findings: [],
+      feedback: "No reportable medium-or-higher findings survived final verification.",
     });
     const skipClean = JSON.parse(readPipelineAnalytics({ target_domain: skipCleanDomain, include_events: true }));
     assert.ok(!skipClean.sessions[0].health.reasons.includes("grade_hold"));
@@ -2563,6 +2645,7 @@ test("pipeline analytics flags only HOLD as needs_attention; both SKIP variants 
         total_score: 5,
         feedback: "Below HOLD_MIN_SCORE despite confirmation; grader contract.",
       }],
+      feedback: "Skip: confirmed finding is below the hold threshold.",
     });
     const skipLowScore = JSON.parse(readPipelineAnalytics({ target_domain: skipLowScoreDomain, include_events: true }));
     assert.ok(!skipLowScore.sessions[0].health.reasons.includes("grade_hold"));
@@ -2593,6 +2676,7 @@ test("pipeline analytics flags only HOLD as needs_attention; both SKIP variants 
         total_score: 30,
         feedback: "Promising but needs deeper repro.",
       }],
+      feedback: "Hold: needs deeper repro before report submission.",
     });
     const hold = JSON.parse(readPipelineAnalytics({ target_domain: holdDomain, include_events: true }));
     assert.ok(hold.sessions[0].health.reasons.includes("grade_hold"));
@@ -2963,7 +3047,7 @@ test("bounty_read_session_summary derives compact status without raw proof evide
         total_score: 40,
         feedback: null,
       }],
-      feedback: null,
+      feedback: "Submit: final verification and evidence support reporting.",
     }));
     fs.writeFileSync(reportMarkdownPath(domain), fullReport, "utf8");
 
@@ -3165,6 +3249,15 @@ test("bounty_transition_phase allows the configured edges and increments hold_co
           reportable: false,
           reasoning: "No reportable findings in the edge smoke fixture.",
         }]);
+        if (scenario.from === "GRADE" && scenario.to === "REPORT") {
+          JSON.parse(writeGradeVerdict({
+            target_domain: domain,
+            verdict: "SKIP",
+            total_score: 0,
+            findings: [],
+            feedback: "No reportable medium-or-higher findings survived final verification.",
+          }));
+        }
       }
 
       const result = JSON.parse(transitionPhase({
@@ -3629,6 +3722,100 @@ test("bounty_transition_phase VERIFY -> GRADE succeeds without evidence when fin
   });
 });
 
+test("bounty_transition_phase GRADE -> REPORT requires a valid grade verdict", () => {
+  withTempHome(() => {
+    const domain = "grade-report-grade-missing.example.com";
+    seedSessionState(domain, { phase: "GRADE" });
+    seedFinding(domain);
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "No reportable findings.",
+    }]);
+
+    assert.throws(
+      () => transitionPhase({ target_domain: domain, to_phase: "REPORT" }),
+      /GRADE -> REPORT blocked: .*grade verdict is missing or invalid/i,
+    );
+  });
+});
+
+test("bounty_transition_phase GRADE -> REPORT accepts zero-reportable SKIP grade", () => {
+  withTempHome(() => {
+    const domain = "grade-report-skip-zero.example.com";
+    seedSessionState(domain, { phase: "GRADE" });
+    seedFinding(domain);
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Not reproducible.",
+    }]);
+    JSON.parse(writeGradeVerdict({
+      target_domain: domain,
+      verdict: "SKIP",
+      total_score: 0,
+      findings: [],
+      feedback: "No reportable medium-or-higher findings survived final verification.",
+    }));
+
+    const result = JSON.parse(transitionPhase({ target_domain: domain, to_phase: "REPORT" }));
+    assert.equal(result.transitioned, true);
+    assert.equal(result.to_phase, "REPORT");
+  });
+});
+
+test("bounty_transition_phase GRADE -> REPORT blocks invalid grade totals and missing feedback", () => {
+  withTempHome(() => {
+    const invalidTotalDomain = "grade-report-invalid-total.example.com";
+    seedSessionState(invalidTotalDomain, { phase: "GRADE" });
+    seedFinding(invalidTotalDomain);
+    seedVerificationPipeline(invalidTotalDomain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Not reproducible.",
+    }]);
+    writeFileAtomic(gradeArtifactPaths(invalidTotalDomain).json, `${JSON.stringify({
+      version: 1,
+      target_domain: invalidTotalDomain,
+      verdict: "SKIP",
+      total_score: 5,
+      findings: [],
+      feedback: "Invalid fixture: score should be zero.",
+    }, null, 2)}\n`);
+    assert.throws(
+      () => transitionPhase({ target_domain: invalidTotalDomain, to_phase: "REPORT" }),
+      /GRADE -> REPORT blocked: .*grade total_score/i,
+    );
+
+    const missingFeedbackDomain = "grade-report-missing-feedback.example.com";
+    seedSessionState(missingFeedbackDomain, { phase: "GRADE" });
+    seedFinding(missingFeedbackDomain);
+    seedVerificationPipeline(missingFeedbackDomain, [{
+      finding_id: "F-1",
+      disposition: "denied",
+      severity: null,
+      reportable: false,
+      reasoning: "Not reproducible.",
+    }]);
+    JSON.parse(writeGradeVerdict({
+      target_domain: missingFeedbackDomain,
+      verdict: "SKIP",
+      total_score: 0,
+      findings: [],
+    }));
+    assert.throws(
+      () => transitionPhase({ target_domain: missingFeedbackDomain, to_phase: "REPORT" }),
+      /GRADE -> REPORT blocked: .*feedback is required/i,
+    );
+  });
+});
+
 test("bounty_transition_phase GRADE -> REPORT requires valid evidence for final reportables", () => {
   withTempHome(() => {
     const domain = "grade-report-evidence.example.com";
@@ -3641,6 +3828,23 @@ test("bounty_transition_phase GRADE -> REPORT requires valid evidence for final 
       reportable: true,
       reasoning: "Confirmed.",
     }]);
+    writeFileAtomic(gradeArtifactPaths(domain).json, `${JSON.stringify({
+      version: 1,
+      target_domain: domain,
+      verdict: "SUBMIT",
+      total_score: 45,
+      findings: [{
+        finding_id: "F-1",
+        impact: 20,
+        proof_quality: 10,
+        severity_accuracy: 5,
+        chain_potential: 5,
+        report_quality: 5,
+        total_score: 45,
+        feedback: "Confirmed and reproducible.",
+      }],
+      feedback: "Submit: confirmed high-impact reportable finding.",
+    }, null, 2)}\n`);
 
     assert.throws(
       () => transitionPhase({ target_domain: domain, to_phase: "REPORT" }),
@@ -5422,14 +5626,31 @@ test("pipeline analytics distinguishes SUBMIT grade with missing canonical repor
   withTempHome(() => {
     const domain = "report-path.example.com";
     seedSessionState(domain, { phase: "REPORT", hunt_wave: 1 });
-    const gradePaths = gradeArtifactPaths(domain);
-    writeFileAtomic(gradePaths.json, `${JSON.stringify({
-      version: 1,
+    seedFinding(domain);
+    seedVerificationPipeline(domain, [{
+      finding_id: "F-1",
+      disposition: "confirmed",
+      severity: "high",
+      reportable: true,
+      reasoning: "Confirmed.",
+    }]);
+    writeEvidencePacks({ target_domain: domain, packs: [evidencePack("F-1")] });
+    writeGradeVerdict({
       target_domain: domain,
       verdict: "SUBMIT",
-      total_score: 80,
-      findings: [],
-    }, null, 2)}\n`);
+      total_score: 45,
+      findings: [{
+        finding_id: "F-1",
+        impact: 20,
+        proof_quality: 10,
+        severity_accuracy: 5,
+        chain_potential: 5,
+        report_quality: 5,
+        total_score: 45,
+        feedback: "Confirmed and ready to report.",
+      }],
+      feedback: "Submit: canonical report still needs to be written.",
+    });
 
     const analytics = JSON.parse(readPipelineAnalytics({ target_domain: domain }));
     const pending = analytics.bottlenecks.find((b) => b.code === "report_pending_canonical_path");
@@ -11389,6 +11610,70 @@ test("replay-capable tools require context only for verification and evidence re
   });
 });
 
+test("OSS repo replay tools accept current replay_context and reject stale or unsupported fields", async () => {
+  await withTempHome(async (home) => {
+    const domain = "repo-replay-context.example.com";
+    const repo = path.join(home, "repo-replay-context");
+    fs.mkdirSync(repo, { recursive: true });
+    fs.writeFileSync(path.join(repo, "package.json"), `${JSON.stringify({ scripts: { test: "node --test" } }, null, 2)}\n`);
+    seedSessionState(domain, {
+      phase: "CHAIN",
+      target_url: `repo://${domain}`,
+      target_kind: "repo",
+      repo: { root_path: repo },
+    });
+    seedFinding(domain);
+    JSON.parse(transitionPhase({ target_domain: domain, to_phase: "VERIFY" }));
+    const context = JSON.parse(readVerificationContext({ target_domain: domain }));
+    const replayContext = replayContextFromVerificationContext(context);
+
+    const check = await executeTool("bounty_repo_check", {
+      target_domain: domain,
+      file_path: "package.json",
+      pattern: "node --test",
+      check_type: "verification_replay",
+      replay_context: replayContext,
+    });
+    assert.equal(check.ok, true);
+    assert.equal(check.data.check.ok, true);
+
+    const dockerRun = await executeTool("bounty_repo_docker_run", {
+      target_domain: domain,
+      command: ["sh", "-lc", "npm test"],
+      dry_run: true,
+      replay_context: replayContext,
+    });
+    assert.equal(dockerRun.ok, true);
+    assert.equal(dockerRun.data.run.status, "dry_run");
+
+    for (const toolName of ["bounty_repo_check", "bounty_repo_docker_run"]) {
+      const baseArgs = toolName === "bounty_repo_check"
+        ? { target_domain: domain, file_path: "package.json" }
+        : { target_domain: domain, command: ["sh", "-lc", "true"], dry_run: true };
+      const stale = await executeTool(toolName, {
+        ...baseArgs,
+        replay_context: {
+          ...replayContext,
+          verification_attempt_id: "stale-attempt",
+        },
+      });
+      assert.equal(stale.ok, false);
+      assert.equal(stale.error.code, "STATE_CONFLICT");
+      assert.match(stale.error.message, /verification_attempt_id does not match current VERIFY attempt/);
+
+      for (const unsupportedField of ["description", "run_in_background"]) {
+        const unsupported = await executeTool(toolName, {
+          ...baseArgs,
+          [unsupportedField]: unsupportedField === "run_in_background" ? true : "not a schema field",
+        });
+        assert.equal(unsupported.ok, false);
+        assert.equal(unsupported.error.code, "INVALID_ARGUMENTS");
+        assert.match(unsupported.error.message, new RegExp(`${unsupportedField}.*not allowed`));
+      }
+    }
+  });
+});
+
 test("concurrent acquire cannot observe a partial lease file", async () => {
   await withTempHome(async () => {
     const domain = "lease-partial-window.example.com";
@@ -15246,8 +15531,16 @@ test("context budget and technique-pack MCP tools are deterministic and bounded"
     assert.ok(full.technique_pack.full_limits);
     assert.doesNotMatch(JSON.stringify(full), /WordPress REST/);
 
-    const nativeAlias = readTechniquePack("oss-native-code-c-parser-review", { mode: "summary" });
-    assert.equal(nativeAlias.technique_pack.id, "oss-native-code-protocol-memory");
+    for (const alias of [
+      "oss-native-code-c-parser-review",
+      "oss_native_code_parser_oob",
+      "oss-native-code-parser-oob",
+      "oss_native_code_c_parser_oob",
+      "oss-native-code-oob-parser",
+    ]) {
+      const nativeAlias = readTechniquePack(alias, { mode: "summary" });
+      assert.equal(nativeAlias.technique_pack.id, "oss-native-code-protocol-memory");
+    }
 
     assert.throws(
       () => readTechniquePack("unknown-pack", { mode: "summary" }),

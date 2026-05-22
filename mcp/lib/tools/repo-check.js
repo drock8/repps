@@ -1,6 +1,7 @@
 "use strict";
 
 const { repoCheck } = require("../repo-target.js");
+const { REPLAY_CONTEXT_SCHEMA } = require("./replay-context-schema.js");
 
 module.exports = Object.freeze({
   name: "bounty_repo_check",
@@ -27,7 +28,8 @@ module.exports = Object.freeze({
       "regex": {
         "type": "boolean",
         "description": "Treat pattern as a JavaScript regular expression. Defaults to false."
-      }
+      },
+      "replay_context": REPLAY_CONTEXT_SCHEMA
     },
     "required": [
       "target_domain"

@@ -169,14 +169,14 @@ If `schema_version === 2`, use the attempt-scoped independent flow:
 5. Launch the final verifier with current attempt ID, snapshot hash, and `adjudication_plan_hash` from `.data.adjudication_context`. The final verifier must consume that context and write `round="final"` with `adjudication_plan_hash`.
 {{SPAWN_FINAL_VERIFIER}}
 
-After final verification in either branch, read `bounty_read_verification_round({ target_domain: "[domain]", round: "final" }).data`. For v2, require `.data.current === true` and no `stale` flag; a stale final verification is a blocker, not a file-editing task. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then explicitly call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` and continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. If final reportables exist, spawn the evidence agent before GRADE:
+After final verification in either branch, read `bounty_read_verification_round({ target_domain: "[domain]", round: "final" }).data`. For v2, require `.data.current === true` and no `stale` flag; a stale final verification is a blocker, not a file-editing task. If no result has `reportable: true`, do not stop: call `bounty_read_evidence_packs({ target_domain: "[domain]" })` to confirm `skipped: true`, then explicitly call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` and continue through GRADE and REPORT so the session gets a durable SKIP grade and no-findings report. The zero-finding grade must be `verdict: "SKIP"`, `total_score: 0`, `findings: []`, and non-empty feedback explaining that no reportable medium-or-higher finding survived final verification. If final reportables exist, spawn the evidence agent before GRADE:
 {{SPAWN_EVIDENCE_AGENT}}
 After the evidence agent completes, validate with `bounty_read_verification_context({ target_domain })` and `bounty_read_evidence_packs({ target_domain: "[domain]" })`. For v2, require evidence to match current attempt ID, snapshot hash, and final verification hash. Retry once if missing/invalid. Only call `bounty_transition_phase({ target_domain, to_phase: "GRADE" })` after `bounty_read_verification_context({ target_domain }).data.evidence_match_status.valid === true` and, for v2, `matches_final === true`, and `bounty_read_evidence_packs` returns successfully. If the retry still fails validation, report the blocker and stop without transitioning.
 
 ## PHASE 6: GRADE
 Spawn:
 {{SPAWN_GRADER_AGENT}}
-Read `bounty_read_grade_verdict.data`. On `SUBMIT` or `SKIP`, transition to REPORT. On `HOLD`, transition to HUNT, include feedback in a targeted wave, and re-run CHAIN before VERIFY; escalate if `hold_count >= 2`.
+Read `bounty_read_grade_verdict.data`. On `SUBMIT` or `SKIP`, transition to REPORT only after the readback shows a non-empty `feedback` string. On `HOLD`, transition to HUNT, include feedback in a targeted wave, and re-run CHAIN before VERIFY; escalate if `hold_count >= 2`.
 
 ## PHASE 7: REPORT
 Spawn:
