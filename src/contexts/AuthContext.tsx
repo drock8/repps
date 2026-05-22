@@ -87,10 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, newSession) => {
         settled = true;
         setSession(newSession);
-        if (newSession?.user) {
-          await loadProfile(newSession.user);
-        } else {
-          setProfile(null);
+        try {
+          if (newSession?.user) {
+            await loadProfile(newSession.user);
+          } else {
+            setProfile(null);
+          }
+        } catch (e) {
+          console.error("[auth] profile load failed:", e);
         }
         setLoading(false);
       }
@@ -100,10 +104,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // edge cases), explicitly check for a session and bootstrap from it.
     const fallbackTimer = setTimeout(async () => {
       if (settled) return;
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        setSession(data.session);
-        await loadProfile(data.session.user);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          setSession(data.session);
+          await loadProfile(data.session.user);
+        }
+      } catch (e) {
+        console.error("[auth] fallback session check failed:", e);
       }
       setLoading(false);
     }, 3000);
