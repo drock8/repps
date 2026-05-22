@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 interface ProfileCache {
@@ -30,45 +30,37 @@ export default function ActivityFeed() {
   const profileCache = useRef<Map<string, ProfileCache>>(new Map());
   const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const loadProfiles = useCallback(async () => {
-    const { data } = await supabase
+  useEffect(() => {
+    supabase
       .from("profiles")
-      .select("id, name, avatar_url");
-    if (data) {
-      for (const p of data) {
-        profileCache.current.set(p.id, {
-          name: p.name,
-          avatar_url: p.avatar_url,
-        });
-      }
+      .select("id, name, avatar_url")
+      .then(({ data }) => {
+        if (data) {
+          for (const p of data) {
+            profileCache.current.set(p.id, { name: p.name, avatar_url: p.avatar_url });
+          }
+        }
+      });
+
+    async function getProfile(userId: string): Promise<ProfileCache> {
+      const cached = profileCache.current.get(userId);
+      if (cached) return cached;
+      const { data } = await supabase
+        .from("profiles")
+        .select("name, avatar_url")
+        .eq("id", userId)
+        .single();
+      const profile: ProfileCache = { name: data?.name || "Someone", avatar_url: data?.avatar_url || null };
+      profileCache.current.set(userId, profile);
+      return profile;
     }
-  }, []);
 
-  const getProfile = useCallback(async (userId: string): Promise<ProfileCache> => {
-    const cached = profileCache.current.get(userId);
-    if (cached) return cached;
+    function removeBubble(bubbleId: string) {
+      setBubbles((prev) => prev.filter((b) => b.id !== bubbleId));
+      timeoutsRef.current.delete(bubbleId);
+    }
 
-    const { data } = await supabase
-      .from("profiles")
-      .select("name, avatar_url")
-      .eq("id", userId)
-      .single();
-
-    const profile: ProfileCache = {
-      name: data?.name || "Someone",
-      avatar_url: data?.avatar_url || null,
-    };
-    profileCache.current.set(userId, profile);
-    return profile;
-  }, []);
-
-  const removeBubble = useCallback((bubbleId: string) => {
-    setBubbles((prev) => prev.filter((b) => b.id !== bubbleId));
-    timeoutsRef.current.delete(bubbleId);
-  }, []);
-
-  const spawnBubble = useCallback(
-    async (userId: string) => {
+    async function spawnBubble(userId: string) {
       setHasReceivedRep(true);
       const profile = await getProfile(userId);
       const now = Date.now();
@@ -115,12 +107,7 @@ export default function ActivityFeed() {
         }
         return next;
       });
-    },
-    [getProfile, removeBubble]
-  );
-
-  useEffect(() => {
-    loadProfiles();
+    }
 
     const channel = supabase
       .channel("feed-reps")
@@ -128,8 +115,7 @@ export default function ActivityFeed() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "reps" },
         (payload) => {
-          const userId = payload.new.user_id as string;
-          spawnBubble(userId);
+          spawnBubble(payload.new.user_id as string);
         }
       )
       .subscribe();
@@ -141,7 +127,7 @@ export default function ActivityFeed() {
       }
       timeoutsRef.current.clear();
     };
-  }, [loadProfiles, spawnBubble]);
+  }, []);
 
   return (
     <>

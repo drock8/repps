@@ -1,5 +1,19 @@
 # Changelog
 
+## Fix stats disappearing + theme not updating live (2026-05-22)
+
+### Fixed
+- Stats (GBT counter, settings, profile reps) would disappear and require multiple reloads — caused by silent fetch failures with no retry, state resetting to 0 on navigation, and stale realtime connections after phone sleep
+- Theme changes in Supabase Studio required a full page reload to take effect
+
+### Changed
+- Home page stats use module-level cache — navigating away and back never flashes "0"
+- Added `visibilitychange` listener on Home and Profile — refetches from DB whenever the app returns to foreground (phone wake, tab switch)
+- Realtime `home-reps` channel refetches true count on (re)subscribe to catch events missed during disconnection
+- Exponential backoff retry on all stat fetches (2s → 4s → 6s, capped at 10s)
+- ActivityFeed realtime subscription stabilized — moved all logic inside a single `useEffect([])` to prevent repeated unsubscribe/resubscribe cycles that destabilized the websocket
+- ThemeContext subscribes to realtime Postgres changes on `settings` table (filtered to `key=theme`) for instant theme switching without reload
+
 ## YouTube intro video on Home + Dab UX polish (2026-05-22)
 
 ### Added

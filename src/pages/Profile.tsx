@@ -29,11 +29,44 @@ export default function Profile() {
 
   useEffect(() => {
     if (!profile) return;
-    supabase
-      .from("reps")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", profile.id)
-      .then(({ count }) => setTotalReps(count ?? 0));
+    let cancelled = false;
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryCount = 0;
+
+    async function fetchReps() {
+      try {
+        const { count, error } = await supabase
+          .from("reps")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", profile.id);
+        if (cancelled) return;
+        if (error) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchReps, Math.min(2000 * retryCount, 10000));
+          return;
+        }
+        retryCount = 0;
+        setTotalReps(count ?? 0);
+      } catch {
+        if (!cancelled) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchReps, Math.min(2000 * retryCount, 10000));
+        }
+      }
+    }
+
+    fetchReps();
+
+    function handleVisibility() {
+      if (document.visibilityState === "visible") fetchReps();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimeout);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [profile]);
 
   if (!profile) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -35,7 +35,6 @@ function useAnimatedCounter(target: number, duration = 600) {
     function tick(now: number) {
       const elapsed = now - start;
       const t = Math.min(elapsed / duration, 1);
-      // ease-apple: cubic-bezier(0.4, 0, 0.2, 1)
       const eased = t < 0.5
         ? 4 * t * t * t
         : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -63,40 +62,80 @@ interface Settings {
   targetDate: string | null;
 }
 
+// Persist last-known values so remounts never flash "0"
+let cachedCount: number | null = null;
+let cachedSettings: Settings | null = null;
+
 export default function Home() {
   const { profile, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  const [totalReps, setTotalReps] = useState(0);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [totalReps, setTotalReps] = useState(cachedCount ?? 0);
+  const [settings, setSettings] = useState<Settings | null>(cachedSettings);
   const animatedCount = useAnimatedCounter(totalReps);
+  const mountedRef = useRef(true);
 
-  const fetchInitialCount = useCallback(async () => {
-    const { count } = await supabase
-      .from("reps")
-      .select("*", { count: "exact", head: true });
-    if (count !== null) setTotalReps(count);
-  }, []);
-
-  const fetchSettings = useCallback(async () => {
-    const { data } = await supabase
-      .from("settings")
-      .select("key, value")
-      .in("key", ["global_target", "target_label", "target_date"]);
-    if (data) {
-      const map = Object.fromEntries(data.map((r) => [r.key, r.value]));
-      setSettings({
-        globalTarget: parseInt(map.global_target, 10) || 100,
-        targetLabel: map.target_label || "",
-        targetDate: map.target_date || null,
-      });
-    }
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
   useEffect(() => {
-    fetchInitialCount();
-    fetchSettings();
-  }, [fetchInitialCount, fetchSettings]);
+    let retryTimeout: ReturnType<typeof setTimeout>;
+    let retryCount = 0;
+
+    async function fetchData() {
+      try {
+        const [countResult, settingsResult] = await Promise.all([
+          supabase.from("reps").select("*", { count: "exact", head: true }),
+          supabase.from("settings").select("key, value").in("key", ["global_target", "target_label", "target_date"]),
+        ]);
+
+        if (!mountedRef.current) return;
+
+        if (countResult.count !== null) {
+          cachedCount = countResult.count;
+          setTotalReps(countResult.count);
+        }
+
+        if (settingsResult.data && settingsResult.data.length > 0) {
+          const map = Object.fromEntries(settingsResult.data.map((r) => [r.key, r.value]));
+          const s: Settings = {
+            globalTarget: parseInt(map.global_target, 10) || 100,
+            targetLabel: map.target_label || "",
+            targetDate: map.target_date || null,
+          };
+          cachedSettings = s;
+          setSettings(s);
+        }
+
+        if (countResult.error || settingsResult.error) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchData, Math.min(2000 * retryCount, 10000));
+        } else {
+          retryCount = 0;
+        }
+      } catch {
+        if (mountedRef.current) {
+          retryCount++;
+          retryTimeout = setTimeout(fetchData, Math.min(2000 * retryCount, 10000));
+        }
+      }
+    }
+
+    fetchData();
+
+    // Refetch when tab/app becomes visible again (handles phone sleep, tab switch)
+    function handleVisibility() {
+      if (document.visibilityState === "visible") fetchData();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearTimeout(retryTimeout);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -105,10 +144,24 @@ export default function Home() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "reps" },
         () => {
-          setTotalReps((prev) => prev + 1);
+          setTotalReps((prev) => {
+            const next = prev + 1;
+            cachedCount = next;
+            return next;
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // If subscription drops and reconnects, refetch to catch missed events
+        if (status === "SUBSCRIBED") {
+          supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
+            if (count !== null && mountedRef.current) {
+              cachedCount = count;
+              setTotalReps(count);
+            }
+          });
+        }
+      });
 
     return () => {
       channel.unsubscribe();

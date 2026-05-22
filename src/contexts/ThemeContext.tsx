@@ -17,6 +17,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => {
         if (data?.value === "blue") setTheme("blue");
       });
+
+    const channel = supabase
+      .channel("theme-settings")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "settings", filter: "key=eq.theme" },
+        (payload) => {
+          const value = (payload.new as { value: string }).value;
+          setTheme(value === "blue" ? "blue" : "orange");
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
