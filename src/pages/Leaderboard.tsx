@@ -236,7 +236,7 @@ export default function Leaderboard() {
           <img
             src="/Leaderboard-Mascot-Repps.png"
             alt=""
-            className="absolute w-[4.5rem] -right-1 -top-2 pointer-events-none"
+            className="absolute w-[4.5rem] left-0 top-1/2 -translate-y-1/2 pointer-events-none"
           />
           <p className="text-headline text-ink-primary">GBT</p>
           <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
