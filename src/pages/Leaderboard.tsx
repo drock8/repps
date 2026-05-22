@@ -232,7 +232,12 @@ export default function Leaderboard() {
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
       <div className="flex-shrink-0 bg-bg-base">
-        <div className="flex flex-col items-center mt-2 mb-4">
+        <div className="relative flex flex-col items-center mt-2 mb-4">
+          <img
+            src="/Leaderboard-Mascot-Repps.png"
+            alt=""
+            className="absolute w-[4.5rem] -right-1 -top-2 pointer-events-none"
+          />
           <p className="text-headline text-ink-primary">GBT</p>
           <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
             {formatNumber(totalReps)}
