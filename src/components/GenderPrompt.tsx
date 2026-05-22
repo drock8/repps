@@ -10,18 +10,17 @@ const options: { label: string; value: Gender }[] = [
 ];
 
 export default function GenderPrompt() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const [saving, setSaving] = useState(false);
 
   const handleSelect = async (gender: Gender) => {
     if (!profile || saving) return;
     setSaving(true);
-    await supabase
+    updateProfile({ gender, gender_set: true });
+    supabase
       .from("profiles")
       .update({ gender, gender_set: true })
       .eq("id", profile.id);
-    await refreshProfile();
-    setSaving(false);
   };
 
   return (

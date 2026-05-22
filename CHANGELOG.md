@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix gender prompt delay after selection (2026-05-22)
+
+### Fixed
+- Selecting a gender on first login had a noticeable delay before dismissing — two sequential network round-trips to Supabase (update + re-fetch) blocked the UI
+- Now uses optimistic local state update via new `updateProfile` method — prompt dismisses instantly, DB write fires in the background
+
 ## Fix Google OAuth requiring double sign-in (2026-05-22)
 
 ### Fixed

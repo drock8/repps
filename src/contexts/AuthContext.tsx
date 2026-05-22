@@ -21,6 +21,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateProfile: (fields: Partial<Profile>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -129,6 +130,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateProfile = (fields: Partial<Profile>) => {
+    setProfile((prev) => (prev ? { ...prev, ...fields } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -139,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshProfile,
+        updateProfile,
       }}
     >
       {children}
