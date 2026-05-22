@@ -81,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let settled = false;
+
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
+        settled = true;
         setSession(newSession);
         if (newSession?.user) {
           await loadProfile(newSession.user);
@@ -93,21 +96,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Fallback: if onAuthStateChange hasn't fired within 3s (mobile redirect
+    // edge cases), explicitly check for a session and bootstrap from it.
+    const fallbackTimer = setTimeout(async () => {
+      if (settled) return;
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setSession(data.session);
+        await loadProfile(data.session.user);
+      }
+      setLoading(false);
+    }, 3000);
+
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+      if (!data.session && !settled) {
         setLoading(false);
       }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      clearTimeout(fallbackTimer);
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async () => {
-    const redirectTo = window.location.origin;
+    const redirectTo = window.location.origin + "/";
     console.log("[auth] signInWithGoogle called, redirectTo:", redirectTo);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        queryParams: { prompt: "select_account" },
+      },
     });
     console.log("[auth] signInWithOAuth result:", { data, error });
     if (error) {

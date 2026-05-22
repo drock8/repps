@@ -7,4 +7,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase env vars. Check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    flowType: 'implicit',
+  },
+})
