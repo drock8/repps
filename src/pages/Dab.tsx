@@ -445,15 +445,15 @@ export default function Dab() {
             >
               <g
                 transform="translate(150, 200)"
-                opacity={alignmentStatus === "aligned" ? 0.6 : 0.35}
+                opacity={alignmentStatus === "aligned" ? 0.9 : 0.6}
                 className="transition-opacity duration-300"
               >
                 {/* Head */}
                 <circle
                   cx="0" cy="-130" r="22"
                   fill="none"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
@@ -461,40 +461,40 @@ export default function Dab() {
                 <rect
                   x="-30" y="-105" width="60" height="80" rx="8"
                   fill="none"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
                 {/* Left leg */}
                 <line
                   x1="-15" y1="-25" x2="-20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
                 {/* Right leg */}
                 <line
                   x1="15" y1="-25" x2="20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
                 {/* Left arm */}
                 <line
                   x1="-30" y1="-95" x2="-45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
                 {/* Right arm */}
                 <line
                   x1="30" y1="-95" x2="45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#8D9199"}
-                  strokeWidth="2"
+                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
+                  strokeWidth="3"
                   strokeDasharray="6 4"
                   className="transition-all duration-300"
                 />
@@ -559,7 +559,7 @@ export default function Dab() {
         {/* Floating "I'm Done" button — top-right of camera area */}
         <button
           onClick={handleStop}
-          className="absolute top-3 right-3 z-30 bg-bg-base/80 backdrop-blur-sm text-ink-primary font-bold text-caption rounded-full h-14 w-14 flex items-center justify-center transition-all duration-200 ease-apple active:scale-90 shadow-lg"
+          className="cta-button absolute top-3 right-3 z-30 bg-accent text-ink-inverse font-bold text-caption rounded-full h-14 w-14 flex items-center justify-center transition-all duration-200 ease-apple active:scale-90 active:!animate-none"
         >
           I'm<br/>Done
         </button>

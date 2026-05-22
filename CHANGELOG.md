@@ -12,6 +12,9 @@
 - Added mascot overlays on CTA buttons — LFG mascot bottom-left, DAB mascot top-right, with pointer-events passthrough
 - Added accent-colored glow shadow and gentle breathing pulse animation (2.5s loop) to LFG and DAB NOW buttons
 - Removed duplicate "Be The One to Drop a Burpee" text above LFG button to free vertical space
+- DAB pose outline made more visible — brighter stroke color (#C8CCD2), thicker lines (3px), higher opacity
+- "I'm Done" button restyled with accent background, glow shadow, and pulse animation
+- Profile sign-in button given same glow + pulse treatment as Home CTA buttons
 - Added `.vercel` to `.gitignore`
 
 ## Three-stat dashboard + milestone countdown (2026-05-22)
