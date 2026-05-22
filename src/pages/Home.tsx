@@ -220,7 +220,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex flex-col items-center">
-            <p className="text-caption text-ink-primary">Be the one to Drop A Burpee</p>
+            <p className="text-caption text-ink-primary">Be The One to Drop a Burpee</p>
             <button
               onClick={signInWithGoogle}
               className="mt-3 w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[44px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)]"
