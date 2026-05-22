@@ -36,7 +36,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 
 async function ensureProfile(user: User): Promise<Profile> {
   const meta = user.user_metadata;
-  const { data, error } = await supabase
+  await supabase
     .from("profiles")
     .upsert(
       {
@@ -46,8 +46,11 @@ async function ensureProfile(user: User): Promise<Profile> {
         avatar_url: meta?.avatar_url || meta?.picture || null,
       },
       { onConflict: "id", ignoreDuplicates: true }
-    )
-    .select()
+    );
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
     .single();
   if (error) throw error;
   return data;
@@ -77,14 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) {
-        await loadProfile(data.session.user);
-      }
-      setLoading(false);
-    });
-
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         setSession(newSession);
@@ -93,8 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
+        setLoading(false);
       }
     );
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        setLoading(false);
+      }
+    });
 
     return () => listener.subscription.unsubscribe();
   }, []);

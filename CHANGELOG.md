@@ -1,5 +1,13 @@
 # Changelog
 
+## Fix Google OAuth requiring double sign-in (2026-05-22)
+
+### Fixed
+- First Google OAuth sign-in appeared to do nothing — user had to press the button a second time to actually log in
+- Root cause: `getSession()` and `onAuthStateChange` both fired on OAuth redirect, racing two concurrent `ensureProfile()` calls. With `ignoreDuplicates: true`, the second upsert silently returned zero rows, causing `.select().single()` to throw `PGRST116`, leaving profile as null
+- Split upsert from select in `ensureProfile` — upsert fires first, then a separate fetch always finds the row regardless of race outcome
+- Made `onAuthStateChange` the single source of truth for auth events, eliminating the duplicate `loadProfile` call
+
 ## Home layout polish — stat order, CTA copy, video sizing (2026-05-22)
 
 ### Changed
