@@ -1,5 +1,16 @@
 # Changelog
 
+## YouTube intro video on Home + Dab UX polish (2026-05-22)
+
+### Added
+- YouTube intro video embed on Home page — thumbnail sits at bottom of page above nav, expands to full-screen overlay on tap with autoplay, tap backdrop to dismiss
+- `YouTubeEmbed` component with thumbnail/expanded toggle, play button overlay, and dark backdrop
+
+### Changed
+- Home page spacing tightened to fit video thumbnail without scrolling
+- Dab page "DONE" button replaced with floating circular "I'm Done" button overlaid top-right of camera area (saves vertical space, always accessible)
+- Dab progress bar widened (32→80%) and thicker (4px→12px) for better visibility
+
 ## Switchable theme system — orange ↔ electric blue (2026-05-22)
 
 ### Added

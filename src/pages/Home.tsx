@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import ActivityFeed from "../components/ActivityFeed";
+import YouTubeEmbed from "../components/YouTubeEmbed";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -119,21 +120,21 @@ export default function Home() {
     : 0;
 
   return (
-    <div className="flex flex-col items-center text-center pt-6">
+    <div className="flex flex-col items-center text-center h-full pt-4">
       <p className="text-headline text-ink-primary">GBT</p>
-      <p className="text-display-xl repps-gradient-text mt-1 tabular-nums">
+      <p className="text-display-xl repps-gradient-text mt-0.5 tabular-nums">
         {formatNumber(animatedCount)}
       </p>
-      <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">
+      <p className="text-micro text-ink-secondary uppercase tracking-wide mt-0.5">
         Global Burpee Total
       </p>
 
       {settings && (
         <>
-          <p className="text-caption text-ink-muted mt-2">
+          <p className="text-caption text-ink-muted mt-1">
             {settings.targetLabel}
           </p>
-          <div className="w-full max-w-xs mt-4">
+          <div className="w-full max-w-xs mt-2">
             <div className="h-1 bg-bg-input rounded-pill overflow-hidden">
               <div
                 className="h-full bg-accent rounded-pill transition-all duration-600 ease-apple"
@@ -144,7 +145,7 @@ export default function Home() {
               {percentage.toFixed(1)}%
             </p>
             {settings.targetDate && (
-              <p className="text-caption text-ink-primary mt-1">
+              <p className="text-caption text-ink-primary mt-0.5">
                 {formatCountdown(settings.targetDate)}
               </p>
             )}
@@ -152,11 +153,11 @@ export default function Home() {
         </>
       )}
 
-      <div className="mt-6 w-full">
+      <div className="mt-3 w-full">
         <ActivityFeed />
       </div>
 
-      <div className="mt-3 flex flex-col items-center">
+      <div className="mt-2 flex flex-col items-center">
         {profile ? (
           <div className="flex flex-col items-center">
             <button
@@ -165,7 +166,7 @@ export default function Home() {
             >
               DAB<br />NOW
             </button>
-            <p className="text-caption text-ink-muted mt-3">Drop a Burpee</p>
+            <p className="text-caption text-ink-muted mt-2">Drop a Burpee</p>
           </div>
         ) : (
           <div className="flex flex-col items-center">
@@ -177,12 +178,16 @@ export default function Home() {
             </button>
             <button
               onClick={signInWithGoogle}
-              className="mt-4 text-caption text-ink-secondary"
+              className="mt-3 text-caption text-ink-secondary"
             >
               Already have an account? Sign in
             </button>
           </div>
         )}
+      </div>
+
+      <div className="mt-auto pt-3 w-full">
+        <YouTubeEmbed videoId="pZpr_WPCzf4" />
       </div>
     </div>
   );

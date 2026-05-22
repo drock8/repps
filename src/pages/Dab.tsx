@@ -516,7 +516,7 @@ export default function Dab() {
                     ? "Calibrating your position"
                     : "Line up with the outline"}
                 </p>
-                <div className="w-32 h-1 bg-bg-input rounded-pill overflow-hidden mt-3 mx-auto">
+                <div className="w-[80%] h-3 bg-bg-input rounded-pill overflow-hidden mt-4 mx-auto">
                   <div
                     className="h-full rounded-pill transition-all duration-150 ease-apple"
                     style={{
@@ -556,15 +556,12 @@ export default function Dab() {
             transform: "scaleX(-1)",
           }}
         />
-      </div>
-
-      {/* STOP button */}
-      <div className="w-full px-4 mt-4 mb-24">
+        {/* Floating "I'm Done" button — top-right of camera area */}
         <button
           onClick={handleStop}
-          className="w-full max-w-sm mx-auto block bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+          className="absolute top-3 right-3 z-30 bg-bg-base/80 backdrop-blur-sm text-ink-primary font-bold text-caption rounded-full h-14 w-14 flex items-center justify-center transition-all duration-200 ease-apple active:scale-90 shadow-lg"
         >
-          DONE
+          I'm<br/>Done
         </button>
       </div>
 
