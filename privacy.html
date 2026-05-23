@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Repps</title>
+<meta name="description" content="How Repps collects, uses, and protects your information.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --graphite-deep: #0E1015;
+    --graphite: #14171F;
+    --surface: #1A1E28;
+    --surface-elevated: #20242F;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+    --electric: #4F8BFF;
+    --electric-bright: #6BA0FF;
+    --electric-dim: rgba(79, 139, 255, 0.12);
+    --text: #ECEEF2;
+    --text-muted: #8A8E99;
+    --text-dim: #5C606B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--text);
+    background: var(--graphite-deep);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--hairline) 1px, transparent 1px),
+      linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+    background-size: 80px 80px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+    mask-image: radial-gradient(ellipse at top, rgba(0,0,0,0.5), transparent 70%);
+  }
+
+  /* Scroll progress */
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--electric);
+    width: 0%;
+    z-index: 100;
+    box-shadow: 0 0 12px var(--electric);
+    transition: width 0.1s ease-out;
+  }
+
+  /* Header */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(14, 16, 21, 0.72);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .header-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .wordmark {
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wordmark::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--electric);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--electric);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  .back-link {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .back-link:hover { color: var(--electric); }
+  .back-link::before { content: '←'; font-size: 14px; }
+
+  /* Hero */
+  .hero {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 100px 32px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .meta-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--electric);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.1s ease-out forwards;
+  }
+
+  .meta-line::before {
+    content: '';
+    width: 32px;
+    height: 1px;
+    background: var(--electric);
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: clamp(56px, 9vw, 112px);
+    line-height: 0.96;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: fadeUp 0.9s 0.2s ease-out forwards;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--electric);
+  }
+
+  .lede {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 640px;
+    font-weight: 300;
+    opacity: 0;
+    animation: fadeUp 0.9s 0.35s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Divider */
+  .divider {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .divider hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hairline-strong) 20%, var(--hairline-strong) 80%, transparent);
+  }
+
+  /* Content */
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 80px;
+  }
+
+  /* Sticky TOC */
+  nav.toc {
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+    font-size: 13px;
+  }
+
+  .toc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+  }
+
+  .toc li {
+    counter-increment: toc;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .toc a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.2s, transform 0.2s;
+    display: block;
+    position: relative;
+    padding-left: 26px;
+  }
+
+  .toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .toc a:hover {
+    color: var(--electric);
+    transform: translateX(2px);
+  }
+
+  .toc a:hover::before { color: var(--electric); }
+
+  /* Article */
+  article {
+    max-width: 680px;
+  }
+
+  section {
+    margin-bottom: 72px;
+    scroll-margin-top: 100px;
+  }
+
+  section .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--electric);
+    letter-spacing: 0.18em;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--text);
+    margin-bottom: 28px;
+  }
+
+  h3 {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--electric);
+    margin: 36px 0 14px;
+  }
+
+  p {
+    margin-bottom: 18px;
+    color: var(--text);
+  }
+
+  p strong { color: var(--text); font-weight: 600; }
+
+  a {
+    color: var(--electric);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(79, 139, 255, 0.3);
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  a:hover {
+    color: var(--electric-bright);
+    border-bottom-color: var(--electric-bright);
+  }
+
+  ul {
+    list-style: none;
+    margin: 18px 0;
+    padding: 0;
+  }
+
+  ul li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 10px;
+    height: 1px;
+    background: var(--electric);
+  }
+
+  /* Highlighted callout box */
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-left: 2px solid var(--electric);
+    padding: 24px 28px;
+    margin: 28px 0;
+    border-radius: 4px;
+  }
+
+  .callout p { margin: 0; color: var(--text); }
+
+  /* Table */
+  .table-wrap {
+    margin: 28px 0;
+    border: 1px solid var(--hairline);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th {
+    text-align: left;
+    padding: 14px 20px;
+    background: var(--surface-elevated);
+    font-weight: 600;
+    color: var(--text);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--text-muted);
+    vertical-align: top;
+  }
+
+  td:first-child {
+    color: var(--text);
+    font-weight: 500;
+    width: 38%;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--hairline);
+    background: var(--graphite);
+    padding: 60px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .footer-brand {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--text);
+  }
+
+  .footer-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  .footer-meta a {
+    color: var(--text-muted);
+    border-bottom: none;
+  }
+
+  .footer-meta a:hover { color: var(--electric); }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    .header-inner { padding: 16px 24px; }
+    .hero { padding: 72px 24px 56px; }
+    .divider { padding: 0 24px; }
+    main {
+      grid-template-columns: 1fr;
+      gap: 48px;
+      padding: 56px 24px 80px;
+    }
+    nav.toc {
+      position: static;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+    }
+    h2 { font-size: 30px; }
+    .footer-inner {
+      flex-direction: column;
+      gap: 24px;
+    }
+    .footer-meta { text-align: left; }
+    td:first-child { width: 42%; }
+    .header-inner { font-size: 14px; }
+  }
+
+  @media (max-width: 500px) {
+    body { font-size: 16px; }
+    .hero { padding: 56px 20px 48px; }
+    main { padding: 48px 20px 64px; }
+    th, td { padding: 12px 14px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header>
+  <div class="header-inner">
+    <a href="https://repps.pro" class="wordmark">repps</a>
+    <a href="https://repps.pro" class="back-link">Back to site</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="meta-line">Effective May 23, 2026</div>
+  <h1>Privacy <em>Policy</em></h1>
+  <p class="lede">How Repps collects, uses, and protects your information. Written to be readable — not to hide things.</p>
+</div>
+
+<div class="divider"><hr></div>
+
+<main>
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#intro">Introduction</a></li>
+      <li><a href="#collect">Information we collect</a></li>
+      <li><a href="#use">How we use it</a></li>
+      <li><a href="#ai">AI &amp; third parties</a></li>
+      <li><a href="#share">Sharing</a></li>
+      <li><a href="#retain">Retention</a></li>
+      <li><a href="#rights">Your rights</a></li>
+      <li><a href="#transfers">Data transfers</a></li>
+      <li><a href="#children">Children</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#cookies">Cookies</a></li>
+      <li><a href="#changes">Changes</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </nav>
+
+  <article>
+    <section id="intro">
+      <span class="section-number">§ 01</span>
+      <h2>Introduction</h2>
+      <p>This Privacy Policy describes how <strong>Clikk Inc.</strong> ("Repps," "we," "us," or "our") collects, uses, and shares information when you use Repps, available at <a href="https://repps.pro">repps.pro</a> (the "Service").</p>
+      <p>Repps is an AI-powered conversational rehearsal platform that lets you practice real-world conversations with AI personas and receive coaching feedback. We take your privacy seriously and are committed to handling your data transparently.</p>
+      <p>By using Repps, you agree to the practices described in this policy. If you don't agree, please don't use the Service.</p>
+    </section>
+
+    <section id="collect">
+      <span class="section-number">§ 02</span>
+      <h2>Information we collect</h2>
+
+      <h3>Account information</h3>
+      <p>When you create an account, we collect:</p>
+      <ul>
+        <li>Email address</li>
+        <li>Display name (if provided)</li>
+        <li>Authentication credentials, or basic profile info if you sign in via a third-party provider like Google</li>
+        <li>Optional profile details you choose to share</li>
+      </ul>
+
+      <h3>Conversation data</h3>
+      <p>Repps' core function is conversational rehearsal. We collect and process:</p>
+      <ul>
+        <li>Text inputs you provide during practice sessions</li>
+        <li>The scenarios, personas, and goals you configure</li>
+        <li>AI-generated persona responses and coaching feedback</li>
+        <li>Session metadata (duration, timestamps, outcomes)</li>
+      </ul>
+
+      <h3>Voice data</h3>
+      <p>Repps does not currently offer voice features. If we introduce voice in the future, audio will be processed solely to generate text transcripts, and we will not store the raw audio recordings. We'll update this policy and notify users before launching any voice functionality.</p>
+
+      <h3>Usage and device information</h3>
+      <p>Automatically collected when you use the Service:</p>
+      <ul>
+        <li>Device type, operating system, browser</li>
+        <li>IP address and approximate location (city/region level)</li>
+        <li>Pages visited, features used, time spent</li>
+        <li>Crash reports and performance diagnostics</li>
+      </ul>
+
+      <h3>Payment information</h3>
+      <p>If you subscribe to a paid plan, payment is processed by Stripe. We do not store full payment card details. We receive limited billing information (e.g., last 4 digits, billing country, subscription status) to manage your account.</p>
+
+      <h3>Communications</h3>
+      <p>If you contact us for support, we keep a record of the correspondence.</p>
+    </section>
+
+    <section id="use">
+      <span class="section-number">§ 03</span>
+      <h2>How we use your information</h2>
+      <p>We use your information to:</p>
+      <ul>
+        <li><strong>Provide the Service</strong> — run AI rehearsal sessions, generate feedback, save your history</li>
+        <li><strong>Personalize your experience</strong> — tailor scenarios and coaching to your goals</li>
+        <li><strong>Improve the Service</strong> — analyze aggregate usage patterns, debug issues, develop new features</li>
+        <li><strong>Communicate with you</strong> — send account notifications, support replies, and (with your consent) product updates</li>
+        <li><strong>Maintain safety and security</strong> — prevent abuse, fraud, and policy violations</li>
+        <li><strong>Comply with legal obligations</strong></li>
+      </ul>
+
+      <div class="callout">
+        <p><strong>We do not sell your personal information.</strong></p>
+      </div>
+
+      <h3>Training AI models</h3>
+      <p>We may use anonymized and aggregated conversation data to improve our coaching models. You can opt out in Settings at any time.</p>
+    </section>
+
+    <section id="ai">
+      <span class="section-number">§ 04</span>
+      <h2>AI processing &amp; third-party providers</h2>
+      <p>Repps relies on third-party services to operate. When you use the Service, relevant data is shared with:</p>
+
+      <h3>AI providers</h3>
+      <ul>
+        <li><strong>Anthropic (Claude)</strong> — generates persona responses and coaching feedback. Your conversation content is sent to Anthropic's API for processing. Anthropic does not use API content to train its models. <a href="https://www.anthropic.com/legal/privacy">See policy</a></li>
+      </ul>
+
+      <h3>Infrastructure and tools</h3>
+      <ul>
+        <li><strong>Supabase</strong> — database, authentication, and storage</li>
+        <li><strong>Vercel</strong> — application hosting and edge delivery</li>
+        <li><strong>[Analytics provider]</strong> — product analytics</li>
+        <li><strong>[Email provider]</strong> — transactional emails</li>
+        <li><strong>Stripe</strong> — subscription billing</li>
+      </ul>
+      <p>Each provider processes your data under its own privacy policy and our data processing agreements with them.</p>
+    </section>
+
+    <section id="share">
+      <span class="section-number">§ 05</span>
+      <h2>How we share information</h2>
+      <p>We share information only:</p>
+      <ul>
+        <li><strong>With the service providers above</strong>, under contractual confidentiality and data protection obligations</li>
+        <li><strong>For legal compliance</strong> — to comply with applicable law, legal process, or valid government requests</li>
+        <li><strong>To protect rights and safety</strong> — to enforce our Terms, prevent fraud, or protect users</li>
+        <li><strong>In a business transfer</strong> — if Repps is acquired, merged, or restructured, your information may transfer to the successor entity (you'll be notified)</li>
+        <li><strong>With your consent</strong> — for anything else</li>
+      </ul>
+      <p>We never sell your data to advertisers or data brokers.</p>
+    </section>
+
+    <section id="retain">
+      <span class="section-number">§ 06</span>
+      <h2>Data retention</h2>
+      <p>We retain your information for as long as your account is active, plus a reasonable period to meet legal obligations or resolve disputes.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Data type</th><th>Retention</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Account data</td><td>While account is active; deleted within 30 days of account deletion</td></tr>
+            <tr><td>Conversation history</td><td>While account is active; you can delete individual sessions any time</td></tr>
+            <tr><td>Backups</td><td>Purged within 90 days of deletion</td></tr>
+            <tr><td>Anonymized analytics</td><td>May be retained indefinitely</td></tr>
+            <tr><td>Billing records</td><td>As required by tax law (typically 7 years)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>You can request deletion at any time — see <a href="#rights">Your rights</a>.</p>
+    </section>
+
+    <section id="rights">
+      <span class="section-number">§ 07</span>
+      <h2>Your rights</h2>
+      <p>Depending on where you live, you may have the following rights:</p>
+      <ul>
+        <li><strong>Access</strong> — request a copy of the personal data we hold about you</li>
+        <li><strong>Correction</strong> — ask us to fix inaccurate or incomplete information</li>
+        <li><strong>Deletion</strong> — request deletion of your account and data</li>
+        <li><strong>Portability</strong> — receive your data in a machine-readable format</li>
+        <li><strong>Objection / restriction</strong> — object to or restrict certain processing</li>
+        <li><strong>Withdraw consent</strong> — where processing is based on consent</li>
+        <li><strong>Lodge a complaint</strong> with your local data protection authority</li>
+      </ul>
+      <p>To exercise these rights, email <a href="mailto:privacy@repps.pro">privacy@repps.pro</a>. We'll respond within 30 days.</p>
+
+      <h3>For California residents (CCPA/CPRA)</h3>
+      <p>You have rights to know, delete, correct, and opt out of any "sale" or "sharing" of personal information. <strong>We do not sell or share personal information</strong> as defined under California law. You will not be discriminated against for exercising these rights.</p>
+
+      <h3>For EEA/UK residents (GDPR)</h3>
+      <p>Our legal bases for processing are:</p>
+      <ul>
+        <li><strong>Contract performance</strong> — to provide the Service you signed up for</li>
+        <li><strong>Legitimate interests</strong> — to improve and secure the Service</li>
+        <li><strong>Consent</strong> — where required (e.g., marketing emails, optional AI training contribution)</li>
+        <li><strong>Legal obligation</strong> — where required by law</li>
+      </ul>
+    </section>
+
+    <section id="transfers">
+      <span class="section-number">§ 08</span>
+      <h2>International data transfers</h2>
+      <p>Repps is operated by Clikk Inc. in the United States. Your data is primarily processed in the United States and other jurisdictions where our service providers operate. Where we transfer data from the EEA or UK to the United States or other countries, we rely on appropriate safeguards such as Standard Contractual Clauses.</p>
+    </section>
+
+    <section id="children">
+      <span class="section-number">§ 09</span>
+      <h2>Children's privacy</h2>
+      <p>Repps is not intended for children under 16, and we do not knowingly collect personal information from anyone under 16. If you believe a child has provided us with personal information, please contact us and we'll delete it promptly.</p>
+    </section>
+
+    <section id="security">
+      <span class="section-number">§ 10</span>
+      <h2>Security</h2>
+      <p>We use industry-standard measures to protect your information, including:</p>
+      <ul>
+        <li>Encryption in transit (TLS) and at rest</li>
+        <li>Access controls and least-privilege permissions</li>
+        <li>Regular security reviews and dependency updates</li>
+        <li>Authentication via Supabase Auth</li>
+      </ul>
+      <p>No system is perfectly secure. We can't guarantee absolute security, but we work hard to protect your information. If we become aware of a breach affecting your data, we'll notify you and the relevant authorities as required by law.</p>
+    </section>
+
+    <section id="cookies">
+      <span class="section-number">§ 11</span>
+      <h2>Cookies &amp; similar technologies</h2>
+      <p>We use cookies and similar technologies to:</p>
+      <ul>
+        <li>Keep you signed in</li>
+        <li>Remember your preferences</li>
+        <li>Understand how the Service is used (analytics)</li>
+      </ul>
+      <p>You can control cookies through your browser settings. If you are visiting from the EEA or UK, you will be presented with a cookie consent banner where you can manage your preferences.</p>
+    </section>
+
+    <section id="changes">
+      <span class="section-number">§ 12</span>
+      <h2>Changes to this policy</h2>
+      <p>We may update this Privacy Policy from time to time. We'll post the updated version with a new effective date at the top. For material changes, we'll notify you via email or in the app before the changes take effect.</p>
+    </section>
+
+    <section id="contact">
+      <span class="section-number">§ 13</span>
+      <h2>Contact us</h2>
+      <p>For privacy questions, requests, or concerns:</p>
+      <div class="callout">
+        <p><strong>Email</strong> &nbsp;·&nbsp; <a href="mailto:privacy@repps.pro">privacy@repps.pro</a></p>
+        <p style="margin-top:8px;"><strong>Mail</strong> &nbsp;·&nbsp; Clikk Inc., 995 Market St, San Francisco, CA 94103, USA</p>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">repps</div>
+    <div class="footer-meta">
+      Clikk Inc. · San Francisco<br>
+      <a href="mailto:privacy@repps.pro">privacy@repps.pro</a><br>
+      Last updated 05.23.2026
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll progress
+  const progress = document.getElementById('progress');
+  function updateProgress() {
+    const h = document.documentElement;
+    const scrolled = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    progress.style.width = scrolled + '%';
+  }
+  document.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  // Highlight current TOC section
+  const tocLinks = document.querySelectorAll('.toc a');
+  const sections = document.querySelectorAll('section[id]');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        tocLinks.forEach(link => {
+          if (link.getAttribute('href') === '#' + id) {
+            link.style.color = 'var(--electric)';
+            link.querySelector && link.classList.add('active');
+          } else {
+            link.style.color = '';
+          }
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
