@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terms of Service — REPPs</title>
+<meta name="description" content="The rules of the road for using Repps.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --graphite-deep: #0E1015;
+    --graphite: #14171F;
+    --surface: #1A1E28;
+    --surface-elevated: #20242F;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+    --electric: #4F8BFF;
+    --electric-bright: #6BA0FF;
+    --electric-dim: rgba(79, 139, 255, 0.12);
+    --text: #ECEEF2;
+    --text-muted: #8A8E99;
+    --text-dim: #5C606B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--text);
+    background: var(--graphite-deep);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--hairline) 1px, transparent 1px),
+      linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+    background-size: 80px 80px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+    mask-image: radial-gradient(ellipse at top, rgba(0,0,0,0.5), transparent 70%);
+  }
+
+  .progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--electric);
+    width: 0%;
+    z-index: 100;
+    box-shadow: 0 0 12px var(--electric);
+    transition: width 0.1s ease-out;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(14, 16, 21, 0.72);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .header-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .wordmark {
+    font-family: 'Instrument Serif', serif;
+    font-size: 24px;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .wordmark::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--electric);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--electric);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  .back-link {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .back-link:hover { color: var(--electric); }
+  .back-link::before { content: '←'; font-size: 14px; }
+
+  .hero {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 100px 32px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .meta-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--electric);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.1s ease-out forwards;
+  }
+
+  .meta-line::before {
+    content: '';
+    width: 32px;
+    height: 1px;
+    background: var(--electric);
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: clamp(56px, 9vw, 112px);
+    line-height: 0.96;
+    letter-spacing: -0.025em;
+    color: var(--text);
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: fadeUp 0.9s 0.2s ease-out forwards;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--electric);
+  }
+
+  .lede {
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 640px;
+    font-weight: 300;
+    opacity: 0;
+    animation: fadeUp 0.9s 0.35s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .divider {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .divider hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hairline-strong) 20%, var(--hairline-strong) 80%, transparent);
+  }
+
+  main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 80px;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+    font-size: 13px;
+  }
+
+  .toc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .toc ol {
+    list-style: none;
+    counter-reset: toc;
+  }
+
+  .toc li {
+    counter-increment: toc;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .toc a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.2s, transform 0.2s;
+    display: block;
+    position: relative;
+    padding-left: 26px;
+  }
+
+  .toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .toc a:hover {
+    color: var(--electric);
+    transform: translateX(2px);
+  }
+
+  .toc a:hover::before { color: var(--electric); }
+
+  article {
+    max-width: 680px;
+  }
+
+  section {
+    margin-bottom: 72px;
+    scroll-margin-top: 100px;
+  }
+
+  section .section-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--electric);
+    letter-spacing: 0.18em;
+    margin-bottom: 14px;
+    display: block;
+  }
+
+  h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 38px;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--text);
+    margin-bottom: 28px;
+  }
+
+  h3 {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--electric);
+    margin: 36px 0 14px;
+  }
+
+  p {
+    margin-bottom: 18px;
+    color: var(--text);
+  }
+
+  p strong { color: var(--text); font-weight: 600; }
+
+  a {
+    color: var(--electric);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(79, 139, 255, 0.3);
+    transition: border-color 0.2s, color 0.2s;
+  }
+
+  a:hover {
+    color: var(--electric-bright);
+    border-bottom-color: var(--electric-bright);
+  }
+
+  ul {
+    list-style: none;
+    margin: 18px 0;
+    padding: 0;
+  }
+
+  ul li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 10px;
+    height: 1px;
+    background: var(--electric);
+  }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-left: 2px solid var(--electric);
+    padding: 24px 28px;
+    margin: 28px 0;
+    border-radius: 4px;
+  }
+
+  .callout p { margin: 0; color: var(--text); }
+  .callout p + p { margin-top: 12px; }
+
+  /* Caps disclaimer styling */
+  .caps {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  footer {
+    border-top: 1px solid var(--hairline);
+    background: var(--graphite);
+    padding: 60px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+
+  .footer-brand {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--text);
+  }
+
+  .footer-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-align: right;
+    line-height: 1.8;
+  }
+
+  .footer-meta a {
+    color: var(--text-muted);
+    border-bottom: none;
+  }
+
+  .footer-meta a:hover { color: var(--electric); }
+
+  @media (max-width: 900px) {
+    .header-inner { padding: 16px 24px; }
+    .hero { padding: 72px 24px 56px; }
+    .divider { padding: 0 24px; }
+    main {
+      grid-template-columns: 1fr;
+      gap: 48px;
+      padding: 56px 24px 80px;
+    }
+    nav.toc {
+      position: static;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+    }
+    h2 { font-size: 30px; }
+    .footer-inner {
+      flex-direction: column;
+      gap: 24px;
+    }
+    .footer-meta { text-align: left; }
+  }
+
+  @media (max-width: 500px) {
+    body { font-size: 16px; }
+    .hero { padding: 56px 20px 48px; }
+    main { padding: 48px 20px 64px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+
+<header>
+  <div class="header-inner">
+    <a href="https://repps.pro" class="wordmark">REPPs</a>
+    <a href="https://repps.pro" class="back-link">Back to site</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="meta-line">Effective May 23, 2026</div>
+  <h1>Terms of <em>Service</em></h1>
+  <p class="lede">The rules of the road for using Repps. Written to be readable — please take a few minutes to actually read them.</p>
+</div>
+
+<div class="divider"><hr></div>
+
+<main>
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#accept">Acceptance</a></li>
+      <li><a href="#service">The Service</a></li>
+      <li><a href="#eligibility">Eligibility</a></li>
+      <li><a href="#account">Your account</a></li>
+      <li><a href="#use">Acceptable use</a></li>
+      <li><a href="#content">Your content</a></li>
+      <li><a href="#ai">AI-generated output</a></li>
+      <li><a href="#subscriptions">Subscriptions &amp; billing</a></li>
+      <li><a href="#ip">Our IP</a></li>
+      <li><a href="#third-party">Third-party services</a></li>
+      <li><a href="#termination">Termination</a></li>
+      <li><a href="#disclaimer">Disclaimers</a></li>
+      <li><a href="#liability">Liability</a></li>
+      <li><a href="#indemnity">Indemnification</a></li>
+      <li><a href="#law">Governing law</a></li>
+      <li><a href="#changes">Changes</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </nav>
+
+  <article>
+    <section id="accept">
+      <span class="section-number">§ 01</span>
+      <h2>Acceptance of these terms</h2>
+      <p>Welcome to Repps. These Terms of Service ("Terms") form a binding agreement between you and <strong>Clikk Inc.</strong> ("Repps," "we," "us," or "our") regarding your use of Repps, available at <a href="https://repps.pro">repps.pro</a> and any related applications (collectively, the "Service").</p>
+      <p>By creating an account, accessing, or using the Service, you agree to these Terms and to our <a href="/privacy">Privacy Policy</a>. If you don't agree, don't use the Service.</p>
+    </section>
+
+    <section id="service">
+      <span class="section-number">§ 02</span>
+      <h2>What Repps is</h2>
+      <p>Repps is an AI-powered conversational rehearsal platform. You configure a scenario, persona, and goal, then practice the conversation with an AI persona while a second AI agent observes and provides coaching feedback.</p>
+      <p>Repps is designed for personal development and skill practice. It is <strong>not</strong> a substitute for professional advice — including but not limited to legal, medical, psychological, therapeutic, or financial advice — and should not be used as such.</p>
+    </section>
+
+    <section id="eligibility">
+      <span class="section-number">§ 03</span>
+      <h2>Eligibility</h2>
+      <p>You must be at least <strong>16 years old</strong> to use Repps. If you are under the age of majority in your jurisdiction, you represent that your parent or legal guardian has reviewed and agreed to these Terms on your behalf.</p>
+      <p>You may not use the Service if you are barred from doing so under applicable law, or if your account has previously been terminated for violations of these Terms.</p>
+    </section>
+
+    <section id="account">
+      <span class="section-number">§ 04</span>
+      <h2>Your account</h2>
+      <p>To use most features, you need an account. You agree to:</p>
+      <ul>
+        <li>Provide accurate, current, and complete information</li>
+        <li>Keep your credentials confidential and secure</li>
+        <li>Notify us immediately of any unauthorized access at <a href="mailto:security@repps.pro">security@repps.pro</a></li>
+        <li>Be responsible for all activity that occurs under your account</li>
+      </ul>
+      <p>We may suspend or terminate accounts that show signs of compromise, abuse, or violation of these Terms.</p>
+    </section>
+
+    <section id="use">
+      <span class="section-number">§ 05</span>
+      <h2>Acceptable use</h2>
+      <p>You agree <strong>not</strong> to:</p>
+      <ul>
+        <li>Use the Service to plan, rehearse, or facilitate illegal activity, harassment, abuse, threats, fraud, or harm to any person</li>
+        <li>Generate content that sexualizes minors, promotes violence, or violates anyone's rights</li>
+        <li>Impersonate any real person without their consent, including in the personas you create</li>
+        <li>Attempt to extract, reverse engineer, or replicate the underlying AI models, system prompts, or coaching logic</li>
+        <li>Scrape, crawl, or use automated means to access the Service beyond normal use</li>
+        <li>Circumvent rate limits, paywalls, or access controls</li>
+        <li>Probe, scan, or test the vulnerability of the Service without authorization</li>
+        <li>Use the Service to develop a competing product</li>
+        <li>Resell, sublicense, or otherwise commercially exploit the Service without our written permission</li>
+      </ul>
+      <p>We may remove content or suspend access at any time if we reasonably believe these rules have been violated.</p>
+    </section>
+
+    <section id="content">
+      <span class="section-number">§ 06</span>
+      <h2>Your content</h2>
+      <p><strong>You own what you write.</strong> You retain all rights to the scenarios, prompts, personas, and inputs you create on Repps ("Your Content").</p>
+      <p>You grant us a limited, worldwide, non-exclusive, royalty-free license to host, store, process, transmit, and display Your Content solely to operate, secure, and improve the Service for you. This license ends when you delete the content or your account, except where we need to retain copies for legal compliance or in backups (which are purged on the schedule described in our <a href="/privacy">Privacy Policy</a>).</p>
+      <p>You represent that Your Content does not violate any law or third-party right, and that you have the necessary permissions for anything you submit.</p>
+    </section>
+
+    <section id="ai">
+      <span class="section-number">§ 07</span>
+      <h2>AI-generated output</h2>
+      <p>Repps generates persona responses and coaching feedback using large language models. You should understand:</p>
+      <ul>
+        <li><strong>AI outputs can be wrong, misleading, or biased.</strong> Treat coaching feedback as one input, not as authoritative truth</li>
+        <li><strong>Outputs are not advice.</strong> Coaching is not legal, medical, psychological, or financial advice. For decisions with real consequences, consult a qualified professional</li>
+        <li><strong>Personas are fictional.</strong> Even when a persona is named after or modeled on a real situation, what they "say" is generated by an AI and does not reflect the views of any actual person</li>
+        <li><strong>Don't rely on Repps for crisis situations.</strong> If you are in immediate danger or experiencing a mental health crisis, contact local emergency services or a crisis line</li>
+      </ul>
+      <p>To the extent permitted by law, AI-generated outputs are provided to you for your personal use under the same license as the Service itself; we make no warranty about your ability to claim copyright in those outputs.</p>
+    </section>
+
+    <section id="subscriptions">
+      <span class="section-number">§ 08</span>
+      <h2>Subscriptions &amp; billing</h2>
+      <p>Repps offers free and paid tiers. Paid subscriptions are billed in advance on a recurring basis (monthly or annually) through our payment processor, Stripe.</p>
+      <h3>Auto-renewal</h3>
+      <p>Your subscription renews automatically at the end of each billing period unless you cancel before the renewal date. You can cancel any time from your account settings; cancellation takes effect at the end of the current billing period.</p>
+      <h3>Refunds</h3>
+      <p>Except where required by law, payments are non-refundable. We may, at our discretion, offer prorated refunds in cases of billing errors or extended service outages.</p>
+      <h3>Price changes</h3>
+      <p>We may change subscription prices. We'll notify you at least 30 days before any price change takes effect for your subscription, and you can cancel before the new price applies.</p>
+      <h3>Taxes</h3>
+      <p>Prices may exclude applicable taxes, which will be added at checkout where required.</p>
+    </section>
+
+    <section id="ip">
+      <span class="section-number">§ 09</span>
+      <h2>Our intellectual property</h2>
+      <p>The Repps name, brand, design, code, prompts, coaching frameworks, and underlying technology are owned by Clikk Inc. and protected by copyright, trademark, and other intellectual property laws.</p>
+      <p>We grant you a limited, non-exclusive, non-transferable, revocable license to access and use the Service for your personal, non-commercial use, subject to these Terms. We reserve all rights not expressly granted.</p>
+    </section>
+
+    <section id="third-party">
+      <span class="section-number">§ 10</span>
+      <h2>Third-party services</h2>
+      <p>Repps integrates with third-party providers, including Anthropic, Supabase, Vercel, and Stripe. Your use of those services through Repps is also subject to their respective terms. We are not responsible for third-party services and don't endorse them beyond their role in delivering Repps.</p>
+    </section>
+
+    <section id="termination">
+      <span class="section-number">§ 11</span>
+      <h2>Termination</h2>
+      <p><strong>By you:</strong> You can delete your account any time from settings or by emailing <a href="mailto:privacy@repps.pro">privacy@repps.pro</a>.</p>
+      <p><strong>By us:</strong> We may suspend or terminate your access if you violate these Terms, if your account is inactive for an extended period, if required by law, or if we discontinue the Service. Where reasonable, we'll give you notice and an opportunity to cure.</p>
+      <p>Sections that by their nature should survive termination — including IP, disclaimers, liability, indemnification, and governing law — will survive.</p>
+    </section>
+
+    <section id="disclaimer">
+      <span class="section-number">§ 12</span>
+      <h2>Disclaimers</h2>
+      <div class="callout">
+        <p class="caps">THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR ACCURACY OF AI-GENERATED CONTENT.</p>
+        <p class="caps">WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, ERROR-FREE, OR FREE FROM HARMFUL COMPONENTS, OR THAT AI OUTPUTS WILL BE ACCURATE, COMPLETE, OR APPROPRIATE FOR YOUR PURPOSES.</p>
+      </div>
+      <p>Some jurisdictions don't allow certain warranty exclusions, so portions of this section may not apply to you.</p>
+    </section>
+
+    <section id="liability">
+      <span class="section-number">§ 13</span>
+      <h2>Limitation of liability</h2>
+      <div class="callout">
+        <p class="caps">TO THE MAXIMUM EXTENT PERMITTED BY LAW, CLIKK INC. AND ITS OFFICERS, EMPLOYEES, AND AFFILIATES WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR GOODWILL, ARISING OUT OF OR RELATED TO YOUR USE OF THE SERVICE.</p>
+        <p class="caps">OUR TOTAL LIABILITY FOR ANY CLAIM ARISING OUT OF OR RELATING TO THE SERVICE WILL NOT EXCEED THE GREATER OF (A) THE AMOUNTS YOU PAID US IN THE 12 MONTHS BEFORE THE CLAIM, OR (B) USD $100.</p>
+      </div>
+      <p>Some jurisdictions don't allow these limitations, so portions of this section may not apply to you.</p>
+    </section>
+
+    <section id="indemnity">
+      <span class="section-number">§ 14</span>
+      <h2>Indemnification</h2>
+      <p>You agree to defend, indemnify, and hold harmless Clikk Inc. from any claim, damage, or expense (including reasonable legal fees) arising out of your violation of these Terms, your misuse of the Service, or your infringement of any third-party right.</p>
+    </section>
+
+    <section id="law">
+      <span class="section-number">§ 15</span>
+      <h2>Governing law &amp; disputes</h2>
+      <p>These Terms are governed by the laws of the State of California, without regard to its conflict of laws principles. Any dispute arising out of these Terms or the Service will be resolved in the state or federal courts located in San Francisco, California, and you consent to personal jurisdiction there.</p>
+      <p>If you are a consumer resident in the EEA, UK, or other jurisdictions with mandatory consumer protection laws, nothing in this section limits your right to bring proceedings in your local courts under your local law.</p>
+    </section>
+
+    <section id="changes">
+      <span class="section-number">§ 16</span>
+      <h2>Changes to these terms</h2>
+      <p>We may update these Terms from time to time. We'll post the updated version with a new effective date at the top. For material changes, we'll notify you via email or in the app at least 14 days before they take effect. Continued use of the Service after changes take effect constitutes acceptance.</p>
+    </section>
+
+    <section id="contact">
+      <span class="section-number">§ 17</span>
+      <h2>Contact us</h2>
+      <p>Questions about these Terms?</p>
+      <div class="callout">
+        <p><strong>Email</strong> &nbsp;·&nbsp; <a href="mailto:hello@repps.pro">hello@repps.pro</a></p>
+        <p><strong>Mail</strong> &nbsp;·&nbsp; Clikk Inc., 995 Market St, San Francisco, CA 94103, USA</p>
+      </div>
+    </section>
+  </article>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">REPPs</div>
+    <div class="footer-meta">
+      Clikk Inc. · San Francisco<br>
+      <a href="mailto:hello@repps.pro">hello@repps.pro</a><br>
+      Last updated 05.23.2026
+    </div>
+  </div>
+</footer>
+
+<script>
+  const progress = document.getElementById('progress');
+  function updateProgress() {
+    const h = document.documentElement;
+    const scrolled = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+    progress.style.width = scrolled + '%';
+  }
+  document.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  const tocLinks = document.querySelectorAll('.toc a');
+  const sections = document.querySelectorAll('section[id]');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        tocLinks.forEach(link => {
+          if (link.getAttribute('href') === '#' + id) {
+            link.style.color = 'var(--electric)';
+          } else {
+            link.style.color = '';
+          }
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
