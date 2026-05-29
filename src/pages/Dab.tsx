@@ -397,28 +397,33 @@ export default function Dab() {
   }, [profile, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
-    // Show summary immediately — never block on recording or network
-    setScreen("summary");
-
-    // Stop detection loop
+    // 1. Stop detection loop immediately
     cancelAnimationFrame(animationIdRef.current);
 
-    // Try to capture video blob (non-blocking — summary already showing)
+    // 2. Capture video blob BEFORE changing screen state.
+    //    setScreen("summary") triggers useEffect cleanup which kills stream
+    //    tracks — the recorder needs them alive to flush its final data.
+    let blob: Blob | null = null;
     try {
       if (recorderRef.current?.isRecording) {
-        const blob = await recorderRef.current.stop();
-        if (blob.size > 0) {
-          setRecordedBlob(blob);
-          setRecordedUrl(URL.createObjectURL(blob));
-        }
+        blob = await recorderRef.current.stop();
       }
     } catch {
-      // Recording failed — summary shows without video
+      // Recording failed — continue without video
     }
 
+    // 3. Tear down camera + landmarker
     stopCamera();
 
-    // Fetch totals in background — summary renders with 0s until these resolve
+    // 4. NOW transition to summary — useEffect cleanup is a no-op since
+    //    we already cleaned up above
+    if (blob && blob.size > 0) {
+      setRecordedBlob(blob);
+      setRecordedUrl(URL.createObjectURL(blob));
+    }
+    setScreen("summary");
+
+    // 5. Fetch totals — summary already visible, these fill in when ready
     try {
       const [userResult, globalResult] = await Promise.all([
         supabase
