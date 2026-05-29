@@ -109,7 +109,6 @@ export class DetectionEngineV2 {
   private ratioBuffer: number[] = [];
   private calibrationHeights: number[] = [];
   private standingHeight = 0;
-  private standingTorsoLength = 0;
   private thresholds: V2Thresholds;
   private cameraAngle: CameraAngle = "unknown";
   private angleVotes: { front: number; side: number } = { front: 0, side: 0 };
@@ -119,7 +118,6 @@ export class DetectionEngineV2 {
   private isStable = false;
 
   // Descent tracking
-  private descentStartTime = 0;
   private reachedDown = false;
 
   // Diagnostics
@@ -160,7 +158,7 @@ export class DetectionEngineV2 {
     this.repState = "UNKNOWN";
     this.lowEnteredTime = 0;
     this.ratioBuffer = [];
-    this.descentStartTime = 0;
+
     this.reachedDown = false;
     this.lastHipAngle = 180;
     this.lastKneeAngle = 180;
@@ -169,12 +167,12 @@ export class DetectionEngineV2 {
 
   recalibrate() {
     this.standingHeight = 0;
-    this.standingTorsoLength = 0;
+
     this.calibrationHeights = [];
     this.ratioBuffer = [];
     this.repState = "UNKNOWN";
     this.lowEnteredTime = 0;
-    this.descentStartTime = 0;
+
     this.reachedDown = false;
     this.isStable = false;
     this.stabilityFrames = [];
@@ -370,11 +368,6 @@ export class DetectionEngineV2 {
         const sorted = [...this.calibrationHeights].sort((a, b) => a - b);
         this.standingHeight = sorted[Math.floor(sorted.length * 0.5)];
 
-        // Compute standing torso length for reference
-        this.standingTorsoLength = Math.abs(
-          (lm.lHip.y + lm.rHip.y) / 2 - (lm.lShoulder.y + lm.rShoulder.y) / 2
-        );
-
         // Determine camera angle by majority vote
         const totalVotes = this.angleVotes.front + this.angleVotes.side;
         const frontRatio = this.angleVotes.front / totalVotes;
@@ -439,7 +432,6 @@ export class DetectionEngineV2 {
         // Enter DESCENDING when ratio drops into or below hysteresis zone
         if (r < t.highRatio - 0.05) {
           this.repState = "DESCENDING";
-          this.descentStartTime = now;
           this.reachedDown = false;
           stateChanged = true;
         }
