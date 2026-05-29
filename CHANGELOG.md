@@ -1,13 +1,16 @@
 # Changelog
 
-## Fix audio volume, iOS recording hang, and share sheet (2026-05-29)
+## Fix video preview, audio volume, iOS recording, and share (2026-05-29)
 
 ### Fixed
+- **Video preview not showing on summary** — `stopCamera()` was killing stream tracks before the recorder finished flushing its final data, producing an empty blob. Now the detection loop stops first, recorder flushes with `requestData()`, blob is captured, and only then is the camera torn down.
+- **Video player appeared blank on iOS** — removed forced `aspectRatio: 3/4` and `objectFit: cover` that hid content before metadata loaded. Added `autoPlay`, `muted`, and `preload="auto"` so iOS Safari plays inline immediately.
 - **Audio too quiet** — ElevenLabs TTS clips were barely audible. Added a GainNode (3.0x) in the audio pipeline between BufferSource and destination, applied to both cached and fetch-then-play paths in `repAudio.ts`.
 - **Summary screen stuck on iOS Safari** — tapping "I'm Done" could produce a black screen because `MediaRecorder.stop()` never fired `onstop` on iOS. Added a 2-second timeout in `videoRecorder.ts` that resolves with whatever chunks exist. Wrapped recorder stop in try/catch in `Dab.tsx` so summary always renders even if recording fails.
+- **iOS Photos compatibility** — MediaRecorder now prefers `video/mp4` codec over `video/webm`, since iOS Photos doesn't support WebM files.
 
 ### Changed
-- **SAVE VIDEO → SHARE VIDEO** — replaced browser download with Web Share API (`navigator.share({ files })`) which opens the native share sheet on iOS/Android (Save to Photos, Instagram, WhatsApp, AirDrop, etc.). Falls back to file download on desktop browsers that don't support file sharing.
+- **SAVE VIDEO → SHARE VIDEO + SAVE TO FILES** — primary button uses Web Share API (`navigator.share({ files })`) which opens the native share sheet on iOS/Android (Save to Photos, Instagram, WhatsApp, AirDrop, etc.). Secondary "SAVE TO FILES" button provides direct download fallback. Falls back to download on desktop browsers that don't support file sharing.
 
 ## Audio rep counting + branded video recording (2026-05-29)
 
