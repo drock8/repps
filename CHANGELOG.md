@@ -1,5 +1,14 @@
 # Changelog
 
+## Summary action bar + video playback fix (2026-05-29)
+
+### Changed
+- **Action bar redesign** — Home, Share, Save buttons now sit in a single unified bar with dividers, pinned directly above bottom nav. Order: Home | Share | Save. Share uses accent color.
+
+### Fixed
+- **Video playback on iOS Safari** — added explicit `load()` + `play()` via ref callback since iOS ignores `autoPlay` on blob URLs. Set `aspectRatio: 9/16` with `objectFit: contain` for proper portrait display.
+- **CLAUDE.md build plan** — Phases 4 and 5 now correctly marked as Done.
+
 ## Fix video preview, audio volume, iOS recording, and share (2026-05-29)
 
 ### Fixed

@@ -40,8 +40,8 @@ We're building in 6 phases. Phase A is the foundation; D is the hero demo moment
 | 1 | Design foundation + routing + auth context + profile auto-create + bottom nav | **Done** |
 | 2 | HOME screen — live Total Global Burpees from DB, target progress, DAB NOW / JOIN states | **Done** |
 | 3 | DAB NOW flow — camera + pose detection writing reps to DB + session summary | **Done** |
-| 4 | Live activity feed + floating bubble animations on HOME | Not started |
-| 5 | LEADERBOARD page — Female/Male/Non-binary × Day/Week/Month/Year/All filtering | Not started |
+| 4 | Live activity feed + floating bubble animations on HOME | **Done** |
+| 5 | LEADERBOARD page — Female/Male/Non-binary × Day/Week/Month/Year/All filtering | **Done** |
 | 6 | PROFILE + first-login gender prompt + Vercel deploy + poster + README | **Done** |
 
 **All phases complete.**

@@ -463,16 +463,23 @@ export default function Dab() {
         </div>
 
         {/* Video preview — fills remaining space */}
-        <div className="flex-1 min-h-0 flex items-center justify-center px-6 py-2">
+        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-2">
           {recordedUrl ? (
             <video
+              ref={(el) => {
+                if (el) {
+                  el.load();
+                  el.play().catch(() => {});
+                }
+              }}
               src={recordedUrl}
               controls
               playsInline
               autoPlay
               muted
               preload="auto"
-              className="max-h-full max-w-full rounded-xl"
+              className="h-full rounded-xl"
+              style={{ aspectRatio: "9/16", objectFit: "contain" }}
             />
           ) : (
             <p className="text-body text-ink-muted">
@@ -481,10 +488,20 @@ export default function Dab() {
           )}
         </div>
 
-        {/* Action buttons — compact row pinned above nav */}
-        <div className="flex gap-2 px-4 pb-20 pt-2">
+        {/* Action bar — pinned directly above bottom nav */}
+        <div className="bg-bg-elevated mx-4 mb-[76px] rounded-xl flex">
+          <button
+            onClick={() => {
+              if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+              navigate("/");
+            }}
+            className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
+          >
+            Home
+          </button>
           {recordedBlob && (
             <>
+              <div className="w-px my-2 bg-divider" />
               <button
                 onClick={async () => {
                   const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
@@ -505,30 +522,22 @@ export default function Dab() {
                     downloadBlob(recordedBlob, filename);
                   }
                 }}
-                className="flex-1 bg-accent text-ink-inverse font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
+                className="flex-1 py-3 text-accent font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
               >
                 Share
               </button>
+              <div className="w-px my-2 bg-divider" />
               <button
                 onClick={() => {
                   const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
                   downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
                 }}
-                className="flex-1 bg-bg-elevated text-ink-primary font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
+                className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
               >
                 Save
               </button>
             </>
           )}
-          <button
-            onClick={() => {
-              if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-              navigate("/");
-            }}
-            className="flex-1 bg-bg-elevated text-ink-primary font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
-          >
-            Home
-          </button>
         </div>
       </div>
     );
