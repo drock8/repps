@@ -462,24 +462,14 @@ export default function Dab() {
           </div>
         </div>
 
-        {/* Video preview — fills remaining space */}
-        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-2">
+        {/* Video preview — fills remaining space, no scroll */}
+        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-1">
           {recordedUrl ? (
             <video
-              ref={(el) => {
-                if (el) {
-                  el.load();
-                  el.play().catch(() => {});
-                }
-              }}
               src={recordedUrl}
               controls
               playsInline
-              autoPlay
-              muted
-              preload="auto"
-              className="h-full rounded-xl"
-              style={{ aspectRatio: "9/16", objectFit: "contain" }}
+              className="max-h-full rounded-xl"
             />
           ) : (
             <p className="text-body text-ink-muted">
