@@ -1,5 +1,24 @@
 # Changelog
 
+## V2 Burpee Detection Engine with stability guard + side-view support (2026-05-29)
+
+### Added
+- **Detection engine V2** (`src/lib/detectionV2.ts`) — enhanced burpee verification with:
+  - **2-second stability guard** — phone must be stationary (centroid drift < 0.015 stddev over 20+ frames) before calibration starts. Prevents accidental reps while placing the phone on the ground.
+  - **Automatic camera angle detection** — votes front vs side during calibration by measuring shoulder X-spread, Z-depth difference, and visibility asymmetry. Locks angle for the session.
+  - **Side-view joint angle calculations** — hip angle, knee angle, torso angle from vertical for biomechanically precise verification from the side
+  - **4-state machine** — `STANDING → DESCENDING → DOWN → ASCENDING → STANDING` replaces simple `HIGH/LOW`, preventing partial movements from counting
+  - **minDuration guard** — rejects reps faster than 1.5s (front) or 2s (side) to filter jitter
+  - **Angle-specific thresholds** — front (highRatio 0.70, lowRatio 0.50) vs side (highRatio 0.68, lowRatio 0.40)
+- **Detection engine V1** (`src/lib/detectionV1.ts`) — original working detection extracted into a standalone class, identical logic preserved
+
+### Changed
+- `Dab.tsx` refactored to use pluggable detection engine classes instead of inline logic
+- Default engine is V2; admin can force V1 via `?v=1` URL parameter for instant rollback
+- Pre-calibration UI shows "Place your phone down / Finding a stable position…" during stability check (V2 only)
+- Debug strip shows detected camera angle (front/side) after calibration (V2)
+- Tune mode panel shows engine version, camera angle, and side-view joint angles
+
 ## Fix gender prompt delay after selection (2026-05-22)
 
 ### Fixed

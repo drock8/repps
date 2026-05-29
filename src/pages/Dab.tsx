@@ -7,26 +7,23 @@ import {
   FilesetResolver,
   DrawingUtils,
 } from "@mediapipe/tasks-vision";
+import { DetectionEngineV1, DEFAULT_THRESHOLDS as V1_DEFAULTS } from "../lib/detectionV1";
+import { DetectionEngineV2 } from "../lib/detectionV2";
+import type { Landmark } from "../lib/detectionV1";
+import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
 
-type RepState = "HIGH" | "LOW" | "UNKNOWN";
 type Screen = "detecting" | "summary";
+type EngineVersion = "v1" | "v2";
 
 const CALIBRATION_FRAMES = 30;
-const MIN_VISIBILITY = 0.5;
-const SMOOTHING_WINDOW = 4;
-const MIN_LOW_DWELL_MS = 150;
-
-const DEFAULT_THRESHOLDS = {
-  highRatio: 0.72,
-  lowRatio: 0.58,
-  maxDuration: 12000,
-};
 
 export default function Dab() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
+  // Admin-only: ?v=1 forces V1 engine, default is V2
+  const engineVersion: EngineVersion = searchParams.get("v") === "1" ? "v1" : "v2";
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,21 +31,15 @@ export default function Dab() {
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationIdRef = useRef(0);
 
-  const repStateRef = useRef<RepState>("UNKNOWN");
-  const lastHighTimeRef = useRef(0);
-  const hasBeenLowRef = useRef(false);
+  const engineV1Ref = useRef<DetectionEngineV1 | null>(null);
+  const engineV2Ref = useRef<DetectionEngineV2 | null>(null);
+
   const repCountRef = useRef(0);
-  const lowEnteredTimeRef = useRef(0);
-
-  const thresholdsRef = useRef({ ...DEFAULT_THRESHOLDS });
-
-  const ratioBufferRef = useRef<number[]>([]);
-  const calibrationHeights = useRef<number[]>([]);
-  const standingHeightRef = useRef<number>(0);
+  const calibratedRef = useRef(false);
 
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
-  const [currentState, setCurrentState] = useState<RepState>("UNKNOWN");
+  const [currentState, setCurrentState] = useState<string>("UNKNOWN");
   const [ratio, setRatio] = useState(0);
   const [calibrated, setCalibrated] = useState(false);
   const [calibrationCount, setCalibrationCount] = useState(0);
@@ -61,14 +52,21 @@ export default function Dab() {
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
 
-  const [alignmentStatus, setAlignmentStatus] = useState<"no-pose" | "too-close" | "too-far" | "off-center" | "aligned">("no-pose");
+  const [alignmentStatus, setAlignmentStatus] = useState<string>("no-pose");
 
-  const [tuneValues, setTuneValues] = useState({ ...DEFAULT_THRESHOLDS });
+  const [tuneValues, setTuneValues] = useState({ ...V1_DEFAULTS });
   const [tuneOpen, setTuneOpen] = useState(true);
   const [stateLog, setStateLog] = useState<string[]>([]);
   const lastSignalUpdateRef = useRef(0);
 
-  // Auth guard — wait for auth to finish loading before redirecting
+  // V2-specific display state
+  const [cameraAngle, setCameraAngle] = useState<CameraAngle>("unknown");
+  const [stabilityStatus, setStabilityStatus] = useState<StabilityStatus>("unstable");
+  const [stabilityProgress, setStabilityProgress] = useState(0);
+  const [hipAngle, setHipAngle] = useState(180);
+  const [kneeAngle, setKneeAngle] = useState(180);
+  const [torsoAngle, setTorsoAngle] = useState(0);
+
   useEffect(() => {
     if (!authLoading && !profile) navigate("/", { replace: true });
   }, [authLoading, profile, navigate]);
@@ -97,6 +95,15 @@ export default function Dab() {
     if (!profile || screen !== "detecting") return;
 
     let cancelled = false;
+
+    // Initialize the selected detection engine
+    if (engineVersion === "v1") {
+      engineV1Ref.current = new DetectionEngineV1();
+      engineV2Ref.current = null;
+    } else {
+      engineV2Ref.current = new DetectionEngineV2();
+      engineV1Ref.current = null;
+    }
 
     const init = async () => {
       try {
@@ -145,7 +152,7 @@ export default function Dab() {
         setLoading(false);
 
         let lastDetectTime = 0;
-        let frameCount = 0;
+        let lastRepCount = 0;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) {
             return;
@@ -157,8 +164,6 @@ export default function Dab() {
             return;
           }
           lastDetectTime = now;
-          frameCount++;
-          if (tuneMode && frameCount % 50 === 0) console.log("[dab] frame", frameCount, "calibrated=", !!standingHeightRef.current);
 
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
@@ -187,123 +192,79 @@ export default function Dab() {
           }
 
           if (result.landmarks.length > 0) {
-            const lm = result.landmarks[0];
-            const nose = lm[0];
-            const lShoulder = lm[11];
-            const rShoulder = lm[12];
-            const lHip = lm[23];
-            const rHip = lm[24];
-            const lAnkle = lm[27];
-            const rAnkle = lm[28];
+            const lm = result.landmarks[0] as unknown as Landmark[];
 
-            const keyLandmarks = [nose, lShoulder, rShoulder, lHip, rHip, lAnkle, rAnkle];
-
-            const visibleYs: number[] = [];
-            for (const l of keyLandmarks) {
-              if ((l.visibility ?? 0) > MIN_VISIBILITY) visibleYs.push(l.y);
-            }
-            const coreVisible = [lShoulder, rShoulder, lHip, rHip].every(
-              (l) => (l.visibility ?? 0) > MIN_VISIBILITY
-            );
-            const currentHeight = visibleYs.length >= 4 && coreVisible
-              ? Math.max(...visibleYs) - Math.min(...visibleYs)
-              : 0;
-
-            if (!standingHeightRef.current) {
-              const allVisible = keyLandmarks.every((l) => (l.visibility ?? 0) > MIN_VISIBILITY);
-              const shoulderY = (lShoulder.y + rShoulder.y) / 2;
-              const hipY = (lHip.y + rHip.y) / 2;
-              const torsoVertical = (hipY - shoulderY) > 0.08;
-
-              if (!allVisible) {
-                setAlignmentStatus("no-pose");
-              } else {
-                const centerX = (lShoulder.x + rShoulder.x + lHip.x + rHip.x) / 4;
-                const offCenter = Math.abs(centerX - 0.5) > 0.15;
-                const tooClose = nose.y < 0.02 || Math.max(lAnkle.y, rAnkle.y) > 0.98;
-                const tooFar = currentHeight < 0.35;
-
-                if (tooClose) setAlignmentStatus("too-close");
-                else if (tooFar) setAlignmentStatus("too-far");
-                else if (offCenter) setAlignmentStatus("off-center");
-                else setAlignmentStatus("aligned");
-              }
-
-              if (allVisible && torsoVertical && currentHeight > 0.15) {
-                calibrationHeights.current.push(currentHeight);
-                setCalibrationCount(calibrationHeights.current.length);
-              } else {
-                calibrationHeights.current = [];
-                setCalibrationCount(0);
-              }
-
-              if (calibrationHeights.current.length >= CALIBRATION_FRAMES) {
-                const sorted = [...calibrationHeights.current].sort((a, b) => a - b);
-                standingHeightRef.current = sorted[Math.floor(sorted.length * 0.5)];
-                repStateRef.current = "HIGH";
-                lastHighTimeRef.current = performance.now();
-                ratioBufferRef.current = [];
-                setCalibrated(true);
-                setShowReady(true);
-                setCurrentState("HIGH");
-                setTimeout(() => setShowReady(false), 1500);
-              }
-            }
-
-            if (standingHeightRef.current && currentHeight > 0) {
-              const rawR = Math.min(currentHeight / standingHeightRef.current, 1.0);
-
-              const buf = ratioBufferRef.current;
-              buf.push(rawR);
-              if (buf.length > SMOOTHING_WINDOW) buf.shift();
-              const r = buf.reduce((a, b) => a + b, 0) / buf.length;
-
-              const now = performance.now();
-              const t = thresholdsRef.current;
+            if (engineVersion === "v1" && engineV1Ref.current) {
+              const frame = engineV1Ref.current.processFrame(lm, now);
 
               if (now - lastSignalUpdateRef.current > 100) {
                 lastSignalUpdateRef.current = now;
-                setRatio(r);
+                setRatio(frame.ratio);
+                setCurrentState(frame.state);
+                setAlignmentStatus(frame.alignmentStatus);
+                setCalibrationCount(frame.calibrationCount);
               }
 
-              let newState: RepState = repStateRef.current;
-              if (r > t.highRatio) newState = "HIGH";
-              else if (r < t.lowRatio) newState = "LOW";
+              if (frame.calibrated && !calibratedRef.current) {
+                calibratedRef.current = true;
+                setCalibrated(true);
+                setShowReady(true);
+                setTimeout(() => setShowReady(false), 1500);
+              }
 
-              if (newState !== repStateRef.current) {
-                if (newState === "LOW") {
-                  lowEnteredTimeRef.current = now;
-                  hasBeenLowRef.current = false;
-                }
+              if (frame.repCount > lastRepCount) {
+                lastRepCount = frame.repCount;
+                repCountRef.current = frame.repCount;
+                setReps(frame.repCount);
+                navigator.vibrate?.(100);
+                if (!tuneMode) insertRep(profile!.id);
+              }
 
-                const lowDwell = now - lowEnteredTimeRef.current;
-                if (repStateRef.current === "LOW" && lowDwell < MIN_LOW_DWELL_MS) {
-                  animationIdRef.current = requestAnimationFrame(detect);
-                  return;
-                }
-
-                if (repStateRef.current === "LOW" && newState === "HIGH") {
-                  hasBeenLowRef.current = true;
-                }
-
-                if (newState === "HIGH") {
-                  if (
-                    hasBeenLowRef.current &&
-                    now - lastHighTimeRef.current < t.maxDuration
-                  ) {
-                    repCountRef.current += 1;
-                    const count = repCountRef.current;
-                    setReps(count);
-                    navigator.vibrate?.(100);
-                    if (!tuneMode) insertRep(profile!.id);
-                  }
-                  lastHighTimeRef.current = now;
-                  hasBeenLowRef.current = false;
-                }
-                repStateRef.current = newState;
-                setCurrentState(newState);
+              if (frame.stateChanged) {
                 setStateLog((prev) => {
-                  const entry = `${newState} r=${r.toFixed(2)} raw=${rawR.toFixed(2)}`;
+                  const entry = `${frame.state} r=${frame.ratio.toFixed(2)} raw=${frame.rawRatio.toFixed(2)}`;
+                  const next = [entry, ...prev];
+                  return next.length > 20 ? next.slice(0, 20) : next;
+                });
+              }
+            } else if (engineVersion === "v2" && engineV2Ref.current) {
+              const frame = engineV2Ref.current.processFrame(lm, now);
+
+              if (now - lastSignalUpdateRef.current > 100) {
+                lastSignalUpdateRef.current = now;
+                setRatio(frame.ratio);
+                setCurrentState(frame.state);
+                setAlignmentStatus(frame.alignmentStatus);
+                setCalibrationCount(frame.calibrationCount);
+                setCameraAngle(frame.cameraAngle);
+                setStabilityStatus(frame.stabilityStatus);
+                setStabilityProgress(frame.stabilityProgress);
+                setHipAngle(frame.hipAngle);
+                setKneeAngle(frame.kneeAngle);
+                setTorsoAngle(frame.torsoAngle);
+              }
+
+              if (frame.calibrated && !calibratedRef.current) {
+                calibratedRef.current = true;
+                setCalibrated(true);
+                setShowReady(true);
+                setTimeout(() => setShowReady(false), 1500);
+              }
+
+              if (frame.repCount > lastRepCount) {
+                lastRepCount = frame.repCount;
+                repCountRef.current = frame.repCount;
+                setReps(frame.repCount);
+                navigator.vibrate?.(100);
+                if (!tuneMode) insertRep(profile!.id);
+              }
+
+              if (frame.stateChanged) {
+                const angleInfo = frame.cameraAngle === "side"
+                  ? ` hip=${frame.hipAngle.toFixed(0)}° torso=${frame.torsoAngle.toFixed(0)}°`
+                  : "";
+                setStateLog((prev) => {
+                  const entry = `${frame.state} r=${frame.ratio.toFixed(2)} raw=${frame.rawRatio.toFixed(2)}${angleInfo}`;
                   const next = [entry, ...prev];
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
@@ -338,7 +299,7 @@ export default function Dab() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [profile, screen, insertRep, tuneMode]);
+  }, [profile, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
     stopCamera();
@@ -411,12 +372,40 @@ export default function Dab() {
     );
   }
 
+  // Determine pre-calibration message based on engine version
+  const getPreCalibrationMessage = () => {
+    if (engineVersion === "v2" && alignmentStatus === "stabilizing") {
+      return {
+        title: "Place your phone down",
+        subtitle: "Finding a stable position…",
+        progress: stabilityProgress,
+        color: stabilityStatus === "stabilizing" ? "var(--color-accent)" : "#5C6066",
+      };
+    }
+    return {
+      title:
+        alignmentStatus === "no-pose" ? "Step into frame" :
+        alignmentStatus === "too-close" ? "Step back a bit" :
+        alignmentStatus === "too-far" ? "Move closer" :
+        alignmentStatus === "off-center" ? "Move to center" :
+        "Hold still…",
+      subtitle: alignmentStatus === "aligned" ? "Calibrating your position" : "Line up with the outline",
+      progress: calibrationCount / CALIBRATION_FRAMES,
+      color: alignmentStatus === "aligned" ? "var(--color-accent)" : "#5C6066",
+    };
+  };
+
+  const preCalMsg = getPreCalibrationMessage();
+
   return (
     <div className="flex flex-col items-center -mx-4 -mt-6">
       {/* Rep counter overlay */}
       <div className="w-full text-center py-4 relative z-10">
         {tuneMode && (
-          <p className="text-micro text-accent uppercase mb-1">Tune Mode</p>
+          <p className="text-micro text-accent uppercase mb-1">
+            Tune Mode — {engineVersion.toUpperCase()}
+            {engineVersion === "v2" && cameraAngle !== "unknown" && ` — ${cameraAngle.toUpperCase()}`}
+          </p>
         )}
         <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
         <p className="text-display-xl text-accent tabular-nums">{reps}</p>
@@ -505,23 +494,17 @@ export default function Dab() {
             <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
               <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-4 text-center max-w-xs">
                 <p className="text-body-lg text-ink-primary font-semibold">
-                  {alignmentStatus === "no-pose" && "Step into frame"}
-                  {alignmentStatus === "too-close" && "Step back a bit"}
-                  {alignmentStatus === "too-far" && "Move closer"}
-                  {alignmentStatus === "off-center" && "Move to center"}
-                  {alignmentStatus === "aligned" && "Hold still…"}
+                  {preCalMsg.title}
                 </p>
                 <p className="text-caption text-ink-secondary mt-1">
-                  {alignmentStatus === "aligned"
-                    ? "Calibrating your position"
-                    : "Line up with the outline"}
+                  {preCalMsg.subtitle}
                 </p>
                 <div className="w-[80%] h-3 bg-bg-input rounded-pill overflow-hidden mt-4 mx-auto">
                   <div
                     className="h-full rounded-pill transition-all duration-150 ease-apple"
                     style={{
-                      width: `${(calibrationCount / CALIBRATION_FRAMES) * 100}%`,
-                      backgroundColor: alignmentStatus === "aligned" ? "var(--color-accent)" : "#5C6066",
+                      width: `${preCalMsg.progress * 100}%`,
+                      backgroundColor: preCalMsg.color,
                     }}
                   />
                 </div>
@@ -569,8 +552,11 @@ export default function Dab() {
       {!tuneMode && (
         <div className="fixed bottom-16 left-0 right-0 z-40 flex justify-center">
           <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
-            <span>{calibrated ? currentState : "Stand still…"}</span>
+            <span>{calibrated ? currentState : (alignmentStatus === "stabilizing" ? "Stabilizing…" : "Stand still…")}</span>
             <span>{ratio.toFixed(2)}</span>
+            {engineVersion === "v2" && cameraAngle !== "unknown" && (
+              <span>{cameraAngle}</span>
+            )}
           </div>
         </div>
       )}
@@ -583,51 +569,61 @@ export default function Dab() {
               onClick={() => setTuneOpen((o) => !o)}
               className="w-full flex items-center justify-between px-3 py-2 text-micro text-accent uppercase"
             >
-              <span>Tune — {calibrated ? currentState : "Stand still…"} — ratio {ratio.toFixed(2)}</span>
+              <span>
+                {engineVersion.toUpperCase()} — {calibrated ? currentState : (alignmentStatus === "stabilizing" ? "Stabilizing" : "Stand still…")} — ratio {ratio.toFixed(2)}
+                {engineVersion === "v2" && cameraAngle !== "unknown" && ` — ${cameraAngle}`}
+              </span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
             {tuneOpen && (
               <div className="px-3 pb-3 space-y-3">
                 <div className="bg-bg-elevated rounded-md p-2 text-micro text-ink-muted">
-                  DB writes disabled. Ratio = current height / standing height.
-                  {!calibrated && " Stand still with full body visible…"}
+                  DB writes disabled. Engine: {engineVersion.toUpperCase()}.
+                  {engineVersion === "v2" && cameraAngle !== "unknown" && ` Angle: ${cameraAngle}.`}
+                  {engineVersion === "v2" && !calibrated && stabilityStatus !== "stable" && " Waiting for stability…"}
+                  {!calibrated && stabilityStatus === "stable" && " Stand still with full body visible…"}
+                  {engineVersion === "v2" && calibrated && cameraAngle === "side" && (
+                    <> Hip: {hipAngle.toFixed(0)}° Knee: {kneeAngle.toFixed(0)}° Torso: {torsoAngle.toFixed(0)}°</>
+                  )}
                 </div>
-                <TuneSlider
-                  label="HIGH ratio (standing)"
-                  value={tuneValues.highRatio}
-                  min={0.5} max={0.95} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.highRatio = v;
-                    setTuneValues((p) => ({ ...p, highRatio: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="LOW ratio (down)"
-                  value={tuneValues.lowRatio}
-                  min={0.2} max={0.7} step={0.01}
-                  onChange={(v) => {
-                    thresholdsRef.current.lowRatio = v;
-                    setTuneValues((p) => ({ ...p, lowRatio: v }));
-                  }}
-                />
-                <TuneSlider
-                  label="Max rep duration (ms)"
-                  value={tuneValues.maxDuration}
-                  min={3000} max={15000} step={500}
-                  onChange={(v) => {
-                    thresholdsRef.current.maxDuration = v;
-                    setTuneValues((p) => ({ ...p, maxDuration: v }));
-                  }}
-                />
+                {engineVersion === "v1" && (
+                  <>
+                    <TuneSlider
+                      label="HIGH ratio (standing)"
+                      value={tuneValues.highRatio}
+                      min={0.5} max={0.95} step={0.01}
+                      onChange={(v) => {
+                        engineV1Ref.current?.setThresholds({ highRatio: v });
+                        setTuneValues((p) => ({ ...p, highRatio: v }));
+                      }}
+                    />
+                    <TuneSlider
+                      label="LOW ratio (down)"
+                      value={tuneValues.lowRatio}
+                      min={0.2} max={0.7} step={0.01}
+                      onChange={(v) => {
+                        engineV1Ref.current?.setThresholds({ lowRatio: v });
+                        setTuneValues((p) => ({ ...p, lowRatio: v }));
+                      }}
+                    />
+                    <TuneSlider
+                      label="Max rep duration (ms)"
+                      value={tuneValues.maxDuration}
+                      min={3000} max={15000} step={500}
+                      onChange={(v) => {
+                        engineV1Ref.current?.setThresholds({ maxDuration: v });
+                        setTuneValues((p) => ({ ...p, maxDuration: v }));
+                      }}
+                    />
+                  </>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
                       setReps(0);
                       repCountRef.current = 0;
-                      repStateRef.current = "UNKNOWN";
-                      hasBeenLowRef.current = false;
-                      lowEnteredTimeRef.current = 0;
-                      ratioBufferRef.current = [];
+                      engineV1Ref.current?.reset();
+                      engineV2Ref.current?.reset();
                       setStateLog([]);
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
@@ -636,8 +632,10 @@ export default function Dab() {
                   </button>
                   <button
                     onClick={() => {
-                      thresholdsRef.current = { ...DEFAULT_THRESHOLDS };
-                      setTuneValues({ ...DEFAULT_THRESHOLDS });
+                      if (engineVersion === "v1") {
+                        engineV1Ref.current?.setThresholds({ ...V1_DEFAULTS });
+                        setTuneValues({ ...V1_DEFAULTS });
+                      }
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
                   >
@@ -645,14 +643,14 @@ export default function Dab() {
                   </button>
                   <button
                     onClick={() => {
-                      standingHeightRef.current = 0;
-                      calibrationHeights.current = [];
-                      ratioBufferRef.current = [];
+                      engineV1Ref.current?.recalibrate();
+                      engineV2Ref.current?.recalibrate();
+                      calibratedRef.current = false;
                       setCalibrated(false);
                       setCalibrationCount(0);
-                      repStateRef.current = "UNKNOWN";
-                      hasBeenLowRef.current = false;
-                      lowEnteredTimeRef.current = 0;
+                      setStabilityStatus("unstable");
+                      setStabilityProgress(0);
+                      setCameraAngle("unknown");
                       setStateLog([]);
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
