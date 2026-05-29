@@ -398,11 +398,16 @@ export default function Dab() {
 
   const handleStop = async () => {
     // Stop recording first (before stopping camera, so we get the final frames)
-    let blob: Blob | null = null;
-    if (recorderRef.current?.isRecording) {
-      blob = await recorderRef.current.stop();
-      setRecordedBlob(blob);
-      setRecordedUrl(URL.createObjectURL(blob));
+    try {
+      if (recorderRef.current?.isRecording) {
+        const blob = await recorderRef.current.stop();
+        if (blob.size > 0) {
+          setRecordedBlob(blob);
+          setRecordedUrl(URL.createObjectURL(blob));
+        }
+      }
+    } catch {
+      // Recording failed — show summary without video
     }
 
     stopCamera();
@@ -466,13 +471,28 @@ export default function Dab() {
         <div className="mt-8 w-full max-w-sm space-y-3">
           {recordedBlob && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-                downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
+                const filename = `repps-${reps}-reps.${ext}`;
+                const file = new File([recordedBlob], filename, { type: recordedBlob.type });
+                if (navigator.canShare?.({ files: [file] })) {
+                  try {
+                    await navigator.share({
+                      files: [file],
+                      title: `${reps} ${reps === 1 ? "rep" : "reps"} on REPPs`,
+                    });
+                  } catch (e) {
+                    if ((e as Error).name !== "AbortError") {
+                      downloadBlob(recordedBlob, filename);
+                    }
+                  }
+                } else {
+                  downloadBlob(recordedBlob, filename);
+                }
               }}
               className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
             >
-              SAVE VIDEO
+              SHARE VIDEO
             </button>
           )}
           <button

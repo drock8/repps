@@ -1,5 +1,14 @@
 # Changelog
 
+## Fix audio volume, iOS recording hang, and share sheet (2026-05-29)
+
+### Fixed
+- **Audio too quiet** — ElevenLabs TTS clips were barely audible. Added a GainNode (3.0x) in the audio pipeline between BufferSource and destination, applied to both cached and fetch-then-play paths in `repAudio.ts`.
+- **Summary screen stuck on iOS Safari** — tapping "I'm Done" could produce a black screen because `MediaRecorder.stop()` never fired `onstop` on iOS. Added a 2-second timeout in `videoRecorder.ts` that resolves with whatever chunks exist. Wrapped recorder stop in try/catch in `Dab.tsx` so summary always renders even if recording fails.
+
+### Changed
+- **SAVE VIDEO → SHARE VIDEO** — replaced browser download with Web Share API (`navigator.share({ files })`) which opens the native share sheet on iOS/Android (Save to Photos, Instagram, WhatsApp, AirDrop, etc.). Falls back to file download on desktop browsers that don't support file sharing.
+
 ## Audio rep counting + branded video recording (2026-05-29)
 
 ### Added

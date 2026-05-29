@@ -129,10 +129,16 @@ export function createVideoRecorder(
           recording = false;
           return;
         }
-        recorder.onstop = () => {
+        let resolved = false;
+        const finish = () => {
+          if (resolved) return;
+          resolved = true;
           recording = false;
           resolve(new Blob(chunks, { type: mimeType }));
         };
+        recorder.onstop = finish;
+        // iOS Safari sometimes never fires onstop — resolve with whatever we have after 2s
+        setTimeout(finish, 2000);
         recorder.stop();
       });
     },

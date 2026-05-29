@@ -1,12 +1,23 @@
 let audioCtx: AudioContext | null = null;
+let gainNode: GainNode | null = null;
 const bufferCache = new Map<number, AudioBuffer>();
 let unlocked = false;
+
+const VOLUME_GAIN = 3.0;
 
 function getAudioContext(): AudioContext {
   if (!audioCtx) {
     audioCtx = new AudioContext();
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = VOLUME_GAIN;
+    gainNode.connect(audioCtx.destination);
   }
   return audioCtx;
+}
+
+function getGainNode(): GainNode {
+  getAudioContext();
+  return gainNode!;
 }
 
 // Call this during a user gesture (tap/click) to unlock iOS audio
@@ -44,14 +55,14 @@ export function playRepAudio(repNumber: number) {
     ctx.resume();
   }
 
+  const gain = getGainNode();
   const cached = bufferCache.get(repNumber);
   if (cached) {
     const src = ctx.createBufferSource();
     src.buffer = cached;
-    src.connect(ctx.destination);
+    src.connect(gain);
     src.start(0);
   } else {
-    // Load and play immediately, cache for next time
     fetch(`/audio/rep-${repNumber}.mp3`)
       .then((r) => r.arrayBuffer())
       .then((ab) => ctx.decodeAudioData(ab))
@@ -59,7 +70,7 @@ export function playRepAudio(repNumber: number) {
         bufferCache.set(repNumber, buf);
         const src = ctx.createBufferSource();
         src.buffer = buf;
-        src.connect(ctx.destination);
+        src.connect(gain);
         src.start(0);
       })
       .catch(() => {});
