@@ -1,32 +1,78 @@
-const audioCache = new Map<number, HTMLAudioElement>();
+let audioCtx: AudioContext | null = null;
+const bufferCache = new Map<number, AudioBuffer>();
+let unlocked = false;
 
-const MAX_PRELOADED = 10;
+function getAudioContext(): AudioContext {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+  }
+  return audioCtx;
+}
 
-export function preloadRepAudio(upTo = MAX_PRELOADED) {
+// Call this during a user gesture (tap/click) to unlock iOS audio
+export function unlockAudio() {
+  if (unlocked) return;
+  const ctx = getAudioContext();
+  if (ctx.state === "suspended") {
+    ctx.resume();
+  }
+  // Play a silent buffer to fully unlock on iOS
+  const buf = ctx.createBuffer(1, 1, 22050);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start(0);
+  unlocked = true;
+}
+
+export function preloadRepAudio(upTo = 10) {
+  const ctx = getAudioContext();
   for (let i = 1; i <= upTo; i++) {
-    if (!audioCache.has(i)) {
-      const audio = new Audio(`/audio/rep-${i}.mp3`);
-      audio.preload = "auto";
-      audioCache.set(i, audio);
+    if (!bufferCache.has(i)) {
+      fetch(`/audio/rep-${i}.mp3`)
+        .then((r) => r.arrayBuffer())
+        .then((ab) => ctx.decodeAudioData(ab))
+        .then((buf) => bufferCache.set(i, buf))
+        .catch(() => {});
     }
   }
 }
 
 export function playRepAudio(repNumber: number) {
-  let audio = audioCache.get(repNumber);
-  if (!audio) {
-    audio = new Audio(`/audio/rep-${repNumber}.mp3`);
-    audioCache.set(repNumber, audio);
-    // Preload the next few
-    for (let i = repNumber + 1; i <= repNumber + 3; i++) {
-      if (!audioCache.has(i)) {
-        const next = new Audio(`/audio/rep-${i}.mp3`);
-        next.preload = "auto";
-        audioCache.set(i, next);
-      }
-    }
+  const ctx = getAudioContext();
+  if (ctx.state === "suspended") {
+    ctx.resume();
   }
 
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
+  const cached = bufferCache.get(repNumber);
+  if (cached) {
+    const src = ctx.createBufferSource();
+    src.buffer = cached;
+    src.connect(ctx.destination);
+    src.start(0);
+  } else {
+    // Load and play immediately, cache for next time
+    fetch(`/audio/rep-${repNumber}.mp3`)
+      .then((r) => r.arrayBuffer())
+      .then((ab) => ctx.decodeAudioData(ab))
+      .then((buf) => {
+        bufferCache.set(repNumber, buf);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      })
+      .catch(() => {});
+  }
+
+  // Prefetch the next few
+  for (let i = repNumber + 1; i <= repNumber + 3; i++) {
+    if (!bufferCache.has(i)) {
+      fetch(`/audio/rep-${i}.mp3`)
+        .then((r) => r.arrayBuffer())
+        .then((ab) => ctx.decodeAudioData(ab))
+        .then((buf) => bufferCache.set(i, buf))
+        .catch(() => {});
+    }
+  }
 }

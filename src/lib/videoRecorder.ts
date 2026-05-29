@@ -87,18 +87,27 @@ export interface RecorderHandle {
 
 export function createVideoRecorder(
   canvas: HTMLCanvasElement,
+  audioTracks: MediaStreamTrack[],
   fps = 30
 ): RecorderHandle {
-  const stream = canvas.captureStream(fps);
+  const canvasStream = canvas.captureStream(fps);
+  const combinedStream = new MediaStream(canvasStream.getVideoTracks());
+
+  for (const track of audioTracks) {
+    combinedStream.addTrack(track);
+  }
+
   const chunks: Blob[] = [];
   let recorder: MediaRecorder | null = null;
   let recording = false;
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : MediaRecorder.isTypeSupported("video/webm")
-      ? "video/webm"
-      : "video/mp4";
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+    ? "video/webm;codecs=vp9,opus"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "video/mp4";
 
   return {
     get isRecording() {
@@ -106,7 +115,7 @@ export function createVideoRecorder(
     },
     start() {
       chunks.length = 0;
-      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
+      recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 4_000_000 });
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
       };

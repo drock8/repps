@@ -174,8 +174,15 @@ export default function Dab() {
 
         setLoadStage("Get ready to rumble…");
         setLoadProgress(75);
+        // Request camera + mic together for a single permission prompt
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
+          audio: true,
+        }).catch(async () => {
+          // If audio denied, fall back to video-only
+          return navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+          });
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -184,7 +191,9 @@ export default function Dab() {
         streamRef.current = stream;
 
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          // Only feed video tracks to the display element (keep it muted)
+          const videoOnly = new MediaStream(stream.getVideoTracks());
+          videoRef.current.srcObject = videoOnly;
           await videoRef.current.play();
         }
 
@@ -282,7 +291,8 @@ export default function Dab() {
                 if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
                   recordCanvasRef.current.height = videoRef.current.videoHeight;
-                  recorderRef.current = createVideoRecorder(recordCanvasRef.current);
+                  const audioTracks = streamRef.current?.getAudioTracks() ?? [];
+                  recorderRef.current = createVideoRecorder(recordCanvasRef.current, audioTracks);
                   recorderRef.current.start();
                 }
               }
@@ -329,7 +339,8 @@ export default function Dab() {
                 if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
                   recordCanvasRef.current.height = videoRef.current.videoHeight;
-                  recorderRef.current = createVideoRecorder(recordCanvasRef.current);
+                  const audioTracks = streamRef.current?.getAudioTracks() ?? [];
+                  recorderRef.current = createVideoRecorder(recordCanvasRef.current, audioTracks);
                   recorderRef.current.start();
                 }
               }
@@ -413,7 +424,7 @@ export default function Dab() {
 
   if (screen === "summary") {
     return (
-      <div className="flex flex-col items-center justify-center text-center pt-8 px-4">
+      <div className="flex flex-col items-center text-center pt-8 px-4 pb-24 overflow-y-auto" style={{ maxHeight: "100dvh" }}>
         <p className="text-headline text-ink-primary">
           {reps > 0 ? "Nice work" : "No reps this time"}
         </p>

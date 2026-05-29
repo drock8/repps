@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import ActivityFeed from "../components/ActivityFeed";
 import { usePeopleMoving } from "../hooks/usePeopleMoving";
 import YouTubeEmbed from "../components/YouTubeEmbed";
+import { unlockAudio } from "../lib/repAudio";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -212,7 +213,7 @@ export default function Home() {
           <div className="flex flex-col items-center">
             <div className="relative">
               <button
-                onClick={() => navigate("/dab")}
+                onClick={() => { unlockAudio(); navigate("/dab"); }}
                 className="cta-button w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
               >
                 DAB<br />NOW
