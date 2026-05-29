@@ -95,7 +95,7 @@ export default function Dab() {
     (async () => {
       try {
         const [logo, qrDataUrl] = await Promise.all([
-          loadImage("/repps-logo.png").catch(() => null),
+          loadImage("/Repps-Blue-Logo.png").catch(() => null),
           generateQRDataUrl(profile.id),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
