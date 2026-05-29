@@ -11,6 +11,15 @@ import { DetectionEngineV1, DEFAULT_THRESHOLDS as V1_DEFAULTS } from "../lib/det
 import { DetectionEngineV2 } from "../lib/detectionV2";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
+import { preloadRepAudio, playRepAudio } from "../lib/repAudio";
+import {
+  generateQRDataUrl,
+  loadImage,
+  drawBrandOverlay,
+  createVideoRecorder,
+  downloadBlob,
+} from "../lib/videoRecorder";
+import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 
 type Screen = "detecting" | "summary";
 type EngineVersion = "v1" | "v2";
@@ -27,6 +36,7 @@ export default function Dab() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const recordCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationIdRef = useRef(0);
@@ -36,6 +46,12 @@ export default function Dab() {
 
   const repCountRef = useRef(0);
   const calibratedRef = useRef(false);
+
+  // Recording state
+  const recorderRef = useRef<RecorderHandle | null>(null);
+  const brandConfigRef = useRef<BrandOverlayConfig | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
 
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
@@ -70,6 +86,31 @@ export default function Dab() {
   useEffect(() => {
     if (!authLoading && !profile) navigate("/", { replace: true });
   }, [authLoading, profile, navigate]);
+
+  // Preload rep audio clips and brand assets
+  useEffect(() => {
+    if (!profile) return;
+    preloadRepAudio(10);
+
+    (async () => {
+      try {
+        const [logo, qrDataUrl] = await Promise.all([
+          loadImage("/repps-logo.png").catch(() => null),
+          generateQRDataUrl(profile.id),
+        ]);
+        const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
+        brandConfigRef.current = {
+          logoImg: logo,
+          sponsorImgs: [],
+          qrDataUrl,
+          _qrImg: qrImg,
+          repCount: () => repCountRef.current,
+        };
+      } catch {
+        // Brand overlay is optional — recording still works without it
+      }
+    })();
+  }, [profile]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);
@@ -176,10 +217,10 @@ export default function Dab() {
           canvasRef.current.height = videoRef.current.videoHeight;
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
+          const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+          const accentSecondary = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
           const drawer = new DrawingUtils(ctx);
           for (const landmarks of result.landmarks) {
-            const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
-            const accentSecondary = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
             drawer.drawLandmarks(landmarks, {
               radius: 3,
               color: accent,
@@ -189,6 +230,33 @@ export default function Dab() {
               color: accent + "80",
               lineWidth: 2,
             });
+          }
+
+          // Composite recording canvas: video + skeleton + brand overlay
+          const recCanvas = recordCanvasRef.current;
+          if (recCanvas && recorderRef.current?.isRecording) {
+            const vw = videoRef.current.videoWidth;
+            const vh = videoRef.current.videoHeight;
+            const rctx = recCanvas.getContext("2d");
+            if (rctx) {
+              rctx.clearRect(0, 0, vw, vh);
+              // Draw mirrored video
+              rctx.save();
+              rctx.translate(vw, 0);
+              rctx.scale(-1, 1);
+              rctx.drawImage(videoRef.current, 0, 0, vw, vh);
+              rctx.restore();
+              // Draw skeleton overlay (mirrored to match video)
+              rctx.save();
+              rctx.translate(vw, 0);
+              rctx.scale(-1, 1);
+              rctx.drawImage(canvasRef.current!, 0, 0, vw, vh);
+              rctx.restore();
+              // Draw brand overlay (logo, QR, sponsors, rep count)
+              if (brandConfigRef.current) {
+                drawBrandOverlay(rctx, vw, vh, brandConfigRef.current);
+              }
+            }
           }
 
           if (result.landmarks.length > 0) {
@@ -210,12 +278,20 @@ export default function Dab() {
                 setCalibrated(true);
                 setShowReady(true);
                 setTimeout(() => setShowReady(false), 1500);
+                // Start recording — initialize canvas dimensions first
+                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                  recordCanvasRef.current.width = videoRef.current.videoWidth;
+                  recordCanvasRef.current.height = videoRef.current.videoHeight;
+                  recorderRef.current = createVideoRecorder(recordCanvasRef.current);
+                  recorderRef.current.start();
+                }
               }
 
               if (frame.repCount > lastRepCount) {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
+                playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep(profile!.id);
               }
@@ -249,12 +325,20 @@ export default function Dab() {
                 setCalibrated(true);
                 setShowReady(true);
                 setTimeout(() => setShowReady(false), 1500);
+                // Start recording — initialize canvas dimensions first
+                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                  recordCanvasRef.current.width = videoRef.current.videoWidth;
+                  recordCanvasRef.current.height = videoRef.current.videoHeight;
+                  recorderRef.current = createVideoRecorder(recordCanvasRef.current);
+                  recorderRef.current.start();
+                }
               }
 
               if (frame.repCount > lastRepCount) {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
+                playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep(profile!.id);
               }
@@ -302,6 +386,14 @@ export default function Dab() {
   }, [profile, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
+    // Stop recording first (before stopping camera, so we get the final frames)
+    let blob: Blob | null = null;
+    if (recorderRef.current?.isRecording) {
+      blob = await recorderRef.current.stop();
+      setRecordedBlob(blob);
+      setRecordedUrl(URL.createObjectURL(blob));
+    }
+
     stopCamera();
 
     const [userResult, globalResult] = await Promise.all([
@@ -321,18 +413,31 @@ export default function Dab() {
 
   if (screen === "summary") {
     return (
-      <div className="flex flex-col items-center justify-center text-center pt-16 px-4">
+      <div className="flex flex-col items-center justify-center text-center pt-8 px-4">
         <p className="text-headline text-ink-primary">
           {reps > 0 ? "Nice work" : "No reps this time"}
         </p>
-        <p className="text-display-lg text-accent mt-4 tabular-nums">
+        <p className="text-display-lg text-accent mt-3 tabular-nums">
           +{reps}
         </p>
         <p className="text-caption text-ink-secondary mt-1">
           {reps === 1 ? "rep" : "reps"} added to the global movement
         </p>
 
-        <div className="mt-12 space-y-3 text-body text-ink-secondary">
+        {/* Video preview */}
+        {recordedUrl && (
+          <div className="mt-6 w-full max-w-sm rounded-xl overflow-hidden bg-bg-surface">
+            <video
+              src={recordedUrl}
+              controls
+              playsInline
+              className="w-full"
+              style={{ aspectRatio: "3/4", objectFit: "cover" }}
+            />
+          </div>
+        )}
+
+        <div className="mt-8 space-y-3 text-body text-ink-secondary">
           <p>
             Your total reps:{" "}
             <span className="text-ink-primary font-bold tabular-nums">
@@ -347,12 +452,28 @@ export default function Dab() {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate("/")}
-          className="mt-12 w-full max-w-sm bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
-        >
-          BACK TO HOME
-        </button>
+        <div className="mt-8 w-full max-w-sm space-y-3">
+          {recordedBlob && (
+            <button
+              onClick={() => {
+                const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+                downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
+              }}
+              className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+            >
+              SAVE VIDEO
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+              navigate("/");
+            }}
+            className="w-full bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+          >
+            BACK TO HOME
+          </button>
+        </div>
       </div>
     );
   }
@@ -539,6 +660,8 @@ export default function Dab() {
             transform: "scaleX(-1)",
           }}
         />
+        {/* Hidden canvas for recording — composites video + skeleton + brand overlay */}
+        <canvas ref={recordCanvasRef} style={{ display: "none" }} />
         {/* Floating "I'm Done" button — top-right of camera area */}
         <button
           onClick={handleStop}

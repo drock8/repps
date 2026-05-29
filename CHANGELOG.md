@@ -1,5 +1,25 @@
 # Changelog
 
+## Audio rep counting + branded video recording (2026-05-29)
+
+### Added
+- **Audio rep announcements** — each rep triggers a natural spoken number via pre-generated ElevenLabs TTS clips (1–100). Clips preloaded on mount with progressive prefetch as reps increase.
+  - `src/lib/repAudio.ts` — audio cache, preloader, and playback
+  - `scripts/generate-rep-audio.mjs` — ElevenLabs API batch generator (100 clips, Rachel voice, turbo v2.5 model)
+  - `public/audio/rep-*.mp3` — pre-generated audio assets
+- **Branded video recording** — full session recorded with video + MediaPipe skeleton overlay + brand overlay composited in real-time on a hidden canvas:
+  - REPPS logo (top-left)
+  - QR code linking to `repps.pro/?ref=<userId>` (bottom-right)
+  - Live rep count display (bottom-left on semi-transparent bar)
+  - 1–3 sponsor logo slots (top-right, stacked vertically) — currently empty, ready for sponsor assets
+  - `src/lib/videoRecorder.ts` — QR generation, brand overlay renderer, MediaRecorder wrapper, download helper
+- **Video preview + save** on summary screen — recorded video plays inline with controls, "SAVE VIDEO" button downloads the file
+- Recording starts automatically when calibration completes, stops when user taps "I'm Done"
+- Works with both V1 and V2 detection engines
+
+### Dependencies
+- `qrcode` — QR code generation for referral links
+
 ## V2 Burpee Detection Engine with stability guard + side-view support (2026-05-29)
 
 ### Added
