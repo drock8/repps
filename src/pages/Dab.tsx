@@ -451,8 +451,10 @@ export default function Dab() {
               src={recordedUrl}
               controls
               playsInline
+              autoPlay
+              muted
+              preload="auto"
               className="w-full"
-              style={{ aspectRatio: "3/4", objectFit: "cover" }}
             />
           </div>
         )}
