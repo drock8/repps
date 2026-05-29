@@ -69,10 +69,10 @@ const SIDE_THRESHOLDS: V2Thresholds = {
   noseAnkleRatioLow: 0.25,
 };
 
-const STABILITY_WINDOW_MS = 2000;
-const STABILITY_MAX_DRIFT = 0.015;
-const STABILITY_MIN_FRAMES = 20;
-const CALIBRATION_FRAMES = 30;
+const STABILITY_WINDOW_MS = 1000;
+const STABILITY_MAX_DRIFT = 0.02;
+const STABILITY_MIN_FRAMES = 10;
+const CALIBRATION_FRAMES = 15;
 const MIN_VISIBILITY = 0.5;
 const ANGLE_VOTE_THRESHOLD = 0.65;
 
@@ -223,7 +223,7 @@ export class DetectionEngineV2 {
     const totalDrift = Math.sqrt(xStd * xStd + yStd * yStd);
 
     if (totalDrift < STABILITY_MAX_DRIFT) {
-      // Check we have a full 2-second window
+      // Check we have enough of the stability window
       const timeSpan = this.stabilityFrames[this.stabilityFrames.length - 1].time - this.stabilityFrames[0].time;
       if (timeSpan >= STABILITY_WINDOW_MS * 0.8) {
         return { status: "stable", progress: 1.0 };
