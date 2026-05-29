@@ -397,7 +397,10 @@ export default function Dab() {
   }, [profile, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
-    // Stop recording first (before stopping camera, so we get the final frames)
+    // Stop the detection loop so no more frames are processed
+    cancelAnimationFrame(animationIdRef.current);
+
+    // Stop recording while camera stream is still alive (needed for final data flush)
     try {
       if (recorderRef.current?.isRecording) {
         const blob = await recorderRef.current.stop();
@@ -410,6 +413,7 @@ export default function Dab() {
       // Recording failed — show summary without video
     }
 
+    // Now safe to tear down camera and landmarker
     stopCamera();
 
     const [userResult, globalResult] = await Promise.all([
@@ -470,30 +474,41 @@ export default function Dab() {
 
         <div className="mt-8 w-full max-w-sm space-y-3">
           {recordedBlob && (
-            <button
-              onClick={async () => {
-                const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-                const filename = `repps-${reps}-reps.${ext}`;
-                const file = new File([recordedBlob], filename, { type: recordedBlob.type });
-                if (navigator.canShare?.({ files: [file] })) {
-                  try {
-                    await navigator.share({
-                      files: [file],
-                      title: `${reps} ${reps === 1 ? "rep" : "reps"} on REPPs`,
-                    });
-                  } catch (e) {
-                    if ((e as Error).name !== "AbortError") {
-                      downloadBlob(recordedBlob, filename);
+            <>
+              <button
+                onClick={async () => {
+                  const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+                  const filename = `repps-${reps}-reps.${ext}`;
+                  const file = new File([recordedBlob], filename, { type: recordedBlob.type });
+                  if (navigator.canShare?.({ files: [file] })) {
+                    try {
+                      await navigator.share({
+                        files: [file],
+                        title: `${reps} ${reps === 1 ? "rep" : "reps"} on REPPs`,
+                      });
+                    } catch (e) {
+                      if ((e as Error).name !== "AbortError") {
+                        downloadBlob(recordedBlob, filename);
+                      }
                     }
+                  } else {
+                    downloadBlob(recordedBlob, filename);
                   }
-                } else {
-                  downloadBlob(recordedBlob, filename);
-                }
-              }}
-              className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
-            >
-              SHARE VIDEO
-            </button>
+                }}
+                className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+              >
+                SHARE VIDEO
+              </button>
+              <button
+                onClick={() => {
+                  const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+                  downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
+                }}
+                className="w-full bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+              >
+                SAVE TO FILES
+              </button>
+            </>
           )}
           <button
             onClick={() => {

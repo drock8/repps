@@ -101,13 +101,15 @@ export function createVideoRecorder(
   let recorder: MediaRecorder | null = null;
   let recording = false;
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
-    ? "video/webm;codecs=vp9,opus"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
+  const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1,mp4a")
+    ? "video/mp4"
+    : MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : MediaRecorder.isTypeSupported("video/webm")
+          ? "video/webm"
+          : "video/mp4";
 
   return {
     get isRecording() {
@@ -137,7 +139,8 @@ export function createVideoRecorder(
           resolve(new Blob(chunks, { type: mimeType }));
         };
         recorder.onstop = finish;
-        // iOS Safari sometimes never fires onstop — resolve with whatever we have after 2s
+        // Flush any buffered data before stopping
+        try { recorder.requestData(); } catch {}
         setTimeout(finish, 2000);
         recorder.stop();
       });
