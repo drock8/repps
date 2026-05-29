@@ -1,12 +1,13 @@
 # Changelog
 
-## Summary action bar + video playback fix (2026-05-29)
+## Summary screen polish + video overlay fixes (2026-05-29)
 
 ### Changed
-- **Action bar redesign** — Home, Share, Save buttons now sit in a single unified bar with dividers, pinned directly above bottom nav. Order: Home | Share | Save. Share uses accent color.
+- **Action bar fixed position** — Home | Share | Save bar is now `position: fixed` directly above the bottom nav, can't scroll away.
+- **Video overlay uses theme accent color** — rep count text in the recorded video now reads the current CSS `--color-accent` (blue when blue theme is active) instead of hardcoded orange.
+- **QR code fully visible** — reduced QR from 80px to 64px and expanded bottom bar from 72px to 80px so the QR code sits fully within the bar with padding.
 
 ### Fixed
-- **Video playback on iOS Safari** — added explicit `load()` + `play()` via ref callback since iOS ignores `autoPlay` on blob URLs. Set `aspectRatio: 9/16` with `objectFit: contain` for proper portrait display.
 - **CLAUDE.md build plan** — Phases 4 and 5 now correctly marked as Done.
 
 ## Fix video preview, audio volume, iOS recording, and share (2026-05-29)

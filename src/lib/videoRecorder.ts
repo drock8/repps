@@ -6,13 +6,14 @@ export interface BrandOverlayConfig {
   qrDataUrl: string | null;
   _qrImg?: HTMLImageElement | null;
   repCount: () => number;
+  accentColor: () => string;
 }
 
-const QR_SIZE = 80;
+const QR_SIZE = 64;
 const LOGO_HEIGHT = 36;
 const SPONSOR_HEIGHT = 28;
 const PADDING = 16;
-const BOTTOM_BAR_HEIGHT = 72;
+const BOTTOM_BAR_HEIGHT = 80;
 
 export async function generateQRDataUrl(userId: string): Promise<string> {
   const url = `https://repps.pro/?ref=${userId}`;
@@ -48,7 +49,7 @@ export function drawBrandOverlay(
 
   // Rep count in bottom bar — left side
   const count = repCount();
-  ctx.fillStyle = "#FF9B2F";
+  ctx.fillStyle = config.accentColor();
   ctx.font = `bold ${Math.round(h * 0.035)}px Inter, system-ui, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";

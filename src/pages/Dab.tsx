@@ -105,6 +105,7 @@ export default function Dab() {
           qrDataUrl,
           _qrImg: qrImg,
           repCount: () => repCountRef.current,
+          accentColor: () => getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim(),
         };
       } catch {
         // Brand overlay is optional — recording still works without it
@@ -462,8 +463,8 @@ export default function Dab() {
           </div>
         </div>
 
-        {/* Video preview — fills remaining space, no scroll */}
-        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-1">
+        {/* Video preview — fills space between stats and fixed action bar */}
+        <div className="flex-1 min-h-0 pb-[108px] flex items-center justify-center px-4 py-1">
           {recordedUrl ? (
             <div className="h-full rounded-xl overflow-hidden bg-bg-surface" style={{ aspectRatio: "9/16" }}>
               <video
@@ -481,8 +482,9 @@ export default function Dab() {
           )}
         </div>
 
-        {/* Action bar — pinned directly above bottom nav */}
-        <div className="bg-bg-elevated mx-4 mb-[76px] rounded-xl flex">
+        {/* Action bar — fixed directly above bottom nav */}
+        <div className="fixed bottom-[76px] left-0 right-0 z-50 px-4">
+        <div className="bg-bg-elevated rounded-xl flex max-w-md mx-auto">
           <button
             onClick={() => {
               if (recordedUrl) URL.revokeObjectURL(recordedUrl);
@@ -531,6 +533,7 @@ export default function Dab() {
               </button>
             </>
           )}
+        </div>
         </div>
       </div>
     );
