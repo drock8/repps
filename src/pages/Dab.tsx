@@ -397,10 +397,13 @@ export default function Dab() {
   }, [profile, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
-    // Stop the detection loop so no more frames are processed
+    // Show summary immediately — never block on recording or network
+    setScreen("summary");
+
+    // Stop detection loop
     cancelAnimationFrame(animationIdRef.current);
 
-    // Stop recording while camera stream is still alive (needed for final data flush)
+    // Try to capture video blob (non-blocking — summary already showing)
     try {
       if (recorderRef.current?.isRecording) {
         const blob = await recorderRef.current.stop();
@@ -410,23 +413,25 @@ export default function Dab() {
         }
       }
     } catch {
-      // Recording failed — show summary without video
+      // Recording failed — summary shows without video
     }
 
-    // Now safe to tear down camera and landmarker
     stopCamera();
 
-    const [userResult, globalResult] = await Promise.all([
-      supabase
-        .from("reps")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", profile!.id),
-      supabase.from("reps").select("*", { count: "exact", head: true }),
-    ]);
-
-    setSummaryUserTotal(userResult.count ?? 0);
-    setSummaryGlobalTotal(globalResult.count ?? 0);
-    setScreen("summary");
+    // Fetch totals in background — summary renders with 0s until these resolve
+    try {
+      const [userResult, globalResult] = await Promise.all([
+        supabase
+          .from("reps")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", profile!.id),
+        supabase.from("reps").select("*", { count: "exact", head: true }),
+      ]);
+      setSummaryUserTotal(userResult.count ?? 0);
+      setSummaryGlobalTotal(globalResult.count ?? 0);
+    } catch {
+      // Network failed — totals stay at 0
+    }
   };
 
   if (authLoading || !profile) return null;
@@ -437,6 +442,11 @@ export default function Dab() {
         {/* Stats row */}
         <div className="flex items-baseline justify-center gap-4 px-4 pt-4 pb-2">
           <div className="text-center">
+            <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryGlobalTotal.toLocaleString()}</p>
+            <p className="text-micro text-ink-muted mt-0.5">GLOBAL</p>
+          </div>
+          <div className="w-px h-8 bg-divider" />
+          <div className="text-center">
             <p className="text-display-md text-accent tabular-nums leading-none">+{reps}</p>
             <p className="text-micro text-ink-muted mt-0.5">{reps === 1 ? "REP" : "REPS"}</p>
           </div>
@@ -444,11 +454,6 @@ export default function Dab() {
           <div className="text-center">
             <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryUserTotal.toLocaleString()}</p>
             <p className="text-micro text-ink-muted mt-0.5">YOUR TOTAL</p>
-          </div>
-          <div className="w-px h-8 bg-divider" />
-          <div className="text-center">
-            <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryGlobalTotal.toLocaleString()}</p>
-            <p className="text-micro text-ink-muted mt-0.5">GLOBAL</p>
           </div>
         </div>
 
