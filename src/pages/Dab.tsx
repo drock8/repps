@@ -433,20 +433,28 @@ export default function Dab() {
 
   if (screen === "summary") {
     return (
-      <div className="flex flex-col items-center text-center pt-8 px-4 pb-24 overflow-y-auto" style={{ maxHeight: "100dvh" }}>
-        <p className="text-headline text-ink-primary">
-          {reps > 0 ? "Nice work" : "No reps this time"}
-        </p>
-        <p className="text-display-lg text-accent mt-3 tabular-nums">
-          +{reps}
-        </p>
-        <p className="text-caption text-ink-secondary mt-1">
-          {reps === 1 ? "rep" : "reps"} added to the global movement
-        </p>
+      <div className="flex flex-col h-[100dvh] -mx-4 -mt-6">
+        {/* Stats row */}
+        <div className="flex items-baseline justify-center gap-4 px-4 pt-4 pb-2">
+          <div className="text-center">
+            <p className="text-display-md text-accent tabular-nums leading-none">+{reps}</p>
+            <p className="text-micro text-ink-muted mt-0.5">{reps === 1 ? "REP" : "REPS"}</p>
+          </div>
+          <div className="w-px h-8 bg-divider" />
+          <div className="text-center">
+            <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryUserTotal.toLocaleString()}</p>
+            <p className="text-micro text-ink-muted mt-0.5">YOUR TOTAL</p>
+          </div>
+          <div className="w-px h-8 bg-divider" />
+          <div className="text-center">
+            <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryGlobalTotal.toLocaleString()}</p>
+            <p className="text-micro text-ink-muted mt-0.5">GLOBAL</p>
+          </div>
+        </div>
 
-        {/* Video preview */}
-        {recordedUrl && (
-          <div className="mt-6 w-full max-w-sm rounded-xl overflow-hidden bg-bg-surface">
+        {/* Video preview — fills remaining space */}
+        <div className="flex-1 min-h-0 flex items-center justify-center px-6 py-2">
+          {recordedUrl ? (
             <video
               src={recordedUrl}
               controls
@@ -454,27 +462,17 @@ export default function Dab() {
               autoPlay
               muted
               preload="auto"
-              className="w-full"
+              className="max-h-full max-w-full rounded-xl"
             />
-          </div>
-        )}
-
-        <div className="mt-8 space-y-3 text-body text-ink-secondary">
-          <p>
-            Your total reps:{" "}
-            <span className="text-ink-primary font-bold tabular-nums">
-              {summaryUserTotal.toLocaleString()}
-            </span>
-          </p>
-          <p>
-            Global total:{" "}
-            <span className="text-ink-primary font-bold tabular-nums">
-              {summaryGlobalTotal.toLocaleString()}
-            </span>
-          </p>
+          ) : (
+            <p className="text-body text-ink-muted">
+              {reps > 0 ? "Nice work!" : "No reps this time"}
+            </p>
+          )}
         </div>
 
-        <div className="mt-8 w-full max-w-sm space-y-3">
+        {/* Action buttons — compact row pinned above nav */}
+        <div className="flex gap-2 px-4 pb-20 pt-2">
           {recordedBlob && (
             <>
               <button
@@ -497,18 +495,18 @@ export default function Dab() {
                     downloadBlob(recordedBlob, filename);
                   }
                 }}
-                className="w-full bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+                className="flex-1 bg-accent text-ink-inverse font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
               >
-                SHARE VIDEO
+                Share
               </button>
               <button
                 onClick={() => {
                   const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
                   downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
                 }}
-                className="w-full bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+                className="flex-1 bg-bg-elevated text-ink-primary font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
               >
-                SAVE TO FILES
+                Save
               </button>
             </>
           )}
@@ -517,9 +515,9 @@ export default function Dab() {
               if (recordedUrl) URL.revokeObjectURL(recordedUrl);
               navigate("/");
             }}
-            className="w-full bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+            className="flex-1 bg-bg-elevated text-ink-primary font-bold text-caption rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
           >
-            BACK TO HOME
+            Home
           </button>
         </div>
       </div>
