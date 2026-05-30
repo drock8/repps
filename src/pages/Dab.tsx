@@ -53,6 +53,12 @@ export default function Dab() {
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    };
+  }, [recordedUrl]);
+
   const [screen, setScreen] = useState<Screen>("detecting");
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<string>("UNKNOWN");
@@ -74,6 +80,8 @@ export default function Dab() {
   const [tuneOpen, setTuneOpen] = useState(true);
   const [stateLog, setStateLog] = useState<string[]>([]);
   const lastSignalUpdateRef = useRef(0);
+  const accentRef = useRef<string>("");
+  const accentSecondaryRef = useRef<string>("");
 
   // V2-specific display state
   const [cameraAngle, setCameraAngle] = useState<CameraAngle>("unknown");
@@ -226,8 +234,8 @@ export default function Dab() {
           canvasRef.current.height = videoRef.current.videoHeight;
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-          const accent = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
-          const accentSecondary = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
+          const accent = accentRef.current || getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+          const accentSecondary = accentSecondaryRef.current || getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
           const drawer = new DrawingUtils(ctx);
           for (const landmarks of result.landmarks) {
             drawer.drawLandmarks(landmarks, {
@@ -287,6 +295,8 @@ export default function Dab() {
                 setCalibrated(true);
                 setShowReady(true);
                 setTimeout(() => setShowReady(false), 1500);
+                accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+                accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
                 // Start recording — initialize canvas dimensions first
                 if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
@@ -335,6 +345,8 @@ export default function Dab() {
                 setCalibrated(true);
                 setShowReady(true);
                 setTimeout(() => setShowReady(false), 1500);
+                accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+                accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
                 // Start recording — initialize canvas dimensions first
                 if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;

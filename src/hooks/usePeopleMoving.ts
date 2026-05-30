@@ -19,6 +19,7 @@ export function usePeopleMoving() {
       const count = Number(data);
       cachedMovers = count;
       setMoverCount(count);
+      knownUsersRef.current.clear();
     }
   }, []);
 
