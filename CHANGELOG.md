@@ -1,5 +1,45 @@
 # Changelog
 
+## Guest-first onboarding (2026-05-30)
+
+### Added
+- **Guest DAB flow** -- anyone can tap DAB NOW and do burpees without signing up. Anonymous reps insert with `user_id = NULL`, UUIDs tracked in localStorage via new `guestSession.ts` helper.
+- **Email auth** -- `signUpWithEmail` and `signInWithEmail` added to AuthContext alongside existing Google OAuth.
+- **Leaderboard signup overlay** -- bottom sheet with Google + Email options appears after a guest DABs. Guest's session reps shown as a highlighted row with burnt orange glow at their correct rank position. "Maybe later" dismisses the overlay.
+- **Post-signup rep claiming** -- anonymous reps attached to new `user_id` on signup, gender set from guest session picker, localStorage cleared.
+- **Inline gender picker** -- after Share/Save on summary screen, guest picks gender then auto-navigates to leaderboard pre-filtered to their gender + Daily.
+- **Guest profile CTA** -- Profile tab shows Google + Email sign-in options for unauthenticated users.
+- **`guestSession.ts`** -- localStorage helper for tracking anonymous rep IDs, count, gender, and timestamp.
+
+### Changed
+- **Home page** -- "DAB NOW" shown for everyone; removed LFG button and sign-in gate.
+- **Summary screen** -- hides "YOUR TOTAL" for guests (no lifetime stats without an account).
+
+### Migration SQL
+```sql
+-- Run supabase/migrations/002_guest_onboarding.sql
+```
+
+## Medium-priority audit fixes (2026-05-30)
+
+### Fixed
+- **CSS custom property reads on every frame** -- Dab page read `getComputedStyle()` vars each animation frame for the skeleton overlay color. Now cached once on mount.
+- **Blob URL leak** -- video recording blob URLs created via `URL.createObjectURL()` were never revoked, leaking memory. Now revoked on cleanup.
+- **No catch-all route** -- navigating to an invalid URL showed a blank page. Added `*` route redirecting to Home.
+- **Mover count drift** -- `usePeopleMoving` could drift from the true distinct-user count over long sessions. Now caps local set size and re-syncs periodically.
+
+## Security audit fixes (2026-05-30)
+
+### Changed
+- **`insert_rep()` RPC with rate limiting** -- direct `INSERT` into `reps` replaced with a server-side function enforcing a 3-second cooldown per user. Prevents spamming the global counter.
+- **PKCE auth flow** -- replaced implicit OAuth grant with PKCE (`flowType: 'pkce'`) for stronger token security.
+- **Single shared realtime channel** -- `useRepsChannel` hook replaces 3 separate Supabase Realtime subscriptions (home counter, activity feed, mover count) with one shared channel.
+- **`get_user_rank()` RPC** -- replaces client-side rank calculation that fetched up to 1000 rows with a server-side query.
+- **Avatar upload validation** -- file type and size checked before uploading to Supabase Storage.
+
+### Fixed
+- **Hook ordering in Home.tsx** -- `usePeopleMoving` was referenced before declaration in a useEffect dependency, causing inconsistent behavior.
+
 ## Codebase hardening from Brutalist audit (2026-05-30)
 
 ### Added

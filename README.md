@@ -1,73 +1,94 @@
-# React + TypeScript + Vite
+# REPPs
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**AI-verified social burpee tracker.** Do a burpee in front of your phone, get it counted by computer vision, and contribute to a global movement counter visible to everyone in real time.
 
-Currently, two official plugins are available:
+*Micro-effort. Macro momentum.*
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Built for the Healthiest Hacker / muShanghai Longevity / Norther Lab hackathon (Shanghai, May 2026). REPPs is the first product in the planned **Livv** suite.
 
-## React Compiler
+## What it does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **AI burpee detection** -- MediaPipe pose estimation validates each rep through a full HIGH-LOW-HIGH body cycle
+- **Global counter** -- every verified rep feeds a live Total Global Burpees count targeting 1M by end of 2026
+- **Real-time activity feed** -- floating bubbles show reps happening worldwide as they happen via Supabase Realtime
+- **Leaderboards** -- filterable by gender (Female / Male / Non-binary) and time period (Daily / Weekly / Monthly / Yearly / All-time), computed server-side
+- **Branded video recording** -- sessions are recorded with a skeleton overlay, rep counter, logo, and QR code composited in real-time
+- **Audio rep counting** -- natural spoken numbers on each rep via pre-generated TTS clips
 
-## Expanding the ESLint configuration
+## Tech stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Layer | Tech |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
+| Routing | React Router DOM 7 |
+| Backend | Supabase (Auth, Postgres, Realtime, RLS) |
+| Vision | MediaPipe Tasks Vision (Pose Landmarker Lite, CPU) |
+| Auth | Google OAuth |
+| Deploy | Vercel |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Prerequisites
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 18+
+- A Supabase project with the required tables and RLS policies (see [Database](#database) below)
+- Google OAuth configured in Supabase Auth
+
+### Setup
+
+```bash
+git clone https://github.com/drock8/repps.git
+cd repps
+npm install
+cp .env.example .env   # then fill in your Supabase credentials
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### Mobile testing
+
+Camera access requires HTTPS. For local mobile testing:
+
+```bash
+npm run dev -- --host
+ngrok http 5173
+```
+
+Use the ngrok HTTPS URL on your phone.
+
+## Database
+
+Three tables in Supabase:
+
+- **profiles** -- extends `auth.users` with name, gender, avatar
+- **reps** -- one row per validated burpee, linked to user
+- **settings** -- admin-managed key/value pairs (global target, target date, etc.)
+
+Migrations live in `supabase/migrations/`. Run them in order against your Supabase project via the SQL editor.
+
+RLS is enforced: anyone can read, only authenticated users can write their own data.
+
+## Project structure
+
+```
+src/
+  pages/          Home, Dab (camera + detection), Leaderboard, Profile
+  components/     BottomNav, ActivityFeed, ErrorBoundary, GenderPrompt, Layout
+  lib/            Supabase client, video recorder, audio, guest session utils
+  hooks/          Realtime subscriptions, auth context
+public/
+  audio/          Pre-generated TTS clips (1-100)
+  *.png           App icons, logos, mascots
+supabase/
+  migrations/     SQL migration files
+```
+
+## License
+
+Private. All rights reserved.
