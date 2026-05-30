@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -37,7 +37,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 
 async function ensureProfile(user: User): Promise<Profile> {
   const meta = user.user_metadata;
-  await supabase
+  const { error: upsertError } = await supabase
     .from("profiles")
     .upsert(
       {
@@ -48,6 +48,7 @@ async function ensureProfile(user: User): Promise<Profile> {
       },
       { onConflict: "id", ignoreDuplicates: true }
     );
+  if (upsertError) throw upsertError;
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (user: User) => {
+  const loadProfile = useCallback(async (user: User) => {
     let p = await fetchProfile(user.id);
     if (!p) {
       p = await ensureProfile(user);
@@ -78,104 +79,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     setProfile(p);
-  };
+  }, []);
 
   useEffect(() => {
-    let settled = false;
+    let cancelled = false;
+
+    async function bootstrap(s: Session | null) {
+      if (cancelled) return;
+      setSession(s);
+      try {
+        if (s?.user) {
+          await loadProfile(s.user);
+        } else {
+          setProfile(null);
+        }
+      } catch (e) {
+        console.error("[auth] profile load failed:", e);
+        setProfile(null);
+      }
+      if (!cancelled) setLoading(false);
+    }
+
+    // Eagerly bootstrap from the existing session/hash tokens BEFORE
+    // relying on onAuthStateChange — this avoids the race where the
+    // listener misses the initial event on mobile redirect.
+    supabase.auth.getSession().then(({ data }) => {
+      bootstrap(data.session);
+    });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        settled = true;
-        setSession(newSession);
-        try {
-          if (newSession?.user) {
-            await loadProfile(newSession.user);
-          } else {
-            setProfile(null);
-          }
-        } catch (e) {
-          console.error("[auth] profile load failed:", e);
-        }
-        setLoading(false);
+      (_event, newSession) => {
+        bootstrap(newSession);
       }
     );
 
-    // Fallback: if onAuthStateChange hasn't fired within 3s (mobile redirect
-    // edge cases), explicitly check for a session and bootstrap from it.
-    const fallbackTimer = setTimeout(async () => {
-      if (settled) return;
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-          setSession(data.session);
-          await loadProfile(data.session.user);
-        }
-      } catch (e) {
-        console.error("[auth] fallback session check failed:", e);
-      }
-      setLoading(false);
-    }, 3000);
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session && !settled) {
-        setLoading(false);
-      }
-    });
-
     return () => {
-      clearTimeout(fallbackTimer);
+      cancelled = true;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     const redirectTo = window.location.origin + "/";
-    console.log("[auth] signInWithGoogle called, redirectTo:", redirectTo);
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo,
         queryParams: { prompt: "select_account" },
       },
     });
-    console.log("[auth] signInWithOAuth result:", { data, error });
-    if (error) {
-      console.error("[auth] OAuth error:", error);
-      throw error;
-    }
-  };
+    if (error) throw error;
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
     const { error } = await supabase.auth.signOut();
     if (error) console.error("Sign out error:", error);
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (session?.user) {
       const p = await fetchProfile(session.user.id);
       if (p) setProfile(p);
     }
-  };
+  }, [session]);
 
-  const updateProfile = (fields: Partial<Profile>) => {
+  const updateProfile = useCallback((fields: Partial<Profile>) => {
     setProfile((prev) => (prev ? { ...prev, ...fields } : prev));
-  };
+  }, []);
+
+  const value = useMemo<AuthContextValue>(() => ({
+    session,
+    user: session?.user ?? null,
+    profile,
+    loading,
+    signInWithGoogle,
+    signOut,
+    refreshProfile,
+    updateProfile,
+  }), [session, profile, loading, signInWithGoogle, signOut, refreshProfile, updateProfile]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user: session?.user ?? null,
-        profile,
-        loading,
-        signInWithGoogle,
-        signOut,
-        refreshProfile,
-        updateProfile,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
