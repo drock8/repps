@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Security fixes
+
+- Fixed session write guard bypass (F-1/HIGH): expanded the quick gate to detect `cp`, `mv`, `ln`, `dd`, `install`, `rsync`, `writeFileSync`, `writeFile`, `appendFileSync`, `File.write`, and `IO.write` targeting MCP-owned session artifacts. Added destination-path extraction for file commands and write APIs so they route through `check_file()`.
+- Added `Edit` tool matcher to the session write guard hook in `.claude/settings.json` — the Edit tool passes the same `file_path` field as Write, so the existing handler covers it.
+- Fixed ReDoS in `bounty_repo_check` (F-2/LOW): regex patterns are now rejected if they exceed 500 characters or contain nested quantifiers, preventing catastrophic backtracking.
+- Fixed misleading write guard test that only blocked on `open(` instead of `writeFileSync`, and added test cases for `cp`, `mv`, `ln`, and `dd` bypass vectors.
+
 ## [1.3.4] - 2026-05-14
 
 ### Codex adapter parity

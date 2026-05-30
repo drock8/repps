@@ -533,6 +533,12 @@ function repoCheck(args) {
       if (text == null) {
         record.reason = "file_unreadable_or_too_large";
       } else {
+        if (regex && pattern.length > 500) {
+          throw Object.assign(new Error("regex pattern exceeds 500 char limit"), { code: "PATTERN_TOO_LONG" });
+        }
+        if (regex && /([+*]|\{\d)[^)]*[+*?]|\([^)]*[+*?]\)[+*?]/.test(pattern)) {
+          throw Object.assign(new Error("regex pattern rejected: nested quantifiers"), { code: "UNSAFE_PATTERN" });
+        }
         const matcher = regex
           ? new RegExp(pattern, "g")
           : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");

@@ -186,6 +186,47 @@ def extract_inline_script_paths(command):
     return targets
 
 
+def extract_file_command_targets(command):
+    """Extract destination paths from cp, mv, ln, dd, install, rsync commands."""
+    targets = []
+
+    # cp/mv/install/rsync: last non-flag argument is the destination
+    for match in re.finditer(r"\b(cp|mv|install|rsync)\b(.*?)(?:[;&|]|$)", command):
+        args = match.group(2).strip()
+        # Split on whitespace, skip flags (starting with -)
+        parts = [p.strip("\"'") for p in args.split() if not p.startswith("-")]
+        if len(parts) >= 2:
+            targets.append(parts[-1])
+
+    # ln [-sfn...] target link_name — destination is last arg
+    for match in re.finditer(r"\bln\b(.*?)(?:[;&|]|$)", command):
+        args = match.group(1).strip()
+        parts = [p.strip("\"'") for p in args.split() if not p.startswith("-")]
+        if len(parts) >= 2:
+            targets.append(parts[-1])
+
+    # dd of=<path>
+    for match in re.finditer(r"\bdd\b.*?\bof=\s*[\"']?([^\"'\s;&|]+)", command):
+        targets.append(match.group(1))
+
+    return targets
+
+
+def extract_write_api_targets(command):
+    """Extract file paths from writeFileSync/writeFile/appendFileSync and similar APIs."""
+    targets = []
+
+    # writeFileSync("path", ...) / writeFile("path", ...) / appendFileSync("path", ...)
+    for match in re.finditer(r"(?:writeFileSync|writeFile|appendFileSync)\s*\(\s*[\"']([^\"']+)[\"']", command):
+        targets.append(match.group(1))
+
+    # File.write("path", ...) / IO.write("path", ...)
+    for match in re.finditer(r"(?:File|IO)\.write\s*\(\s*[\"']([^\"']+)[\"']", command):
+        targets.append(match.group(1))
+
+    return targets
+
+
 # Main
 payload = {}
 try:
@@ -214,8 +255,10 @@ if not command:
 # Quick gate: skip if no write indicators
 has_redirects = re.search(r">{1,2}\s|tee\s", command)
 has_open_call = re.search(r"open\s*\(|Path\s*\(", command)
+has_file_commands = re.search(r"\b(cp|mv|ln|dd|install|rsync)\b", command)
+has_write_api = re.search(r"writeFileSync|writeFile|appendFileSync|File\.write|IO\.write", command)
 
-if not has_redirects and not has_open_call:
+if not has_redirects and not has_open_call and not has_file_commands and not has_write_api:
     raise SystemExit(0)
 
 # Extract and check redirect targets
@@ -235,6 +278,26 @@ if has_open_call:
         if blocked:
             block(
                 f"BLOCKED: Inline script writes to '{blocked}' in session directory. "
+                f"Use the appropriate bountyagent MCP tool instead."
+            )
+
+# Extract and check file-copy/move/link command destinations
+if has_file_commands:
+    for target in extract_file_command_targets(command):
+        blocked = check_file(target)
+        if blocked:
+            block(
+                f"BLOCKED: File command writes to '{blocked}' in session directory. "
+                f"Use the appropriate bountyagent MCP tool instead."
+            )
+
+# Extract and check JS/Ruby/Perl write API targets
+if has_write_api:
+    for target in extract_write_api_targets(command):
+        blocked = check_file(target)
+        if blocked:
+            block(
+                f"BLOCKED: Write API targets '{blocked}' in session directory. "
                 f"Use the appropriate bountyagent MCP tool instead."
             )
 
