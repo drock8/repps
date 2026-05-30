@@ -2,6 +2,10 @@
 
 ## Enhanced stats & leaderboard boards (2026-05-30)
 
+### Fixed
+- **Profile page not scrollable** -- `overflow-hidden` on the profile container clipped the activity heatmap below the fold. Changed to `overflow-y-auto` with bottom padding.
+- **Heatmap cells invisible** -- empty cells used `bg-bg-elevated` which was nearly indistinguishable from the card background. Added subtle border and bumped active cell opacity levels.
+
 ### Added
 - **Activity heatmap** -- GitHub-style contribution grid on Profile page showing daily rep counts over 3 months. Color intensity scales with volume. Tap/hover any cell to see exact count and date.
 - **Streak tracking** -- Profile shows current streak (consecutive days with >= 1 rep) and longest streak ever. Streak is considered active if last activity was today or yesterday.
