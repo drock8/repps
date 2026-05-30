@@ -74,12 +74,12 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
   }, [dailyCounts, months]);
 
   function getIntensity(count: number): string {
-    if (count === 0) return "bg-bg-elevated";
+    if (count === 0) return "bg-bg-elevated border border-divider";
     if (maxCount <= 1) return "bg-accent";
     const ratio = count / maxCount;
-    if (ratio <= 0.25) return "bg-accent/25";
-    if (ratio <= 0.5) return "bg-accent/50";
-    if (ratio <= 0.75) return "bg-accent/75";
+    if (ratio <= 0.25) return "bg-accent/30";
+    if (ratio <= 0.5) return "bg-accent/55";
+    if (ratio <= 0.75) return "bg-accent/80";
     return "bg-accent";
   }
 

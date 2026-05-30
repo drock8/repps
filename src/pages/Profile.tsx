@@ -353,7 +353,7 @@ export default function Profile() {
   );
 
   return (
-    <div className="flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-y-auto pb-8">
       {/* Sign out icon top-right */}
       <div className="flex justify-end">
         <button
