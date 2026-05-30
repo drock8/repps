@@ -21,10 +21,11 @@ export interface V2Thresholds {
   minDuration: number;
   minLowDwell: number;
   smoothingWindow: number;
+  // Nose must drop to this fraction of standing height above ankles to count as DOWN
+  noseAnkleRatioLow: number;
   // Side-view specific
   torsoAngleLow: number;
   hipAngleLow: number;
-  noseAnkleRatioLow: number;
 }
 
 export interface V2DetectionFrame {
@@ -52,9 +53,9 @@ const FRONT_THRESHOLDS: V2Thresholds = {
   minDuration: 1500,
   minLowDwell: 300,
   smoothingWindow: 5,
+  noseAnkleRatioLow: 0.40,
   torsoAngleLow: 55,
   hipAngleLow: 130,
-  noseAnkleRatioLow: 0.25,
 };
 
 const SIDE_THRESHOLDS: V2Thresholds = {
@@ -64,9 +65,9 @@ const SIDE_THRESHOLDS: V2Thresholds = {
   minDuration: 2000,
   minLowDwell: 400,
   smoothingWindow: 5,
+  noseAnkleRatioLow: 0.30,
   torsoAngleLow: 55,
   hipAngleLow: 130,
-  noseAnkleRatioLow: 0.25,
 };
 
 const STABILITY_WINDOW_MS = 1000;
@@ -119,6 +120,8 @@ export class DetectionEngineV2 {
 
   // Descent tracking
   private reachedDown = false;
+  // Prevents double-counting from broken-up movements within one cycle
+  private cycleRepCounted = false;
 
   // Diagnostics
   private lastHipAngle = 180;
@@ -160,6 +163,7 @@ export class DetectionEngineV2 {
     this.ratioBuffer = [];
 
     this.reachedDown = false;
+    this.cycleRepCounted = false;
     this.lastHipAngle = 180;
     this.lastKneeAngle = 180;
     this.lastTorsoAngle = 0;
@@ -174,6 +178,7 @@ export class DetectionEngineV2 {
     this.lowEnteredTime = 0;
 
     this.reachedDown = false;
+    this.cycleRepCounted = false;
     this.isStable = false;
     this.stabilityFrames = [];
     this.cameraAngle = "unknown";
@@ -414,7 +419,7 @@ export class DetectionEngineV2 {
 
     const t = this.thresholds;
 
-    // Compute side-view angles if applicable
+    // Compute pose geometry for validation
     let sideAngles = { hipAngle: 180, kneeAngle: 180, torsoAngle: 0, noseAnkleRatio: 1 };
     if (this.cameraAngle === "side") {
       sideAngles = this.getSideAngles(landmarks);
@@ -423,16 +428,22 @@ export class DetectionEngineV2 {
       this.lastTorsoAngle = sideAngles.torsoAngle;
     }
 
+    // Front-view: compute nose-to-ankle ratio to reject squats
+    const ankleY = Math.max(lm.lAnkle.y, lm.rAnkle.y);
+    const noseAnkleRatio = this.standingHeight > 0
+      ? Math.abs(lm.nose.y - ankleY) / this.standingHeight
+      : 1;
+
     // 4-state machine
     const prevState = this.repState;
     let stateChanged = false;
 
     switch (this.repState) {
       case "STANDING": {
-        // Enter DESCENDING when ratio drops into or below hysteresis zone
         if (r < t.highRatio - 0.05) {
           this.repState = "DESCENDING";
           this.reachedDown = false;
+          this.cycleRepCounted = false;
           stateChanged = true;
         }
         break;
@@ -440,18 +451,21 @@ export class DetectionEngineV2 {
 
       case "DESCENDING": {
         if (r < t.lowRatio) {
-          // Check side-view criteria if applicable
-          let sideOk = true;
-          if (this.cameraAngle === "side") {
-            sideOk = sideAngles.torsoAngle > t.torsoAngleLow * 0.7;
+          let poseOk = true;
+
+          if (this.cameraAngle === "front") {
+            // Nose must be close to ankle level — rejects squats where head stays high
+            poseOk = noseAnkleRatio < t.noseAnkleRatioLow;
+          } else if (this.cameraAngle === "side") {
+            poseOk = sideAngles.torsoAngle > t.torsoAngleLow * 0.7;
           }
-          if (sideOk) {
+
+          if (poseOk) {
             this.repState = "DOWN";
             this.lowEnteredTime = now;
             stateChanged = true;
           }
         }
-        // If ratio goes back up before reaching DOWN, cancel
         if (r > t.highRatio) {
           this.repState = "STANDING";
           stateChanged = true;
@@ -473,18 +487,14 @@ export class DetectionEngineV2 {
         if (r > t.highRatio) {
           const cycleDuration = now - this.lastStandingTime;
 
-          let validRep = this.reachedDown &&
+          const validRep = this.reachedDown &&
+            !this.cycleRepCounted &&
             cycleDuration >= t.minDuration &&
             cycleDuration <= t.maxDuration;
 
-          // Side-view: check hip angle closed at some point (torso angle already checked at DOWN entry)
-          if (validRep && this.cameraAngle === "side") {
-            // We already gated entry to DOWN on torso angle, so the rep shape is validated
-            validRep = true;
-          }
-
           if (validRep) {
             this.repCount += 1;
+            this.cycleRepCounted = true;
           }
 
           this.repState = "STANDING";
@@ -492,7 +502,7 @@ export class DetectionEngineV2 {
           this.reachedDown = false;
           stateChanged = true;
         }
-        // If ratio drops again before reaching STANDING, go back to DOWN
+        // If ratio drops again before reaching STANDING, stay in same cycle
         if (r < t.lowRatio) {
           this.repState = "DOWN";
           this.lowEnteredTime = now;

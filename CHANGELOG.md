@@ -1,5 +1,11 @@
 # Changelog
 
+## Tighten burpee detection — anti-cheat (2026-05-30)
+
+### Fixed
+- **Squat no longer counts as a rep** — added nose-to-ankle ratio check on front view. The nose must drop to within 40% of standing height above the ankles to register as DOWN. A squat keeps the head too high to pass.
+- **Broken-up burpee no longer double-counts** — added `cycleRepCounted` guard so only one rep can be counted per descent cycle (STANDING → down → back up). Bouncing between DOWN and ASCENDING within the same cycle no longer triggers multiple reps.
+
 ## Auth flow hardening (2026-05-30)
 
 ### Fixed
