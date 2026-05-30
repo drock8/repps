@@ -122,10 +122,9 @@ export default function Dab() {
   }, []);
 
   const insertRep = useCallback(
-    (userId: string) => {
+    () => {
       supabase
-        .from("reps")
-        .insert({ user_id: userId, exercise_type: "burpee" })
+        .rpc("insert_rep", { p_exercise_type: "burpee" })
         .then(({ error }) => {
           if (error) console.error("Rep insert error:", error);
         });
@@ -304,7 +303,7 @@ export default function Dab() {
                 setReps(frame.repCount);
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
-                if (!tuneMode) insertRep(profile!.id);
+                if (!tuneMode) insertRep();
               }
 
               if (frame.stateChanged) {
@@ -352,7 +351,7 @@ export default function Dab() {
                 setReps(frame.repCount);
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
-                if (!tuneMode) insertRep(profile!.id);
+                if (!tuneMode) insertRep();
               }
 
               if (frame.stateChanged) {

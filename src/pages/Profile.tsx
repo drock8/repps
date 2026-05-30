@@ -25,6 +25,7 @@ export default function Profile() {
   const [savingGender, setSavingGender] = useState(false);
   const [totalReps, setTotalReps] = useState<number | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -123,9 +124,23 @@ export default function Profile() {
     setEditingGender(false);
   };
 
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarError("");
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setAvatarError("Only JPEG, PNG, WebP, and GIF images are allowed.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setAvatarError("Image must be under 5 MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setUploadingAvatar(true);
     const ext = file.name.split(".").pop();
     const path = `${profile.id}/avatar.${ext}`;
@@ -207,11 +222,14 @@ export default function Profile() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           onChange={handleAvatarUpload}
           className="hidden"
         />
       </div>
+      {avatarError && (
+        <p className="text-caption text-error text-center mt-2">{avatarError}</p>
+      )}
 
       {/* Cards — consistent 2-unit gap */}
       <div className="flex flex-col gap-2 mt-4">

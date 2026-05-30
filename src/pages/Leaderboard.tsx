@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useRepsChannel } from "../hooks/useRepsChannel";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
@@ -108,35 +109,24 @@ export default function Leaderboard() {
         if (userMatchesFilter) {
           const userInTop50 = top50.some((e) => e.userId === profile.id);
           if (!userInTop50) {
-            const { data: userRow } = await supabase.rpc("get_leaderboard", {
+            const { data: rankData } = await supabase.rpc("get_user_rank", {
+              p_user_id: profile.id,
               p_gender: g === "all" ? null : g,
               p_period: p,
-              p_limit: 1000,
             });
-            const all: LeaderboardEntry[] = (userRow || []).map(
-              (row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; created_at: string }) => ({
-                userId: row.user_id,
-                name: row.name,
-                avatarUrl: row.avatar_url,
-                count: row.rep_count,
-                createdAt: row.created_at,
-              })
-            );
-            const userIdx = all.findIndex((e) => e.userId === profile.id);
-            if (userIdx !== -1) {
-              setUserEntry({ rank: userIdx + 1, entry: all[userIdx] });
-            } else {
-              setUserEntry({
-                rank: all.length + 1,
-                entry: {
-                  userId: profile.id,
-                  name: profile.name,
-                  avatarUrl: profile.avatar_url,
-                  count: 0,
-                  createdAt: profile.created_at,
-                },
-              });
-            }
+            const row = Array.isArray(rankData) ? rankData[0] : rankData;
+            const rank = row?.rank ? Number(row.rank) : top50.length + 1;
+            const userInList = top50.find((e) => e.userId === profile.id);
+            setUserEntry({
+              rank,
+              entry: userInList ?? {
+                userId: profile.id,
+                name: profile.name,
+                avatarUrl: profile.avatar_url,
+                count: 0,
+                createdAt: profile.created_at,
+              },
+            });
           } else {
             setUserEntry(null);
           }
@@ -157,27 +147,21 @@ export default function Leaderboard() {
     fetchLeaderboard(gender, period);
   }, [gender, period, fetchLeaderboard, fetchTotalReps]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("leaderboard-reps")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "reps" },
-        () => {
-          setTotalReps((prev) => prev + 1);
-          if (debounceRef.current) clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(() => {
-            fetchLeaderboard(gender, period);
-          }, 2000);
-        }
-      )
-      .subscribe();
+  useRepsChannel(
+    useCallback(() => {
+      setTotalReps((prev) => prev + 1);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        fetchLeaderboard(gender, period);
+      }, 2000);
+    }, [gender, period, fetchLeaderboard])
+  );
 
+  useEffect(() => {
     return () => {
-      channel.unsubscribe();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [gender, period, fetchLeaderboard]);
+  }, []);
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">

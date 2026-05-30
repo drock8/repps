@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import ActivityFeed from "../components/ActivityFeed";
 import { usePeopleMoving } from "../hooks/usePeopleMoving";
+import { useRepsChannel } from "../hooks/useRepsChannel";
 import YouTubeEmbed from "../components/YouTubeEmbed";
 import { unlockAudio } from "../lib/repAudio";
 
@@ -119,40 +120,27 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("home-reps")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "reps" },
-        (payload) => {
-          setTotalReps((prev) => {
-            const next = prev + 1;
-            cachedCount = next;
-            return next;
-          });
-          const userId = payload.new?.user_id as string | undefined;
-          if (userId) handleNewRep(userId);
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
-            if (count !== null && mountedRef.current) {
-              cachedCount = count;
-              setTotalReps(count);
-            }
-          });
-          refetchMovers();
+  const { moverCount, handleNewRep, refetchMovers } = usePeopleMoving();
+
+  useRepsChannel(
+    (payload) => {
+      setTotalReps((prev) => {
+        const next = prev + 1;
+        cachedCount = next;
+        return next;
+      });
+      handleNewRep(payload.user_id);
+    },
+    () => {
+      supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
+        if (count !== null && mountedRef.current) {
+          cachedCount = count;
+          setTotalReps(count);
         }
       });
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [handleNewRep, refetchMovers]);
-
-  const { moverCount, handleNewRep, refetchMovers } = usePeopleMoving();
+      refetchMovers();
+    }
+  );
   const animatedMovers = useAnimatedCounter(moverCount, 200);
 
   const MILESTONE_TARGET = 1000;
