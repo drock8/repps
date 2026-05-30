@@ -16,7 +16,7 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
-  const { profile, signInWithGoogle, signOut, refreshProfile } = useAuth();
+  const { profile, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, refreshProfile } = useAuth();
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [nameError, setNameError] = useState("");
@@ -27,6 +27,14 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Guest auth form state
+  const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin">("choose");
+  const [authName, setAuthName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -72,16 +80,157 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-        <p className="text-body text-ink-muted mb-8">
-          Sign in to see your profile
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+        <p className="text-headline text-ink-primary mb-2">Profile</p>
+        <p className="text-body text-ink-secondary mb-8 text-center">
+          Sign in to track your reps and claim your leaderboard spot
         </p>
-        <button
-          onClick={signInWithGoogle}
-          className="cta-button w-32 h-32 rounded-full bg-accent text-ink-inverse font-bold text-[18px] flex items-center justify-center text-center leading-tight transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
-        >
-          Sign in<br />with<br />Google
-        </button>
+
+        {authMode === "choose" && (
+          <div className="w-full max-w-sm flex flex-col gap-3">
+            <button
+              onClick={signInWithGoogle}
+              className="w-full py-4 px-6 rounded-pill bg-ink-primary text-ink-inverse font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+            <button
+              onClick={() => setAuthMode("signup")}
+              className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+              Sign up with Email
+            </button>
+            <button
+              onClick={() => setAuthMode("signin")}
+              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
+            >
+              Already have an account? Sign in
+            </button>
+          </div>
+        )}
+
+        {authMode === "signup" && (
+          <div className="w-full max-w-sm flex flex-col gap-3">
+            <input
+              type="text"
+              placeholder="Name"
+              value={authName}
+              onChange={(e) => { setAuthName(e.target.value); setAuthError(""); }}
+              maxLength={50}
+              autoFocus
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={authEmail}
+              onChange={(e) => { setAuthEmail(e.target.value); setAuthError(""); }}
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            <input
+              type="password"
+              placeholder="Password (min 6 characters)"
+              value={authPassword}
+              onChange={(e) => { setAuthPassword(e.target.value); setAuthError(""); }}
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            {authError && <p className="text-caption text-error">{authError}</p>}
+            <button
+              onClick={async () => {
+                if (!authName.trim() || !authEmail.trim() || !authPassword.trim()) {
+                  setAuthError("All fields are required"); return;
+                }
+                if (authPassword.length < 6) {
+                  setAuthError("Password must be at least 6 characters"); return;
+                }
+                setAuthSubmitting(true); setAuthError("");
+                try {
+                  await signUpWithEmail(authEmail.trim(), authPassword, authName.trim());
+                } catch (e) {
+                  setAuthError((e as Error).message);
+                  setAuthSubmitting(false);
+                }
+              }}
+              disabled={authSubmitting}
+              className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              {authSubmitting ? "Creating account..." : "Sign up"}
+            </button>
+            <button
+              onClick={() => { setAuthMode("signin"); setAuthError(""); }}
+              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
+            >
+              Already have an account? Sign in
+            </button>
+            <button
+              onClick={() => { setAuthMode("choose"); setAuthError(""); }}
+              className="w-full py-2 text-caption text-ink-muted text-center"
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {authMode === "signin" && (
+          <div className="w-full max-w-sm flex flex-col gap-3">
+            <input
+              type="email"
+              placeholder="Email"
+              value={authEmail}
+              onChange={(e) => { setAuthEmail(e.target.value); setAuthError(""); }}
+              autoFocus
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={authPassword}
+              onChange={(e) => { setAuthPassword(e.target.value); setAuthError(""); }}
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            {authError && <p className="text-caption text-error">{authError}</p>}
+            <button
+              onClick={async () => {
+                if (!authEmail.trim() || !authPassword.trim()) {
+                  setAuthError("Email and password are required"); return;
+                }
+                setAuthSubmitting(true); setAuthError("");
+                try {
+                  await signInWithEmail(authEmail.trim(), authPassword);
+                } catch (e) {
+                  setAuthError((e as Error).message);
+                  setAuthSubmitting(false);
+                }
+              }}
+              disabled={authSubmitting}
+              className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              {authSubmitting ? "Signing in..." : "Sign in"}
+            </button>
+            <button
+              onClick={() => { setAuthMode("signup"); setAuthError(""); }}
+              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
+            >
+              Don't have an account? Sign up
+            </button>
+            <button
+              onClick={() => { setAuthMode("choose"); setAuthError(""); }}
+              className="w-full py-2 text-caption text-ink-muted text-center"
+            >
+              Back
+            </button>
+          </div>
+        )}
       </div>
     );
   }

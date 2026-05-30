@@ -20,8 +20,10 @@ import {
   downloadBlob,
 } from "../lib/videoRecorder";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
+import { addGuestRep, setGuestGender } from "../lib/guestSession";
+import type { Gender } from "../contexts/AuthContext";
 
-type Screen = "detecting" | "summary";
+type Screen = "detecting" | "summary" | "gender-picker";
 type EngineVersion = "v1" | "v2";
 
 const CALIBRATION_FRAMES = 30;
@@ -91,20 +93,15 @@ export default function Dab() {
   const [kneeAngle, setKneeAngle] = useState(180);
   const [torsoAngle, setTorsoAngle] = useState(0);
 
-  useEffect(() => {
-    if (!authLoading && !profile) navigate("/", { replace: true });
-  }, [authLoading, profile, navigate]);
-
   // Preload rep audio clips and brand assets
   useEffect(() => {
-    if (!profile) return;
     preloadRepAudio(10);
 
     (async () => {
       try {
         const [logo, qrDataUrl] = await Promise.all([
           loadImage("/Repps-Blue-Logo.png").catch(() => null),
-          generateQRDataUrl(profile.id),
+          generateQRDataUrl(profile?.id || "guest"),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {
@@ -119,7 +116,7 @@ export default function Dab() {
         // Brand overlay is optional — recording still works without it
       }
     })();
-  }, [profile]);
+  }, [profile?.id]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);
@@ -131,17 +128,30 @@ export default function Dab() {
 
   const insertRep = useCallback(
     () => {
-      supabase
-        .rpc("insert_rep", { p_exercise_type: "burpee" })
-        .then(({ error }) => {
-          if (error) console.error("Rep insert error:", error);
-        });
+      if (profile) {
+        supabase
+          .rpc("insert_rep", { p_exercise_type: "burpee" })
+          .then(({ data, error }) => {
+            if (error) console.error("Rep insert network error:", error);
+            else if (data?.success === false) console.warn("Rep insert rejected:", data.error);
+          });
+      } else {
+        supabase
+          .from("reps")
+          .insert({ exercise_type: "burpee" })
+          .select("id")
+          .single()
+          .then(({ data, error }) => {
+            if (error) console.error("Guest rep insert error:", error);
+            else if (data?.id) addGuestRep(data.id);
+          });
+      }
     },
-    []
+    [profile]
   );
 
   useEffect(() => {
-    if (!profile || screen !== "detecting") return;
+    if (authLoading || screen !== "detecting") return;
 
     let cancelled = false;
 
@@ -406,7 +416,7 @@ export default function Dab() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [profile, screen, insertRep, tuneMode, engineVersion]);
+  }, [authLoading, screen, insertRep, tuneMode, engineVersion]);
 
   const handleStop = async () => {
     // 1. Stop detection loop immediately
@@ -437,21 +447,61 @@ export default function Dab() {
 
     // 5. Fetch totals — summary already visible, these fill in when ready
     try {
-      const [userResult, globalResult] = await Promise.all([
-        supabase
-          .from("reps")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", profile!.id),
-        supabase.from("reps").select("*", { count: "exact", head: true }),
-      ]);
-      setSummaryUserTotal(userResult.count ?? 0);
-      setSummaryGlobalTotal(globalResult.count ?? 0);
+      if (profile) {
+        const [userResult, globalResult] = await Promise.all([
+          supabase
+            .from("reps")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", profile.id),
+          supabase.from("reps").select("*", { count: "exact", head: true }),
+        ]);
+        setSummaryUserTotal(userResult.count ?? 0);
+        setSummaryGlobalTotal(globalResult.count ?? 0);
+      } else {
+        const { count } = await supabase.from("reps").select("*", { count: "exact", head: true });
+        setSummaryGlobalTotal(count ?? 0);
+      }
     } catch {
       // Network failed — totals stay at 0
     }
   };
 
-  if (authLoading || !profile) return null;
+  if (authLoading) return null;
+
+  if (screen === "gender-picker") {
+    const genderOptions: { label: string; value: Gender }[] = [
+      { label: "Female", value: "female" },
+      { label: "Male", value: "male" },
+      { label: "Non-binary", value: "non_binary" },
+    ];
+
+    return (
+      <div className="flex flex-col items-center justify-center h-[100dvh] -mx-4 -mt-6 px-4">
+        <div className="w-full max-w-sm text-center">
+          <p className="text-display-md text-ink-primary">See how you rank!</p>
+          <p className="text-body text-ink-secondary mt-3">
+            Pick your category to see the leaderboard
+          </p>
+          <div className="flex flex-col gap-3 mt-8">
+            {genderOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  if (!profile) {
+                    setGuestGender(opt.value);
+                  }
+                  navigate(`/leaderboard?signup=1&gender=${opt.value}&reps=${reps}`);
+                }}
+                className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (screen === "summary") {
     return (
@@ -467,11 +517,15 @@ export default function Dab() {
             <p className="text-display-md text-accent tabular-nums leading-none">+{reps}</p>
             <p className="text-micro text-ink-muted mt-0.5">{reps === 1 ? "REP" : "REPS"}</p>
           </div>
-          <div className="w-px h-8 bg-divider" />
-          <div className="text-center">
-            <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryUserTotal.toLocaleString()}</p>
-            <p className="text-micro text-ink-muted mt-0.5">YOUR TOTAL</p>
-          </div>
+          {profile && (
+            <>
+              <div className="w-px h-8 bg-divider" />
+              <div className="text-center">
+                <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryUserTotal.toLocaleString()}</p>
+                <p className="text-micro text-ink-muted mt-0.5">YOUR TOTAL</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Video preview — fills space between stats and fixed action bar */}
@@ -527,6 +581,7 @@ export default function Dab() {
                   } else {
                     downloadBlob(recordedBlob, filename);
                   }
+                  if (reps > 0) setScreen("gender-picker");
                 }}
                 className="flex-1 py-3 text-accent font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
               >
@@ -537,6 +592,7 @@ export default function Dab() {
                 onClick={() => {
                   const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
                   downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
+                  if (reps > 0) setScreen("gender-picker");
                 }}
                 className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
               >
@@ -602,6 +658,9 @@ export default function Dab() {
         )}
         <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
         <p className="text-display-xl text-accent tabular-nums">{reps}</p>
+        {calibrated && reps === 0 && (
+          <p className="text-micro text-ink-muted mt-0.5">Each rep must be under 10 seconds</p>
+        )}
       </div>
 
       {/* Camera + skeleton */}

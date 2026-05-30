@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
+import { getGuestSession, clearGuestSession } from "../lib/guestSession";
 import type { Session, User } from "@supabase/supabase-js";
 
 export type Gender = "female" | "male" | "non_binary" | "unspecified";
@@ -19,6 +20,8 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (fields: Partial<Profile>) => void;
@@ -58,6 +61,26 @@ async function ensureProfile(user: User): Promise<Profile> {
   return data;
 }
 
+async function claimGuestReps(userId: string): Promise<void> {
+  const guest = getGuestSession();
+  if (!guest?.repIds?.length) return;
+
+  await supabase
+    .from("reps")
+    .update({ user_id: userId })
+    .in("id", guest.repIds)
+    .is("user_id", null);
+
+  if (guest.gender && guest.gender !== "unspecified") {
+    await supabase
+      .from("profiles")
+      .update({ gender: guest.gender, gender_set: true })
+      .eq("id", userId);
+  }
+
+  clearGuestSession();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -78,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p = { ...p, avatar_url: googleAvatar };
       }
     }
+
+    await claimGuestReps(user.id);
+    const refreshed = await fetchProfile(user.id);
+    if (refreshed) p = refreshed;
+
     setProfile(p);
   }, []);
 
@@ -131,6 +159,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: name } },
+    });
+    if (error) throw error;
+    if (data.user) {
+      await ensureProfile({ ...data.user, user_metadata: { ...data.user.user_metadata, full_name: name } } as User);
+      await claimGuestReps(data.user.id);
+    }
+  }, []);
+
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  }, []);
+
   const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
@@ -155,10 +201,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
     signOut,
     refreshProfile,
     updateProfile,
-  }), [session, profile, loading, signInWithGoogle, signOut, refreshProfile, updateProfile]);
+  }), [session, profile, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut, refreshProfile, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+
 import { supabase } from "../lib/supabase";
 import ActivityFeed from "../components/ActivityFeed";
 import { usePeopleMoving } from "../hooks/usePeopleMoving";
@@ -63,7 +63,6 @@ function useAnimatedCounter(target: number, duration = 600) {
 let cachedCount: number | null = null;
 
 export default function Home() {
-  const { profile, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [totalReps, setTotalReps] = useState(cachedCount ?? 0);
@@ -199,46 +198,22 @@ export default function Home() {
       </div>
 
       <div className="mt-2 flex flex-col items-center">
-        {profile ? (
-          <div className="flex flex-col items-center">
-            <div className="relative">
-              <button
-                onClick={() => { unlockAudio(); navigate("/dab"); }}
-                className="cta-button w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
-              >
-                DAB<br />NOW
-              </button>
-              <img
-                src="/DAB-Repps-Mascot.png"
-                alt=""
-                className="absolute w-[5.5rem] -right-8 -top-6 pointer-events-none"
-              />
-            </div>
-            <p className="text-caption text-ink-primary mt-2">Drop A Burpee</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            <div className="relative">
-              <button
-                onClick={signInWithGoogle}
-                className="cta-button w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[44px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
-              >
-                LFG!
-              </button>
-              <img
-                src="/LFG-Repps-Mascot.png"
-                alt=""
-                className="absolute w-[5.5rem] -left-8 -bottom-2 pointer-events-none"
-              />
-            </div>
+        <div className="flex flex-col items-center">
+          <div className="relative">
             <button
-              onClick={signInWithGoogle}
-              className="mt-3 text-caption text-ink-secondary"
+              onClick={() => { unlockAudio(); navigate("/dab"); }}
+              className="cta-button w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
             >
-              Already have an account? Sign in
+              DAB<br />NOW
             </button>
+            <img
+              src="/DAB-Repps-Mascot.png"
+              alt=""
+              className="absolute w-[5.5rem] -right-8 -top-6 pointer-events-none"
+            />
           </div>
-        )}
+          <p className="text-caption text-ink-primary mt-2">Drop A Burpee</p>
+        </div>
       </div>
 
       <div className="mt-[15px] flex justify-center">
