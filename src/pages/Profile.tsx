@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
+import { useRepsChannel } from "../hooks/useRepsChannel";
+import ActivityHeatmap from "../components/ActivityHeatmap";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -8,6 +10,18 @@ const genderOptions: { label: string; value: Gender }[] = [
   { label: "Non-binary", value: "non_binary" },
   { label: "Prefer not to say", value: "unspecified" },
 ];
+
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
+
+function formatRpm(reps: number, durationSeconds: number): string {
+  if (durationSeconds === 0) return "—";
+  return (reps / (durationSeconds / 60)).toFixed(1);
+}
 
 function formatGender(gender: Gender): string {
   if (gender === "non_binary") return "Non-binary";
@@ -23,10 +37,20 @@ export default function Profile() {
   const [savingName, setSavingName] = useState(false);
   const [editingGender, setEditingGender] = useState(false);
   const [savingGender, setSavingGender] = useState(false);
-  const [totalReps, setTotalReps] = useState<number | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [stats, setStats] = useState<{
+    totalReps: number;
+    daysActive: number;
+    todayCount: number;
+    bestSessionCount: number;
+    bestSessionDuration: number;
+    currentStreak: number;
+    longestStreak: number;
+  } | null>(null);
+  const [dailyCounts, setDailyCounts] = useState<{ day: string; count: number }[]>([]);
 
   // Guest auth form state
   const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin">("choose");
@@ -36,47 +60,56 @@ export default function Profile() {
   const [authError, setAuthError] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
 
-  useEffect(() => {
+  const fetchStats = useCallback(async () => {
     if (!profile) return;
-    let cancelled = false;
-    let retryTimeout: ReturnType<typeof setTimeout>;
-    let retryCount = 0;
+    const [statsRes, dailyRes] = await Promise.all([
+      supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
+      supabase.rpc("get_user_daily_counts", { p_user_id: profile.id }),
+    ]);
 
-    async function fetchReps() {
-      try {
-        const { count, error } = await supabase
-          .from("reps")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", profile!.id);
-        if (cancelled) return;
-        if (error) {
-          retryCount++;
-          retryTimeout = setTimeout(fetchReps, Math.min(2000 * retryCount, 10000));
-          return;
-        }
-        retryCount = 0;
-        setTotalReps(count ?? 0);
-      } catch {
-        if (!cancelled) {
-          retryCount++;
-          retryTimeout = setTimeout(fetchReps, Math.min(2000 * retryCount, 10000));
-        }
+    if (statsRes.data) {
+      const row = Array.isArray(statsRes.data) ? statsRes.data[0] : statsRes.data;
+      if (row) {
+        setStats({
+          totalReps: Number(row.total_reps),
+          daysActive: Number(row.days_active),
+          todayCount: Number(row.today_count),
+          bestSessionCount: Number(row.best_session_count),
+          bestSessionDuration: Number(row.best_session_duration),
+          currentStreak: Number(row.current_streak),
+          longestStreak: Number(row.longest_streak),
+        });
       }
     }
 
-    fetchReps();
+    if (dailyRes.data) {
+      setDailyCounts(
+        (dailyRes.data as { day: string; count: number }[]).map((r) => ({
+          day: r.day,
+          count: Number(r.count),
+        }))
+      );
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    fetchStats();
 
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchReps();
+      if (document.visibilityState === "visible") fetchStats();
     }
     document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [fetchStats]);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(retryTimeout);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [profile]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useRepsChannel(
+    useCallback(() => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(fetchStats, 2000);
+    }, [fetchStats])
+  );
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   if (!profile) {
     return (
@@ -471,23 +504,99 @@ export default function Profile() {
           </button>
         )}
 
-        {/* Stats side by side */}
+        {/* Streak cards */}
         <div className="flex gap-2">
+          <div className="flex-1 bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Current Streak
+            </p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <p className="text-display-md text-accent tabular-nums">
+                {stats ? stats.currentStreak : "—"}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {stats?.currentStreak === 1 ? "day" : "days"}
+              </p>
+            </div>
+          </div>
+          <div className="flex-1 bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Longest Streak
+            </p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <p className="text-display-md text-ink-primary tabular-nums">
+                {stats ? stats.longestStreak : "—"}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {stats?.longestStreak === 1 ? "day" : "days"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Today + Total Reps */}
+        <div className="flex gap-2">
+          <div className="flex-1 bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Today
+            </p>
+            <p className="text-display-md text-accent mt-1 tabular-nums">
+              {stats ? stats.todayCount.toLocaleString() : "—"}
+            </p>
+          </div>
           <div className="flex-1 bg-bg-surface rounded-lg p-4">
             <p className="text-micro text-ink-muted uppercase tracking-wide">
               Total Reps
             </p>
-            <p className="text-display-lg text-accent mt-1 tabular-nums">
-              {totalReps !== null ? totalReps.toLocaleString() : "—"}
+            <p className="text-display-md text-accent mt-1 tabular-nums">
+              {stats ? stats.totalReps.toLocaleString() : "—"}
             </p>
+          </div>
+        </div>
+
+        {/* Best Session + Days Active */}
+        <div className="flex gap-2">
+          <div className="flex-1 bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Best Session
+            </p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <p className="text-display-md text-ink-primary tabular-nums">
+                {stats ? stats.bestSessionCount : "—"}
+              </p>
+              <p className="text-caption text-ink-muted">reps</p>
+            </div>
+            {stats && stats.bestSessionDuration > 0 && (
+              <p className="text-caption text-ink-muted mt-0.5">
+                {formatDuration(stats.bestSessionDuration)} · {formatRpm(stats.bestSessionCount, stats.bestSessionDuration)}/min
+              </p>
+            )}
           </div>
           <div className="flex-1 bg-bg-surface rounded-lg p-4">
             <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Member Since
+              Days Active
             </p>
-            <p className="text-body mt-1">{memberSince}</p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <p className="text-display-md text-ink-primary tabular-nums">
+                {stats ? stats.daysActive : "—"}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {stats?.daysActive === 1 ? "day" : "days"}
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Member since */}
+        <div className="bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Member Since
+          </p>
+          <p className="text-body mt-1">{memberSince}</p>
+        </div>
+
+        {/* Activity heatmap */}
+        <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
       </div>
 
       {/* Sign out button */}

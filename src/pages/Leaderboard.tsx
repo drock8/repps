@@ -6,6 +6,7 @@ import { useRepsChannel } from "../hooks/useRepsChannel";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
+type BoardType = "total" | "session" | "streak";
 
 interface LeaderboardEntry {
   userId: string;
@@ -14,6 +15,28 @@ interface LeaderboardEntry {
   count: number;
   createdAt: string;
 }
+
+interface SessionEntry {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  repCount: number;
+  durationSeconds: number;
+}
+
+interface StreakEntry {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  longestStreak: number;
+  currentStreak: number;
+}
+
+const BOARD_TABS: { label: string; value: BoardType }[] = [
+  { label: "Total Reps", value: "total" },
+  { label: "Best Session", value: "session" },
+  { label: "Streaks", value: "streak" },
+];
 
 const GENDER_TABS: { label: string; value: GenderFilter }[] = [
   { label: "All", value: "all" },
@@ -267,6 +290,7 @@ export default function Leaderboard() {
   const signupGender = searchParams.get("gender") as GenderFilter | null;
   const signupReps = parseInt(searchParams.get("reps") || "0", 10);
 
+  const [boardType, setBoardType] = useState<BoardType>("total");
   const [gender, setGender] = useState<GenderFilter>(
     signupGender && ["female", "male", "non_binary"].includes(signupGender)
       ? signupGender
@@ -274,6 +298,8 @@ export default function Leaderboard() {
   );
   const [period, setPeriod] = useState<TimePeriod>(signupFlow ? "daily" : "all");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
+  const [streakEntries, setStreakEntries] = useState<StreakEntry[]>([]);
   const [totalReps, setTotalReps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userEntry, setUserEntry] = useState<{
@@ -366,19 +392,81 @@ export default function Leaderboard() {
     [profile]
   );
 
+  const fetchSessionLeaderboard = useCallback(
+    async (g: GenderFilter) => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_best_session_leaderboard", {
+        p_gender: g === "all" ? null : g,
+        p_limit: 50,
+      });
+      if (error) {
+        console.error("Session leaderboard error:", error);
+        setSessionEntries([]);
+        setLoading(false);
+        return;
+      }
+      setSessionEntries(
+        (data || []).map((row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; duration_seconds: number }) => ({
+          userId: row.user_id,
+          name: row.name,
+          avatarUrl: row.avatar_url,
+          repCount: Number(row.rep_count),
+          durationSeconds: Number(row.duration_seconds),
+        }))
+      );
+      setLoading(false);
+    },
+    []
+  );
+
+  const fetchStreakLeaderboard = useCallback(
+    async (g: GenderFilter) => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_streak_leaderboard", {
+        p_gender: g === "all" ? null : g,
+        p_limit: 50,
+      });
+      if (error) {
+        console.error("Streak leaderboard error:", error);
+        setStreakEntries([]);
+        setLoading(false);
+        return;
+      }
+      setStreakEntries(
+        (data || []).map((row: { out_user_id: string; out_name: string; out_avatar_url: string | null; out_longest_streak: number; out_current_streak: number }) => ({
+          userId: row.out_user_id,
+          name: row.out_name,
+          avatarUrl: row.out_avatar_url,
+          longestStreak: Number(row.out_longest_streak),
+          currentStreak: Number(row.out_current_streak),
+        }))
+      );
+      setLoading(false);
+    },
+    []
+  );
+
   useEffect(() => {
     fetchTotalReps();
-    fetchLeaderboard(gender, period);
-  }, [gender, period, fetchLeaderboard, fetchTotalReps]);
+    if (boardType === "total") {
+      fetchLeaderboard(gender, period);
+    } else if (boardType === "session") {
+      fetchSessionLeaderboard(gender);
+    } else {
+      fetchStreakLeaderboard(gender);
+    }
+  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchTotalReps]);
 
   useRepsChannel(
     useCallback(() => {
       setTotalReps((prev) => prev + 1);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
-        fetchLeaderboard(gender, period);
+        if (boardType === "total") fetchLeaderboard(gender, period);
+        else if (boardType === "session") fetchSessionLeaderboard(gender);
+        else fetchStreakLeaderboard(gender);
       }, 2000);
-    }, [gender, period, fetchLeaderboard])
+    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard])
   );
 
   useEffect(() => {
@@ -390,6 +478,20 @@ export default function Leaderboard() {
   const guestPosition = signupFlow && !profile && signupReps > 0
     ? entries.findIndex((e) => e.count <= signupReps)
     : -1;
+
+  function formatSessionDuration(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    if (m === 0) return `${s}s`;
+    return `${m}m ${s}s`;
+  }
+
+  const isEmpty =
+    boardType === "total"
+      ? entries.length === 0 && !userEntry
+      : boardType === "session"
+        ? sessionEntries.length === 0
+        : streakEntries.length === 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
@@ -409,6 +511,23 @@ export default function Leaderboard() {
           </p>
         </div>
 
+        {/* Board type tabs */}
+        <div className="flex gap-1 mb-3 bg-bg-surface rounded-pill p-1">
+          {BOARD_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setBoardType(tab.value)}
+              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                boardType === tab.value
+                  ? "bg-accent text-ink-inverse font-bold"
+                  : "bg-transparent text-ink-secondary font-medium"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex gap-1 mb-3">
           {GENDER_TABS.map((tab) => (
             <button
@@ -425,21 +544,23 @@ export default function Leaderboard() {
           ))}
         </div>
 
-        <div className="flex gap-1 mb-4">
-          {TIME_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setPeriod(tab.value)}
-              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                period === tab.value
-                  ? "bg-accent text-ink-inverse font-bold"
-                  : "bg-transparent text-ink-secondary font-medium"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {boardType === "total" && (
+          <div className="flex gap-1 mb-4">
+            {TIME_TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setPeriod(tab.value)}
+                className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                  period === tab.value
+                    ? "bg-accent text-ink-inverse font-bold"
+                    : "bg-transparent text-ink-secondary font-medium"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
@@ -447,13 +568,13 @@ export default function Leaderboard() {
         <div className="py-12 text-center">
           <p className="text-body text-ink-muted">Loading...</p>
         </div>
-      ) : entries.length === 0 && !userEntry ? (
+      ) : isEmpty ? (
         <div className="py-12 text-center">
           <p className="text-body text-ink-muted">
-            No reps yet in this category. Be the first.
+            No activity yet in this category. Be the first.
           </p>
         </div>
-      ) : (
+      ) : boardType === "total" ? (
         <div className="flex flex-col gap-2">
           {entries.map((entry, i) => {
             const isGuestInsertPoint = guestPosition === i;
@@ -479,9 +600,7 @@ export default function Leaderboard() {
                     </span>
                   </div>
                 )}
-                <div
-                  className="flex items-center py-3 px-4 bg-bg-surface rounded-lg"
-                >
+                <div className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
                   <span className="w-8 text-center flex-shrink-0">
                     {i < 3 ? (
                       <span className="text-body-lg">{MEDALS[i]}</span>
@@ -548,6 +667,74 @@ export default function Leaderboard() {
               </div>
             </div>
           )}
+        </div>
+      ) : boardType === "session" ? (
+        <div className="flex flex-col gap-2">
+          {sessionEntries.map((entry, i) => (
+            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+              <span className="w-8 text-center flex-shrink-0">
+                {i < 3 ? (
+                  <span className="text-body-lg">{MEDALS[i]}</span>
+                ) : (
+                  <span className="text-body text-ink-muted">{i + 1}.</span>
+                )}
+              </span>
+              <div className="ml-2">
+                <Avatar url={entry.avatarUrl} name={entry.name} />
+              </div>
+              <div className="ml-3 flex-1 min-w-0">
+                <span className="text-body text-ink-primary truncate block">
+                  {entry.name}
+                </span>
+                {entry.durationSeconds > 0 && (
+                  <span className="text-micro text-ink-muted">
+                    {formatSessionDuration(entry.durationSeconds)} · {(entry.repCount / (entry.durationSeconds / 60)).toFixed(1)}/min
+                  </span>
+                )}
+              </div>
+              <div className="text-right ml-2">
+                <span className="text-body text-accent font-bold tabular-nums">
+                  {entry.repCount}
+                </span>
+                <span className="text-micro text-ink-muted block">reps</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {streakEntries.map((entry, i) => (
+            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+              <span className="w-8 text-center flex-shrink-0">
+                {i < 3 ? (
+                  <span className="text-body-lg">{MEDALS[i]}</span>
+                ) : (
+                  <span className="text-body text-ink-muted">{i + 1}.</span>
+                )}
+              </span>
+              <div className="ml-2">
+                <Avatar url={entry.avatarUrl} name={entry.name} />
+              </div>
+              <div className="ml-3 flex-1 min-w-0">
+                <span className="text-body text-ink-primary truncate block">
+                  {entry.name}
+                </span>
+                {entry.currentStreak > 0 && (
+                  <span className="text-micro text-accent">
+                    {entry.currentStreak}d active
+                  </span>
+                )}
+              </div>
+              <div className="text-right ml-2">
+                <span className="text-body text-accent font-bold tabular-nums">
+                  {entry.longestStreak}
+                </span>
+                <span className="text-micro text-ink-muted block">
+                  {entry.longestStreak === 1 ? "day" : "days"}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

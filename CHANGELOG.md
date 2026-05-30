@@ -1,5 +1,31 @@
 # Changelog
 
+## Enhanced stats & leaderboard boards (2026-05-30)
+
+### Added
+- **Activity heatmap** -- GitHub-style contribution grid on Profile page showing daily rep counts over 3 months. Color intensity scales with volume. Tap/hover any cell to see exact count and date.
+- **Streak tracking** -- Profile shows current streak (consecutive days with >= 1 rep) and longest streak ever. Streak is considered active if last activity was today or yesterday.
+- **Today's count** -- Profile card showing how many reps done today.
+- **Best session stats** -- Profile shows personal best session (most reps in one DAB flow) with duration and reps/min. Session defined as reps with < 60s gaps.
+- **Days active** -- Profile card showing total distinct days with at least one rep.
+- **Best Session leaderboard** -- New board tab ranking users by most reps in a single session, with duration and rate.
+- **Streak leaderboard** -- New board tab ranking users by longest unbroken daily streak, with active streak indicator.
+- **Board type switcher** -- Leaderboard page now has three tabs: Total Reps, Best Session, Streaks. Time period filter only applies to Total Reps board.
+- **Real-time profile stats** -- Profile stats refresh on visibility change and via realtime channel with 2s debounce.
+
+### New RPC functions
+- `get_user_daily_counts` -- daily rep counts for heatmap
+- `get_user_sessions` -- clusters reps into sessions using 60s gap threshold
+- `get_user_streaks` -- current and longest streak for a user
+- `get_user_stats_summary` -- single call for all profile stats
+- `get_best_session_leaderboard` -- best single session per user, ranked
+- `get_streak_leaderboard` -- longest streak per user, ranked
+
+### Migration SQL
+```sql
+-- Run supabase/migrations/005_stats_and_streaks.sql
+```
+
 ## Guest-first onboarding (2026-05-30)
 
 ### Added
