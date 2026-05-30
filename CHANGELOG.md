@@ -5,6 +5,7 @@
 ### Fixed
 - **OAuth redirect race condition** — Google sign-in would sometimes return users to Home still logged out. Root cause: `onAuthStateChange` listener wasn't reliably firing before the component mounted on mobile redirect. Replaced the fragile 3-second fallback timer with eager `getSession()` bootstrap that picks up hash tokens immediately.
 - **Silent profile creation failure** — `ensureProfile` upsert error was unchecked, so first-time users could end up with a session but no profile (appearing logged out). Upsert errors are now caught and thrown.
+- **Gender prompt reappearing after already set** — DB write was fire-and-forget (not awaited), so local state updated but the database still had `gender_set: false`. Next login re-fetched the stale value and showed the prompt again. Now awaits the DB write and only dismisses the prompt on success.
 
 ### Changed
 - **Memoized AuthContext** — all auth functions wrapped in `useCallback`, context value wrapped in `useMemo` to eliminate cascading re-renders across all `useAuth()` consumers.

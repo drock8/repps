@@ -16,11 +16,15 @@ export default function GenderPrompt() {
   const handleSelect = async (gender: Gender) => {
     if (!profile || saving) return;
     setSaving(true);
-    updateProfile({ gender, gender_set: true });
-    supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ gender, gender_set: true })
       .eq("id", profile.id);
+    if (!error) {
+      updateProfile({ gender, gender_set: true });
+    } else {
+      setSaving(false);
+    }
   };
 
   return (
