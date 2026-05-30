@@ -28,17 +28,6 @@ const TIME_TABS: { label: string; value: TimePeriod }[] = [
   { label: "All", value: "all" },
 ];
 
-function getCutoff(period: TimePeriod): string | null {
-  if (period === "all") return null;
-  const ms: Record<Exclude<TimePeriod, "all">, number> = {
-    daily: 24 * 60 * 60 * 1000,
-    weekly: 7 * 24 * 60 * 60 * 1000,
-    monthly: 30 * 24 * 60 * 60 * 1000,
-    yearly: 365 * 24 * 60 * 60 * 1000,
-  };
-  return new Date(Date.now() - ms[period]).toISOString();
-}
-
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -86,33 +75,12 @@ export default function Leaderboard() {
   const fetchLeaderboard = useCallback(
     async (g: GenderFilter, p: TimePeriod) => {
       setLoading(true);
-      const cutoff = getCutoff(p);
 
-      let query = supabase
-        .from("reps")
-        .select(
-          `
-        user_id,
-        validated_at,
-        profiles!inner (
-          id,
-          name,
-          avatar_url,
-          gender,
-          created_at
-        )
-      `
-        );
-
-      if (g !== "all") {
-        query = query.eq("profiles.gender", g);
-      }
-
-      if (cutoff) {
-        query = query.gte("validated_at", cutoff);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("get_leaderboard", {
+        p_gender: g === "all" ? null : g,
+        p_period: p,
+        p_limit: 50,
+      });
 
       if (error) {
         console.error("Leaderboard query error:", error);
@@ -122,62 +90,44 @@ export default function Leaderboard() {
         return;
       }
 
-      const grouped = new Map<
-        string,
-        { name: string; avatarUrl: string | null; count: number; createdAt: string }
-      >();
+      const top50: LeaderboardEntry[] = (data || []).map(
+        (row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; created_at: string }) => ({
+          userId: row.user_id,
+          name: row.name,
+          avatarUrl: row.avatar_url,
+          count: row.rep_count,
+          createdAt: row.created_at,
+        })
+      );
 
-      for (const row of data || []) {
-        const prof = row.profiles as unknown as {
-          id: string;
-          name: string;
-          avatar_url: string | null;
-          gender: string;
-          created_at: string;
-        };
-        const uid = row.user_id;
-        const existing = grouped.get(uid);
-        if (existing) {
-          existing.count++;
-        } else {
-          grouped.set(uid, {
-            name: prof.name,
-            avatarUrl: prof.avatar_url,
-            count: 1,
-            createdAt: prof.created_at,
-          });
-        }
-      }
-
-      const sorted = Array.from(grouped.entries())
-        .map(([userId, info]) => ({
-          userId,
-          name: info.name,
-          avatarUrl: info.avatarUrl,
-          count: info.count,
-          createdAt: info.createdAt,
-        }))
-        .sort((a, b) => {
-          if (b.count !== a.count) return b.count - a.count;
-          return a.createdAt.localeCompare(b.createdAt);
-        });
-
-      const top50 = sorted.slice(0, 50);
       setEntries(top50);
 
       if (profile) {
-        const userMatchesFilter =
-          g === "all" || profile.gender === g;
+        const userMatchesFilter = g === "all" || profile.gender === g;
 
         if (userMatchesFilter) {
           const userInTop50 = top50.some((e) => e.userId === profile.id);
           if (!userInTop50) {
-            const userIdx = sorted.findIndex((e) => e.userId === profile.id);
+            const { data: userRow } = await supabase.rpc("get_leaderboard", {
+              p_gender: g === "all" ? null : g,
+              p_period: p,
+              p_limit: 1000,
+            });
+            const all: LeaderboardEntry[] = (userRow || []).map(
+              (row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; created_at: string }) => ({
+                userId: row.user_id,
+                name: row.name,
+                avatarUrl: row.avatar_url,
+                count: row.rep_count,
+                createdAt: row.created_at,
+              })
+            );
+            const userIdx = all.findIndex((e) => e.userId === profile.id);
             if (userIdx !== -1) {
-              setUserEntry({ rank: userIdx + 1, entry: sorted[userIdx] });
+              setUserEntry({ rank: userIdx + 1, entry: all[userIdx] });
             } else {
               setUserEntry({
-                rank: sorted.length + 1,
+                rank: all.length + 1,
                 entry: {
                   userId: profile.id,
                   name: profile.name,

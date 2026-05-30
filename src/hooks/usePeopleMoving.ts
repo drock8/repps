@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
 let cachedMovers: number | null = null;
 
 export function usePeopleMoving() {
   const [moverCount, setMoverCount] = useState(cachedMovers ?? 0);
-  const moverSetRef = useRef<Set<string>>(new Set());
+  const knownUsersRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -13,70 +13,35 @@ export function usePeopleMoving() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  useEffect(() => {
-    async function fetchMovers() {
-      const { data } = await supabase
-        .from("reps")
-        .select("user_id");
-      if (data && mountedRef.current) {
-        moverSetRef.current = new Set(data.map((r) => r.user_id));
-        const count = moverSetRef.current.size;
-        cachedMovers = count;
-        setMoverCount(count);
-      }
+  const fetchCount = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_mover_count");
+    if (!error && data !== null && mountedRef.current) {
+      const count = Number(data);
+      cachedMovers = count;
+      setMoverCount(count);
     }
+  }, []);
 
-    fetchMovers();
+  useEffect(() => {
+    fetchCount();
 
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchMovers();
+      if (document.visibilityState === "visible") fetchCount();
     }
     document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [fetchCount]);
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("home-movers")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "reps" },
-        (payload) => {
-          const userId = payload.new?.user_id as string | undefined;
-          if (!userId) return;
-          if (!moverSetRef.current.has(userId)) {
-            moverSetRef.current.add(userId);
-            setMoverCount((prev) => {
-              const next = prev + 1;
-              cachedMovers = next;
-              return next;
-            });
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          supabase
-            .from("reps")
-            .select("user_id")
-            .then(({ data }) => {
-              if (data && mountedRef.current) {
-                moverSetRef.current = new Set(data.map((r) => r.user_id));
-                const count = moverSetRef.current.size;
-                cachedMovers = count;
-                setMoverCount(count);
-              }
-            });
-        }
+  const handleNewRep = useCallback((userId: string) => {
+    if (!knownUsersRef.current.has(userId)) {
+      knownUsersRef.current.add(userId);
+      setMoverCount((prev) => {
+        const next = prev + 1;
+        cachedMovers = next;
+        return next;
       });
-
-    return () => {
-      channel.unsubscribe();
-    };
+    }
   }, []);
 
-  return moverCount;
+  return { moverCount, handleNewRep, refetchMovers: fetchCount };
 }

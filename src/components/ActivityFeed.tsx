@@ -23,6 +23,7 @@ const MIN_DURATION = 10000;
 const MAX_DURATION = 18000;
 const BURST_WINDOW = 5000;
 const BUBBLE_SIZE = 72;
+const MAX_CACHE_SIZE = 200;
 
 export default function ActivityFeed() {
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -34,6 +35,8 @@ export default function ActivityFeed() {
     supabase
       .from("profiles")
       .select("id, name, avatar_url")
+      .order("created_at", { ascending: false })
+      .limit(MAX_CACHE_SIZE)
       .then(({ data }) => {
         if (data) {
           for (const p of data) {
@@ -50,9 +53,13 @@ export default function ActivityFeed() {
         .select("name, avatar_url")
         .eq("id", userId)
         .single();
-      const profile: ProfileCache = { name: data?.name || "Someone", avatar_url: data?.avatar_url || null };
-      profileCache.current.set(userId, profile);
-      return profile;
+      const result: ProfileCache = { name: data?.name || "Someone", avatar_url: data?.avatar_url || null };
+      if (profileCache.current.size >= MAX_CACHE_SIZE) {
+        const oldest = profileCache.current.keys().next().value;
+        if (oldest) profileCache.current.delete(oldest);
+      }
+      profileCache.current.set(userId, result);
+      return result;
     }
 
     function removeBubble(bubbleId: string) {

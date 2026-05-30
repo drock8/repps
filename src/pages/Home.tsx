@@ -125,16 +125,17 @@ export default function Home() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "reps" },
-        () => {
+        (payload) => {
           setTotalReps((prev) => {
             const next = prev + 1;
             cachedCount = next;
             return next;
           });
+          const userId = payload.new?.user_id as string | undefined;
+          if (userId) handleNewRep(userId);
         }
       )
       .subscribe((status) => {
-        // If subscription drops and reconnects, refetch to catch missed events
         if (status === "SUBSCRIBED") {
           supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
             if (count !== null && mountedRef.current) {
@@ -142,15 +143,16 @@ export default function Home() {
               setTotalReps(count);
             }
           });
+          refetchMovers();
         }
       });
 
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [handleNewRep, refetchMovers]);
 
-  const moverCount = usePeopleMoving();
+  const { moverCount, handleNewRep, refetchMovers } = usePeopleMoving();
   const animatedMovers = useAnimatedCounter(moverCount, 200);
 
   const MILESTONE_TARGET = 1000;

@@ -1,5 +1,25 @@
 # Changelog
 
+## Codebase hardening from Brutalist audit (2026-05-30)
+
+### Added
+- **React ErrorBoundary** wrapping the router in App.tsx — any component render crash now shows a branded recovery screen with a reload button instead of a white screen.
+- **`.env.example`** documenting required Supabase env vars for new clones.
+- **`get_leaderboard` RPC** — server-side GROUP BY + COUNT + JOIN replaces client-side fetch-all-reps-then-group. Supports gender filtering, time period filtering (using `now()` server time, not client clock), and configurable limit.
+- **`get_mover_count` RPC** — `SELECT COUNT(DISTINCT user_id) FROM reps` replaces downloading every rep row to count unique users.
+
+### Fixed
+- **Leaderboard fetched ALL reps client-side** — at scale this would download the entire reps table, group in JS, then slice top 50. Now uses `get_leaderboard` RPC that does everything server-side with a `LIMIT 50`.
+- **usePeopleMoving fetched ALL reps** to count distinct users — ran on mount, visibility change, AND subscription reconnect. Now calls `get_mover_count` RPC (single integer response).
+- **Client-side time for leaderboard cutoffs** — `Date.now()` meant wrong device clock = wrong filters. Cutoffs now computed server-side with `now() - interval`.
+- **ActivityFeed profile cache grew unbounded** — preloaded ALL profiles without limit, cache never evicted. Now preloads most recent 200, evicts oldest entry when cache exceeds cap.
+- **Duplicate realtime subscriptions** — Home subscribed to reps INSERT via "home-reps", usePeopleMoving separately via "home-movers". Consolidated into one "home-reps" channel with mover updates piped through callbacks.
+
+### Migration SQL
+```sql
+-- Run supabase/migrations/003_leaderboard_rpc.sql
+```
+
 ## Tighten burpee detection — anti-cheat (2026-05-30)
 
 ### Fixed
