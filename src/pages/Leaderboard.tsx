@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
+import PasswordInput from "../components/PasswordInput";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
@@ -84,8 +85,8 @@ function SignupOverlay({
   reps: number;
   onDismiss: () => void;
 }) {
-  const { signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
-  const [mode, setMode] = useState<"choose" | "signup" | "signin" | "check-email">("choose");
+  const { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } = useAuth();
+  const [mode, setMode] = useState<"choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent">("choose");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -207,12 +208,10 @@ function SignupOverlay({
                 onChange={(e) => { setEmail(e.target.value); setError(""); }}
                 className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
               />
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="Password (min 6 characters)"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+                onChange={(val) => { setPassword(val); setError(""); }}
               />
               {error && <p className="text-caption text-error">{error}</p>}
               <button
@@ -252,12 +251,10 @@ function SignupOverlay({
                 autoFocus
                 className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
               />
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="Password"
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+                onChange={(val) => { setPassword(val); setError(""); }}
               />
               {error && <p className="text-caption text-error">{error}</p>}
               <button
@@ -269,8 +266,14 @@ function SignupOverlay({
               </button>
             </div>
             <button
-              onClick={() => { setMode("signup"); setError(""); }}
+              onClick={() => { setMode("forgot"); setError(""); }}
               className="w-full mt-3 py-2 text-caption text-ink-secondary text-center"
+            >
+              Forgot password?
+            </button>
+            <button
+              onClick={() => { setMode("signup"); setError(""); }}
+              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
             >
               Don't have an account? Sign up
             </button>
@@ -293,6 +296,79 @@ function SignupOverlay({
               <p className="text-headline text-ink-primary text-center">Check your email</p>
               <p className="text-body text-ink-secondary text-center">
                 We sent a confirmation link to <span className="font-semibold text-ink-primary">{email}</span>. Click the link to activate your account, then come back and sign in.
+              </p>
+              <button
+                onClick={() => { setMode("signin"); setError(""); setSubmitting(false); }}
+                className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => { setMode("choose"); setError(""); setSubmitting(false); }}
+                className="w-full py-2 text-caption text-ink-muted text-center"
+              >
+                Back
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === "forgot" && (
+          <>
+            <p className="text-headline text-ink-primary text-center mb-2">Reset password</p>
+            <p className="text-body text-ink-secondary text-center mb-4">
+              Enter your email and we'll send you a reset link.
+            </p>
+            <div className="flex flex-col gap-3">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                autoFocus
+                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+              />
+              {error && <p className="text-caption text-error">{error}</p>}
+              <button
+                onClick={async () => {
+                  if (!email.trim()) {
+                    setError("Email is required"); return;
+                  }
+                  setSubmitting(true); setError("");
+                  try {
+                    await resetPassword(email.trim());
+                    setMode("reset-sent");
+                    setSubmitting(false);
+                  } catch (e) {
+                    setError((e as Error).message);
+                    setSubmitting(false);
+                  }
+                }}
+                disabled={submitting}
+                className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+              >
+                {submitting ? "Sending..." : "Send reset link"}
+              </button>
+            </div>
+            <button
+              onClick={() => { setMode("signin"); setError(""); }}
+              className="w-full mt-3 py-2 text-caption text-ink-muted text-center"
+            >
+              Back to sign in
+            </button>
+          </>
+        )}
+
+        {mode === "reset-sent" && (
+          <>
+            <div className="flex flex-col items-center gap-4">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+              </svg>
+              <p className="text-headline text-ink-primary text-center">Check your email</p>
+              <p className="text-body text-ink-secondary text-center">
+                We sent a password reset link to <span className="font-semibold text-ink-primary">{email}</span>. Click the link to set a new password.
               </p>
               <button
                 onClick={() => { setMode("signin"); setError(""); setSubmitting(false); }}
