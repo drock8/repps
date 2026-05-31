@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
+import { useResetCooldown } from "../hooks/useResetCooldown";
 import ActivityHeatmap from "../components/ActivityHeatmap";
 import PasswordInput from "../components/PasswordInput";
 
@@ -60,13 +61,7 @@ export default function Profile() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [resetCooldown, setResetCooldown] = useState(0);
-
-  useEffect(() => {
-    if (resetCooldown <= 0) return;
-    const t = setTimeout(() => setResetCooldown(resetCooldown - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resetCooldown]);
+  const { cooldown: resetCooldown, startCooldown: startResetCooldown } = useResetCooldown();
 
   const fetchStats = useCallback(async () => {
     if (!profile) return;
@@ -328,13 +323,14 @@ export default function Profile() {
                 setAuthSubmitting(true); setAuthError("");
                 try {
                   await resetPassword(authEmail.trim());
+                  startResetCooldown();
                   setAuthMode("reset-sent");
                   setAuthSubmitting(false);
                 } catch (e) {
                   const msg = (e as Error).message || "";
                   if (msg.toLowerCase().includes("rate limit")) {
-                    setResetCooldown(60);
-                    setAuthError("Too many requests. Please wait a minute before trying again.");
+                    startResetCooldown();
+                    setAuthError("Too many requests. Please wait before trying again.");
                   } else {
                     setAuthError(msg);
                   }

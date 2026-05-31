@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
+import { useResetCooldown } from "../hooks/useResetCooldown";
 import PasswordInput from "../components/PasswordInput";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
@@ -92,13 +93,7 @@ function SignupOverlay({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [resetCooldown, setResetCooldown] = useState(0);
-
-  useEffect(() => {
-    if (resetCooldown <= 0) return;
-    const t = setTimeout(() => setResetCooldown(resetCooldown - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resetCooldown]);
+  const { cooldown: resetCooldown, startCooldown: startResetCooldown } = useResetCooldown();
 
   const handleEmailSignup = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -345,13 +340,14 @@ function SignupOverlay({
                   setSubmitting(true); setError("");
                   try {
                     await resetPassword(email.trim());
+                    startResetCooldown();
                     setMode("reset-sent");
                     setSubmitting(false);
                   } catch (e) {
                     const msg = (e as Error).message || "";
                     if (msg.toLowerCase().includes("rate limit")) {
-                      setResetCooldown(60);
-                      setError("Too many requests. Please wait a minute before trying again.");
+                      startResetCooldown();
+                      setError("Too many requests. Please wait before trying again.");
                     } else {
                       setError(msg);
                     }
