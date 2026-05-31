@@ -5,21 +5,25 @@ import AddToHomeScreen from "./AddToHomeScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Home",
-  "/leaderboard": "Leaderboard",
-  "/profile": "Profile",
-  "/dab": "DAB",
-  "/team": "Teams",
-};
+function getPageTitle(pathname: string): string {
+  const titles: Record<string, string> = {
+    "/": "Home",
+    "/leaderboard": "Leaderboard",
+    "/profile": "Profile",
+    "/dab": "DAB",
+    "/team": "Teams",
+  };
+  if (pathname.startsWith("/team/join/")) return "Teams";
+  return titles[pathname] || "";
+}
 
 export default function Layout() {
   const { profile } = useAuth();
   const theme = useTheme();
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false;
-  const title = PAGE_TITLES[pathname] || "";
-  const scrollable = pathname === "/" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team";
+  const title = getPageTitle(pathname);
+  const scrollable = pathname === "/" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/");
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png" : "/repps-logo.png";
 
   return (
