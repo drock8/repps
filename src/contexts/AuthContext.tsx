@@ -20,7 +20,7 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signUpWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<{ confirmationRequired: boolean }>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -159,17 +159,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
+  const signUpWithEmail = useCallback(async (email: string, password: string, name: string): Promise<{ confirmationRequired: boolean }> => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
     });
     if (error) throw error;
-    if (data.user) {
+    if (data.session && data.user) {
       await ensureProfile({ ...data.user, user_metadata: { ...data.user.user_metadata, full_name: name } } as User);
       await claimGuestReps(data.user.id);
+      return { confirmationRequired: false };
     }
+    return { confirmationRequired: true };
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {

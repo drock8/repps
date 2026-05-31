@@ -53,7 +53,7 @@ export default function Profile() {
   const [dailyCounts, setDailyCounts] = useState<{ day: string; count: number }[]>([]);
 
   // Guest auth form state
-  const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin">("choose");
+  const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin" | "check-email">("choose");
   const [authName, setAuthName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -188,7 +188,11 @@ export default function Profile() {
                 }
                 setAuthSubmitting(true); setAuthError("");
                 try {
-                  await signUpWithEmail(authEmail.trim(), authPassword, authName.trim());
+                  const { confirmationRequired } = await signUpWithEmail(authEmail.trim(), authPassword, authName.trim());
+                  if (confirmationRequired) {
+                    setAuthMode("check-email");
+                  }
+                  setAuthSubmitting(false);
                 } catch (e) {
                   setAuthError((e as Error).message);
                   setAuthSubmitting(false);
@@ -258,6 +262,31 @@ export default function Profile() {
             </button>
             <button
               onClick={() => { setAuthMode("choose"); setAuthError(""); }}
+              className="w-full py-2 text-caption text-ink-muted text-center"
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {authMode === "check-email" && (
+          <div className="w-full max-w-sm flex flex-col items-center gap-4">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
+            <p className="text-headline text-ink-primary text-center">Check your email</p>
+            <p className="text-body text-ink-secondary text-center">
+              We sent a confirmation link to <span className="font-semibold text-ink-primary">{authEmail}</span>. Click the link to activate your account, then come back and sign in.
+            </p>
+            <button
+              onClick={() => { setAuthMode("signin"); setAuthError(""); setAuthSubmitting(false); }}
+              className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => { setAuthMode("choose"); setAuthError(""); setAuthSubmitting(false); }}
               className="w-full py-2 text-caption text-ink-muted text-center"
             >
               Back

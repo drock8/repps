@@ -1,5 +1,15 @@
 # Changelog
 
+## Fix email registration flow (2026-05-31)
+
+### Fixed
+- **Email signup stuck on spinner** -- When Supabase email confirmation is enabled, `signUp()` returns a user but no session. The code tried to create a profile against RLS without a session, and never reset the submitting state, leaving the button stuck on "Creating account..." forever.
+- **No confirmation feedback** -- After successful email signup, the UI gave no indication that a confirmation email was sent.
+
+### Added
+- **"Check your email" screen** -- After email signup, both the Profile page and Leaderboard overlay now show a confirmation screen with the user's email address and instructions to click the confirmation link before signing in.
+- **`signUpWithEmail` returns confirmation state** -- The auth context function now returns `{ confirmationRequired: boolean }` so callers can distinguish between auto-confirmed and email-confirmation flows.
+
 ## Enhanced stats & leaderboard boards (2026-05-30)
 
 ### Fixed
