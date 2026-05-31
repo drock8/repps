@@ -1,5 +1,7 @@
 -- 011_team_leaderboard_reps.sql — Add combined_reps and per-member base_reps to team score leaderboard
 
+drop function if exists get_team_score_leaderboard(text, integer);
+
 create or replace function get_team_score_leaderboard(
   p_period text default 'all',
   p_limit int default 50
