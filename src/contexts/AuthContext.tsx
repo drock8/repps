@@ -96,7 +96,7 @@ let _isRecoveryFromUrl = false;
 (() => {
   const url = new URL(window.location.href);
   const code = url.searchParams.get("code");
-  if (url.searchParams.get("type") === "recovery") {
+  if (url.searchParams.get("type") === "recovery" || url.pathname === "/reset-password") {
     _isRecoveryFromUrl = true;
   }
   if (code) {
@@ -246,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/?type=recovery",
+      redirectTo: window.location.origin + "/reset-password",
     });
     if (error) throw error;
   }, []);

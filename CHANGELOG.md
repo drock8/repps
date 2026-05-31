@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix password reset redirect (2026-05-31)
+
+### Fixed
+- **Reset password link redirected to home** -- Supabase was stripping the `?type=recovery` param because the redirect URL wasn't in the allow list. Switched to a dedicated `/reset-password` route with path-based detection so the recovery modal triggers reliably.
+
 ## Fix team join page sign-in button readability (2026-05-31)
 
 ### Fixed

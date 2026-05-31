@@ -24,6 +24,7 @@ export default function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="team" element={<Team />} />
               <Route path="team/join/:code" element={<TeamJoin />} />
+              <Route path="reset-password" element={<Home />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
