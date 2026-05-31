@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix YouTube embed loading blank screen (2026-05-31)
+
+### Fixed
+- **YouTube embed shows bot detection wall** -- Clicking the video thumbnail on Home opened a modal with a blank white screen / "sign in to confirm you're not a bot" message. Switched to `youtube-nocookie.com`, removed `autoplay=1` (the main bot-detection trigger), and replaced the `paddingBottom` aspect-ratio hack with `aspect-video` for more reliable sizing.
+- **Home page content clipped** -- The YouTube embed below the DAB button was cut off because the Home route (`/`) was not in the scrollable routes list. Added `/` to scrollable routes so the full page is reachable by scrolling.
+
 ## Forgot password & password visibility toggle (2026-05-31)
 
 ### Added

@@ -17,13 +17,14 @@ export default function YouTubeEmbed({ videoId }: YouTubeEmbedProps) {
           className="w-full max-w-md mx-4"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: "56.25%" }}>
+          <div className="relative w-full rounded-xl overflow-hidden aspect-video">
             <iframe
               className="absolute inset-0 w-full h-full"
-              src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`}
+              src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`}
               title="REPPs intro"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
             />
           </div>
           <button
