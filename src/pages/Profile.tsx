@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -32,7 +33,13 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { profile, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, refreshProfile } = useAuth();
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    navigate("/");
+  }, [signOut, navigate]);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [nameError, setNameError] = useState("");
@@ -480,7 +487,7 @@ export default function Profile() {
       {/* Sign out icon top-right */}
       <div className="flex justify-end">
         <button
-          onClick={signOut}
+          onClick={handleSignOut}
           className="flex items-center gap-1.5 text-ink-muted transition-colors duration-200 ease-apple active:text-ink-primary"
           title="Sign out"
         >
@@ -755,7 +762,7 @@ export default function Profile() {
       {/* Sign out button */}
       <div className="mt-6">
         <button
-          onClick={signOut}
+          onClick={handleSignOut}
           className="w-full bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 px-6 transition-all duration-200 ease-apple active:scale-95"
         >
           Sign out
