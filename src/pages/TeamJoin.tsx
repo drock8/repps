@@ -174,15 +174,19 @@ export default function TeamJoin() {
               });
               if (data?.url) window.location.href = data.url;
             }}
-            className="w-full py-4 rounded-pill bg-white border border-ink-border flex items-center justify-center gap-3 font-semibold text-body-lg text-gray-800 transition-all duration-200 ease-apple active:scale-95"
+            className="w-full py-4 px-6 rounded-pill bg-ink-primary text-ink-inverse font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
           >
             {GOOGLE_ICON}
             Continue with Google
           </button>
           <button
             onClick={() => navigate("/profile")}
-            className="w-full py-3 rounded-pill bg-accent text-gray-800 font-semibold text-caption text-center transition-all duration-200 ease-apple active:scale-95"
+            className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
           >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+            </svg>
             Sign in with Email
           </button>
         </div>
