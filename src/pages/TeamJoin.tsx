@@ -174,14 +174,14 @@ export default function TeamJoin() {
               });
               if (data?.url) window.location.href = data.url;
             }}
-            className="w-full py-4 rounded-pill bg-white border border-ink-border flex items-center justify-center gap-3 font-semibold text-body-lg text-ink-primary transition-all duration-200 ease-apple active:scale-95"
+            className="w-full py-4 rounded-pill bg-white border border-ink-border flex items-center justify-center gap-3 font-semibold text-body-lg text-gray-800 transition-all duration-200 ease-apple active:scale-95"
           >
             {GOOGLE_ICON}
             Continue with Google
           </button>
           <button
             onClick={() => navigate("/profile")}
-            className="w-full py-3 text-caption text-ink-muted text-center"
+            className="w-full py-3 text-caption text-accent text-center"
           >
             Sign in with Email
           </button>

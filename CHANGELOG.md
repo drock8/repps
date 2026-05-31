@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix team join page sign-in button readability (2026-05-31)
+
+### Fixed
+- **Google button text unreadable** -- Text was light on a white background. Changed to dark gray (`text-gray-800`).
+- **Email sign-in link invisible** -- Was black/muted text. Changed to accent orange so it's visible and tappable.
+
 ## Home screen cosmetic polish (2026-05-31)
 
 ### Changed
