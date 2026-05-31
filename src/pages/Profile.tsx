@@ -53,6 +53,7 @@ export default function Profile() {
     longestStreak: number;
   } | null>(null);
   const [dailyCounts, setDailyCounts] = useState<{ day: string; count: number }[]>([]);
+  const [repScore, setRepScore] = useState<{ score: number; baseReps: number; individualStreak: number; teamStreak: number } | null>(null);
 
   // Guest auth form state
   const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent">("choose");
@@ -65,9 +66,10 @@ export default function Profile() {
 
   const fetchStats = useCallback(async () => {
     if (!profile) return;
-    const [statsRes, dailyRes] = await Promise.all([
+    const [statsRes, dailyRes, scoreRes] = await Promise.all([
       supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
       supabase.rpc("get_user_daily_counts", { p_user_id: profile.id }),
+      supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: "all" }),
     ]);
 
     if (statsRes.data) {
@@ -92,6 +94,16 @@ export default function Profile() {
           count: Number(r.count),
         }))
       );
+    }
+
+    if (scoreRes.data) {
+      const s = scoreRes.data as { score: number; base_reps: number; individual_streak: number; team_streak: number };
+      setRepScore({
+        score: Number(s.score),
+        baseReps: Number(s.base_reps),
+        individualStreak: Number(s.individual_streak),
+        teamStreak: Number(s.team_streak),
+      });
     }
   }, [profile]);
 
@@ -643,6 +655,36 @@ export default function Profile() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Rep Score */}
+        <div className="bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Rep Score
+          </p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <p className="text-display-lg repps-gradient-text tabular-nums">
+              {repScore ? repScore.score.toLocaleString() : "—"}
+            </p>
+            <p className="text-caption text-ink-muted">pts</p>
+          </div>
+          {repScore && repScore.score > 0 && (
+            <div className="flex gap-3 mt-2">
+              <span className="text-micro text-ink-secondary">
+                {repScore.baseReps.toLocaleString()} base
+              </span>
+              {repScore.individualStreak > 0 && (
+                <span className="text-micro text-accent">
+                  {repScore.individualStreak}d streak
+                </span>
+              )}
+              {repScore.teamStreak > 0 && (
+                <span className="text-micro text-accent">
+                  {repScore.teamStreak}d team
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Today + Total Reps */}

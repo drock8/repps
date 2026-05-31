@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import ActivityFeed from "../components/ActivityFeed";
 import { usePeopleMoving } from "../hooks/usePeopleMoving";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -62,8 +63,16 @@ function useAnimatedCounter(target: number, duration = 600) {
 // Persist last-known value so remounts never flash "0"
 let cachedCount: number | null = null;
 
+interface TeamMemberProgress {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  todayCount: number;
+}
+
 export default function Home() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   const [totalReps, setTotalReps] = useState(cachedCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
@@ -119,6 +128,54 @@ export default function Home() {
     };
   }, []);
 
+  const [teamMembers, setTeamMembers] = useState<TeamMemberProgress[]>([]);
+  const [dailyTarget, setDailyTarget] = useState(5);
+
+  const fetchTeamProgress = useCallback(async () => {
+    if (!profile?.team_id) {
+      setTeamMembers([]);
+      return;
+    }
+
+    const [membersRes, settingRes] = await Promise.all([
+      supabase.from("profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
+      supabase.from("settings").select("value").eq("key", "team_daily_target").single(),
+    ]);
+
+    const target = settingRes.data ? Number(settingRes.data.value) : 5;
+    setDailyTarget(target);
+
+    if (!membersRes.data) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const memberIds = membersRes.data.map((m: { id: string }) => m.id);
+
+    const { data: repsData } = await supabase
+      .from("reps")
+      .select("user_id")
+      .in("user_id", memberIds)
+      .gte("validated_at", today + "T00:00:00Z")
+      .lt("validated_at", today + "T23:59:59.999Z");
+
+    const countMap: Record<string, number> = {};
+    (repsData || []).forEach((r: { user_id: string }) => {
+      countMap[r.user_id] = (countMap[r.user_id] || 0) + 1;
+    });
+
+    setTeamMembers(
+      membersRes.data.map((m: { id: string; name: string; avatar_url: string | null }) => ({
+        id: m.id,
+        name: m.name,
+        avatarUrl: m.avatar_url,
+        todayCount: countMap[m.id] || 0,
+      }))
+    );
+  }, [profile?.team_id]);
+
+  useEffect(() => {
+    fetchTeamProgress();
+  }, [fetchTeamProgress]);
+
   const { moverCount, handleNewRep, refetchMovers } = usePeopleMoving();
 
   useRepsChannel(
@@ -129,6 +186,7 @@ export default function Home() {
         return next;
       });
       handleNewRep(payload.user_id);
+      fetchTeamProgress();
     },
     () => {
       supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
@@ -138,6 +196,7 @@ export default function Home() {
         }
       });
       refetchMovers();
+      fetchTeamProgress();
     }
   );
   const animatedMovers = useAnimatedCounter(moverCount, 200);
@@ -192,6 +251,47 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      {teamMembers.length > 0 && (
+        <div className="w-full px-4 mt-3">
+          <div className="flex items-center justify-between bg-bg-surface rounded-lg px-3 py-2.5">
+            <span className="text-micro text-ink-muted uppercase tracking-wide">Team today</span>
+            <div className="flex items-center gap-2">
+              {teamMembers.map((m) => {
+                const hit = m.todayCount >= dailyTarget;
+                return (
+                  <div key={m.id} className="relative" title={`${m.name}: ${m.todayCount}/${dailyTarget}`}>
+                    {m.avatarUrl ? (
+                      <img
+                        src={m.avatarUrl}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className={`w-7 h-7 rounded-full object-cover ${hit ? "ring-2 ring-accent" : "opacity-40"}`}
+                      />
+                    ) : (
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        hit ? "bg-accent text-ink-inverse ring-2 ring-accent" : "bg-bg-elevated text-ink-muted opacity-40"
+                      }`}>
+                        {m.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {hit && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full flex items-center justify-center">
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <span className="text-micro text-ink-secondary tabular-nums ml-1">
+                {teamMembers.filter((m) => m.todayCount >= dailyTarget).length}/{teamMembers.length}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 w-full">
         <ActivityFeed />

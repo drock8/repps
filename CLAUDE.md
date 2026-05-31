@@ -41,8 +41,8 @@ v0.1 shipped in 6 phases (all complete). Now building v0.2 — the team system.
 | 7 | DB foundation — `teams`, `team_member_history`, `team_messages`, `nudges` tables, `profiles` additions, admin settings rows, RLS policies | **Done** |
 | 8 | Team CRUD RPCs — `create_team`, `join_team`, `leave_team` (with double-confirm + replacement grace), captain succession, join code generation | **Done** |
 | 9 | Team UI — create team flow, invite via Web Share API, `/team/join/{code}` route, team detail page with member list + daily/weekly progress + team streak | **Done** |
-| 10 | Scoring engine — `calculate_user_rep_score` RPC with all 4 multipliers (daily 3x, weekly 2x, individual streak +1→+11, team streak +3→+33) | Planned |
-| 11 | Leaderboard expansion — Rep Score + Team Rep Score board types, points display on profile + home, team progress indicator on home | Planned |
+| 10 | Scoring engine — `calculate_user_rep_score` RPC with all 4 multipliers (daily 3x, weekly 2x, individual streak +1→+11, team streak +3→+33) | **Done** |
+| 11 | Leaderboard expansion — Rep Score + Team Rep Score board types, points display on profile + home, team progress indicator on home | **Done** |
 | 12 | Team social — preset message chat (6 options) + nudge (push notification with in-app fallback), member history timeline on team page | Planned |
 
 **Currently: Phase 10 ready to build.**

@@ -8,7 +8,7 @@ import PasswordInput from "../components/PasswordInput";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
-type BoardType = "total" | "session" | "streak";
+type BoardType = "total" | "session" | "streak" | "rep_score" | "team_score";
 
 interface LeaderboardEntry {
   userId: string;
@@ -34,10 +34,29 @@ interface StreakEntry {
   currentStreak: number;
 }
 
+interface RepScoreEntry {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  score: number;
+  baseReps: number;
+  individualStreak: number;
+  teamStreak: number;
+}
+
+interface TeamScoreEntry {
+  teamId: string;
+  teamName: string;
+  combinedScore: number;
+  members: { user_id: string; name: string; avatar_url: string | null; score: number }[];
+}
+
 const BOARD_TABS: { label: string; value: BoardType }[] = [
-  { label: "Total Reps", value: "total" },
-  { label: "Best Session", value: "session" },
-  { label: "Streaks", value: "streak" },
+  { label: "Reps", value: "total" },
+  { label: "Session", value: "session" },
+  { label: "Streak", value: "streak" },
+  { label: "Score", value: "rep_score" },
+  { label: "Teams", value: "team_score" },
 ];
 
 const GENDER_TABS: { label: string; value: GenderFilter }[] = [
@@ -417,6 +436,9 @@ export default function Leaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
   const [streakEntries, setStreakEntries] = useState<StreakEntry[]>([]);
+  const [repScoreEntries, setRepScoreEntries] = useState<RepScoreEntry[]>([]);
+  const [teamScoreEntries, setTeamScoreEntries] = useState<TeamScoreEntry[]>([]);
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [totalReps, setTotalReps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userEntry, setUserEntry] = useState<{
@@ -563,16 +585,76 @@ export default function Leaderboard() {
     []
   );
 
+  const fetchRepScoreLeaderboard = useCallback(
+    async (g: GenderFilter, p: TimePeriod) => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_rep_score_leaderboard", {
+        p_gender: g === "all" ? null : g,
+        p_period: p,
+        p_limit: 50,
+      });
+      if (error) {
+        console.error("Rep score leaderboard error:", error);
+        setRepScoreEntries([]);
+        setLoading(false);
+        return;
+      }
+      setRepScoreEntries(
+        (data || []).map((row: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number; individual_streak: number; team_streak: number }) => ({
+          userId: row.user_id,
+          name: row.name,
+          avatarUrl: row.avatar_url,
+          score: Number(row.score),
+          baseReps: Number(row.base_reps),
+          individualStreak: Number(row.individual_streak),
+          teamStreak: Number(row.team_streak),
+        }))
+      );
+      setLoading(false);
+    },
+    []
+  );
+
+  const fetchTeamScoreLeaderboard = useCallback(
+    async (p: TimePeriod) => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc("get_team_score_leaderboard", {
+        p_period: p,
+        p_limit: 50,
+      });
+      if (error) {
+        console.error("Team score leaderboard error:", error);
+        setTeamScoreEntries([]);
+        setLoading(false);
+        return;
+      }
+      setTeamScoreEntries(
+        (data || []).map((row: { team_id: string; team_name: string; combined_score: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number }[] }) => ({
+          teamId: row.team_id,
+          teamName: row.team_name,
+          combinedScore: Number(row.combined_score),
+          members: row.member_scores || [],
+        }))
+      );
+      setLoading(false);
+    },
+    []
+  );
+
   useEffect(() => {
     fetchTotalReps();
     if (boardType === "total") {
       fetchLeaderboard(gender, period);
     } else if (boardType === "session") {
       fetchSessionLeaderboard(gender);
-    } else {
+    } else if (boardType === "streak") {
       fetchStreakLeaderboard(gender);
+    } else if (boardType === "rep_score") {
+      fetchRepScoreLeaderboard(gender, period);
+    } else if (boardType === "team_score") {
+      fetchTeamScoreLeaderboard(period);
     }
-  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchTotalReps]);
+  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchTotalReps]);
 
   useRepsChannel(
     useCallback(() => {
@@ -581,9 +663,11 @@ export default function Leaderboard() {
       debounceRef.current = setTimeout(() => {
         if (boardType === "total") fetchLeaderboard(gender, period);
         else if (boardType === "session") fetchSessionLeaderboard(gender);
-        else fetchStreakLeaderboard(gender);
+        else if (boardType === "streak") fetchStreakLeaderboard(gender);
+        else if (boardType === "rep_score") fetchRepScoreLeaderboard(gender, period);
+        else if (boardType === "team_score") fetchTeamScoreLeaderboard(period);
       }, 2000);
-    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard])
+    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard])
   );
 
   useEffect(() => {
@@ -608,7 +692,11 @@ export default function Leaderboard() {
       ? entries.length === 0 && !userEntry
       : boardType === "session"
         ? sessionEntries.length === 0
-        : streakEntries.length === 0;
+        : boardType === "streak"
+          ? streakEntries.length === 0
+          : boardType === "rep_score"
+            ? repScoreEntries.length === 0
+            : teamScoreEntries.length === 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
@@ -645,6 +733,7 @@ export default function Leaderboard() {
           ))}
         </div>
 
+        {boardType !== "team_score" && (
         <div className="flex gap-1 mb-3">
           {GENDER_TABS.map((tab) => (
             <button
@@ -660,8 +749,9 @@ export default function Leaderboard() {
             </button>
           ))}
         </div>
+        )}
 
-        {boardType === "total" && (
+        {(boardType === "total" || boardType === "rep_score" || boardType === "team_score") && (
           <div className="flex gap-1 mb-4">
             {TIME_TABS.map((tab) => (
               <button
@@ -818,7 +908,7 @@ export default function Leaderboard() {
             </div>
           ))}
         </div>
-      ) : (
+      ) : boardType === "streak" ? (
         <div className="flex flex-col gap-2">
           {streakEntries.map((entry, i) => (
             <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
@@ -850,6 +940,105 @@ export default function Leaderboard() {
                   {entry.longestStreak === 1 ? "day" : "days"}
                 </span>
               </div>
+            </div>
+          ))}
+        </div>
+      ) : boardType === "rep_score" ? (
+        <div className="flex flex-col gap-2">
+          {repScoreEntries.map((entry, i) => (
+            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+              <span className="w-8 text-center flex-shrink-0">
+                {i < 3 ? (
+                  <span className="text-body-lg">{MEDALS[i]}</span>
+                ) : (
+                  <span className="text-body text-ink-muted">{i + 1}.</span>
+                )}
+              </span>
+              <div className="ml-2">
+                <Avatar url={entry.avatarUrl} name={entry.name} />
+              </div>
+              <div className="ml-3 flex-1 min-w-0">
+                <span className="text-body text-ink-primary truncate block">
+                  {entry.name}
+                </span>
+                <span className="text-micro text-ink-muted">
+                  {formatNumber(entry.baseReps)} base
+                  {entry.individualStreak > 0 && ` · ${entry.individualStreak}d streak`}
+                  {entry.teamStreak > 0 && ` · ${entry.teamStreak}d team`}
+                </span>
+              </div>
+              <div className="text-right ml-2">
+                <span className="text-body text-accent font-bold tabular-nums">
+                  {formatNumber(entry.score)}
+                </span>
+                <span className="text-micro text-ink-muted block">pts</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {teamScoreEntries.map((entry, i) => (
+            <div key={entry.teamId}>
+              <button
+                onClick={() => setExpandedTeamId(expandedTeamId === entry.teamId ? null : entry.teamId)}
+                className="w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left"
+              >
+                <span className="w-8 text-center flex-shrink-0">
+                  {i < 3 ? (
+                    <span className="text-body-lg">{MEDALS[i]}</span>
+                  ) : (
+                    <span className="text-body text-ink-muted">{i + 1}.</span>
+                  )}
+                </span>
+                <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1 min-w-0">
+                  <span className="text-body text-ink-primary truncate block">
+                    {entry.teamName}
+                  </span>
+                  <span className="text-micro text-ink-muted">
+                    {entry.members.length} members
+                  </span>
+                </div>
+                <div className="text-right ml-2 flex items-center gap-2">
+                  <div>
+                    <span className="text-body text-accent font-bold tabular-nums">
+                      {formatNumber(entry.combinedScore)}
+                    </span>
+                    <span className="text-micro text-ink-muted block">pts</span>
+                  </div>
+                  <svg
+                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    className={`text-ink-muted transition-transform duration-200 ${expandedTeamId === entry.teamId ? "rotate-180" : ""}`}
+                  >
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </button>
+              {expandedTeamId === entry.teamId && (
+                <div className="ml-10 mt-1 flex flex-col gap-1">
+                  {entry.members
+                    .sort((a, b) => b.score - a.score)
+                    .map((m) => (
+                    <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
+                      <Avatar url={m.avatar_url} name={m.name} />
+                      <span className="ml-2 text-caption text-ink-primary truncate flex-1">
+                        {m.name}
+                      </span>
+                      <span className="text-caption text-accent font-bold tabular-nums ml-2">
+                        {formatNumber(m.score)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
