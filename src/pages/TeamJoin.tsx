@@ -181,7 +181,7 @@ export default function TeamJoin() {
           </button>
           <button
             onClick={() => navigate("/profile")}
-            className="w-full py-3 text-caption text-accent text-center"
+            className="w-full py-3 rounded-pill bg-accent text-gray-800 font-semibold text-caption text-center transition-all duration-200 ease-apple active:scale-95"
           >
             Sign in with Email
           </button>

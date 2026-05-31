@@ -4,7 +4,7 @@
 
 ### Fixed
 - **Google button text unreadable** -- Text was light on a white background. Changed to dark gray (`text-gray-800`).
-- **Email sign-in link invisible** -- Was black/muted text. Changed to accent orange so it's visible and tappable.
+- **Email sign-in** -- Upgraded from plain text link to accent-colored pill button with dark text.
 
 ## Home screen cosmetic polish (2026-05-31)
 
