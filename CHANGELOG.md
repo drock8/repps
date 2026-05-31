@@ -1,5 +1,25 @@
 # Changelog
 
+## Fix home team card counting yesterday's reps (2026-06-01)
+
+### Fixed
+- **Home team card showed 19 instead of 11** -- Day boundary used UTC midnight (`T00:00:00Z`) instead of local midnight. In UTC+8 (Shanghai), reps done yesterday evening were counted as today. Now uses `setHours(0,0,0,0)` to match the Team page logic.
+
+## Fix guest reps not saving to database (2026-06-01)
+
+### Fixed
+- **Guest reps silently lost** -- Guest (not logged in) rep inserts used direct `.insert()` on the `reps` table, which relies on an anon RLS policy. If that policy was missing or broken, inserts failed silently — reps counted on screen but never reached the database. Now uses `insert_guest_rep()` RPC with `security definer`, matching how authenticated inserts work.
+
+### Migration SQL
+```sql
+-- Run supabase/migrations/013_guest_insert_rpc.sql
+```
+
+## Fix Vercel build failures (2026-06-01)
+
+### Fixed
+- **All deployments since landing page commit failed** -- Unused imports (`Landing` in App.tsx, `navigate` in Profile.tsx) caused `tsc -b` build errors. Vercel was still serving the 2-hour-old build.
+
 ## Sign out navigates to landing page (2026-06-01)
 
 ### Fixed
