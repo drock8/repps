@@ -133,20 +133,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     }
 
-    // Detect recovery tokens in the URL hash before getSession() consumes
-    // them — onAuthStateChange may fire SIGNED_IN instead of
-    // PASSWORD_RECOVERY if the hash is already processed.
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    if (hashParams.get("type") === "recovery") {
-      setPasswordRecovery(true);
+    // PKCE flow: exchange the ?code= param for a session.
+    // This triggers onAuthStateChange with PASSWORD_RECOVERY for reset links.
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    if (code) {
+      url.searchParams.delete("code");
+      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (!error && data.session) {
+          // onAuthStateChange will fire PASSWORD_RECOVERY and call bootstrap
+        } else {
+          bootstrap(null);
+        }
+      });
+    } else {
+      // No code param — bootstrap from existing session
+      supabase.auth.getSession().then(({ data }) => {
+        bootstrap(data.session);
+      });
     }
-
-    // Eagerly bootstrap from the existing session/hash tokens BEFORE
-    // relying on onAuthStateChange — this avoids the race where the
-    // listener misses the initial event on mobile redirect.
-    supabase.auth.getSession().then(({ data }) => {
-      bootstrap(data.session);
-    });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
