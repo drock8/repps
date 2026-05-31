@@ -180,16 +180,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (_codeExchangePromise) {
       _codeExchangePromise.then(({ data, error }) => {
         if (error || !data.session) {
+          // Code exchange failed (e.g. PKCE verifier lost on Android Chrome Custom Tabs)
           console.warn("[auth] code exchange failed, falling back to getSession:", error?.message);
           supabase.auth.getSession().then(({ data: d }) => bootstrap(d.session));
           return;
         }
-        if (_isRecoveryFromUrl) {
+        const redirectType = (data as Record<string, unknown>).redirectType;
+        if (redirectType === "recovery" || _isRecoveryFromUrl) {
           setPasswordRecovery(true);
         }
+        // Always bootstrap from the exchange result — onAuthStateChange may not fire
+        // reliably on Android (Chrome Custom Tabs can lose context)
         bootstrap(data.session);
       });
     } else {
+      // No code param — bootstrap from existing session
       supabase.auth.getSession().then(({ data }) => {
         bootstrap(data.session);
       });
