@@ -92,6 +92,13 @@ function SignupOverlay({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resetCooldown <= 0) return;
+    const t = setTimeout(() => setResetCooldown(resetCooldown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resetCooldown]);
 
   const handleEmailSignup = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -334,20 +341,27 @@ function SignupOverlay({
                   if (!email.trim()) {
                     setError("Email is required"); return;
                   }
+                  if (resetCooldown > 0) return;
                   setSubmitting(true); setError("");
                   try {
                     await resetPassword(email.trim());
                     setMode("reset-sent");
                     setSubmitting(false);
                   } catch (e) {
-                    setError((e as Error).message);
+                    const msg = (e as Error).message || "";
+                    if (msg.toLowerCase().includes("rate limit")) {
+                      setResetCooldown(60);
+                      setError("Too many requests. Please wait a minute before trying again.");
+                    } else {
+                      setError(msg);
+                    }
                     setSubmitting(false);
                   }
                 }}
-                disabled={submitting}
+                disabled={submitting || resetCooldown > 0}
                 className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
               >
-                {submitting ? "Sending..." : "Send reset link"}
+                {submitting ? "Sending..." : resetCooldown > 0 ? `Wait ${resetCooldown}s` : "Send reset link"}
               </button>
             </div>
             <button

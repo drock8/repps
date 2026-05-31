@@ -133,6 +133,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     }
 
+    // Detect recovery tokens in the URL hash before getSession() consumes
+    // them — onAuthStateChange may fire SIGNED_IN instead of
+    // PASSWORD_RECOVERY if the hash is already processed.
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.get("type") === "recovery") {
+      setPasswordRecovery(true);
+    }
+
     // Eagerly bootstrap from the existing session/hash tokens BEFORE
     // relying on onAuthStateChange — this avoids the race where the
     // listener misses the initial event on mobile redirect.

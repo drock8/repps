@@ -60,6 +60,13 @@ export default function Profile() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resetCooldown <= 0) return;
+    const t = setTimeout(() => setResetCooldown(resetCooldown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resetCooldown]);
 
   const fetchStats = useCallback(async () => {
     if (!profile) return;
@@ -317,20 +324,27 @@ export default function Profile() {
                 if (!authEmail.trim()) {
                   setAuthError("Email is required"); return;
                 }
+                if (resetCooldown > 0) return;
                 setAuthSubmitting(true); setAuthError("");
                 try {
                   await resetPassword(authEmail.trim());
                   setAuthMode("reset-sent");
                   setAuthSubmitting(false);
                 } catch (e) {
-                  setAuthError((e as Error).message);
+                  const msg = (e as Error).message || "";
+                  if (msg.toLowerCase().includes("rate limit")) {
+                    setResetCooldown(60);
+                    setAuthError("Too many requests. Please wait a minute before trying again.");
+                  } else {
+                    setAuthError(msg);
+                  }
                   setAuthSubmitting(false);
                 }
               }}
-              disabled={authSubmitting}
+              disabled={authSubmitting || resetCooldown > 0}
               className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
             >
-              {authSubmitting ? "Sending..." : "Send reset link"}
+              {authSubmitting ? "Sending..." : resetCooldown > 0 ? `Wait ${resetCooldown}s` : "Send reset link"}
             </button>
             <button
               onClick={() => { setAuthMode("signin"); setAuthError(""); }}
