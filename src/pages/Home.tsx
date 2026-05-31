@@ -147,15 +147,15 @@ export default function Home() {
 
     if (!membersRes.data) return;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
     const memberIds = membersRes.data.map((m: { id: string }) => m.id);
 
     const { data: repsData } = await supabase
       .from("reps")
       .select("user_id")
       .in("user_id", memberIds)
-      .gte("validated_at", today + "T00:00:00Z")
-      .lt("validated_at", today + "T23:59:59.999Z");
+      .gte("validated_at", todayStart.toISOString());
 
     const countMap: Record<string, number> = {};
     (repsData || []).forEach((r: { user_id: string }) => {
