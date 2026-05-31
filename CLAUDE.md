@@ -33,18 +33,75 @@ If anything in this file contradicts those two, those win — they're more detai
 
 ## The build plan (where we are)
 
-We're building in 6 phases. Phase A is the foundation; D is the hero demo moment; F ships.
+v0.1 shipped in 6 phases (all complete). Now building v0.2 — the team system.
 
 | Phase | What | Status |
 |---|---|---|
-| 1 | Design foundation + routing + auth context + profile auto-create + bottom nav | **Done** |
-| 2 | HOME screen — live Total Global Burpees from DB, target progress, DAB NOW / JOIN states | **Done** |
-| 3 | DAB NOW flow — camera + pose detection writing reps to DB + session summary | **Done** |
-| 4 | Live activity feed + floating bubble animations on HOME | **Done** |
-| 5 | LEADERBOARD page — Female/Male/Non-binary × Day/Week/Month/Year/All filtering | **Done** |
-| 6 | PROFILE + first-login gender prompt + Vercel deploy + poster + README | **Done** |
+| 1–6 | v0.1 — core app (auth, home, DAB flow, feed, leaderboard, profile) | **Done** |
+| 7 | DB foundation — `teams`, `team_member_history`, `team_messages`, `nudges` tables, `profiles` additions, admin settings rows, RLS policies | Planned |
+| 8 | Team CRUD RPCs — `create_team`, `join_team`, `leave_team` (with double-confirm + replacement grace), captain succession, join code generation | Planned |
+| 9 | Team UI — create team flow, invite via Web Share API, `/team/join/{code}` route, team detail page with member list + daily/weekly progress + team streak | Planned |
+| 10 | Scoring engine — `calculate_user_rep_score` RPC with all 4 multipliers (daily 3x, weekly 2x, individual streak +1→+11, team streak +3→+33) | Planned |
+| 11 | Leaderboard expansion — Rep Score + Team Rep Score board types, points display on profile + home, team progress indicator on home | Planned |
+| 12 | Team social — preset message chat (6 options) + nudge (push notification with in-app fallback), member history timeline on team page | Planned |
 
-**All phases complete.**
+**Currently: Phase 7 ready to build.**
+
+### Phase details
+
+**Phase 7 — DB foundation**
+- Create `teams` table (id, name, join_code, captain_id, status, created_at)
+- Create `team_member_history` table (team_id, user_id, event, created_at)
+- Create `team_messages` table (team_id, user_id, message_key, created_at)
+- Create `nudges` table (team_id, sender_id, recipient_id, nudged_on, created_at) with unique constraint
+- Add `team_id` (nullable FK) and `team_joined_at` to `profiles`
+- Seed admin settings: `team_daily_target=5`, `team_daily_multiplier=3`, `team_weekly_days_required=5`, `team_weekly_multiplier=2`, `streak_bonus_base=1`, `streak_bonus_cap=11`, `streak_escalation_interval=10`, `team_streak_bonus_base=3`, `team_streak_bonus_cap=33`
+- RLS policies: public read on teams, team members read their own messages/history
+- Enable Realtime on `team_messages`
+- **Verify:** tables exist, RLS works, settings seeded
+
+**Phase 8 — Team CRUD RPCs**
+- `create_team(p_name)` — validate name 3–24 chars, generate 6-char join code, create team, set captain, update profile team_id, log history
+- `join_team(p_join_code)` — validate team exists + has space + user has no team, add member, log history, auto-set status to 'active' when 3rd member joins
+- `leave_team()` — remove user from team, log history, handle captain succession (longest-tenured member), revert to 'forming' or 'disbanded'
+- Replacement grace logic: team streak preserved if new member joins + hits target same calendar day
+- **Verify:** create/join/leave cycle works via Supabase Studio, history logged, captain succession works
+
+**Phase 9 — Team UI**
+- "Create Team" flow (name input → team created → invite screen)
+- Team detail page at `/team` — members, daily progress per member, weekly progress, team streak counter, invite button (captain, when forming)
+- Share invite: Web Share API with message template, copy-to-clipboard fallback
+- `/team/join/{code}` route — join confirmation, full-team handling, already-on-team handling
+- "Leave team" with double confirmation (type "leave")
+- Bottom nav or profile link to team page
+- **Verify:** full create → invite → join → leave flow on device
+
+**Phase 10 — Scoring engine**
+- `calculate_user_rep_score(p_user_id, p_period)` RPC implementing full formula:
+  - Base: 1 point per burpee
+  - Daily 3x: when all 3 team members hit target
+  - Weekly 2x: when all 3 hit target 5/7 days (stacks on daily 3x)
+  - Individual streak: `min(11, floor((streak_day - 1) / 10) + 1)`
+  - Team streak: `min(33, (floor((team_streak_day - 1) / 10) + 1) × 3)`
+- `get_team_streak(p_team_id)` — current and longest team streak
+- Read all multiplier values from `settings` table (admin-adjustable)
+- **Verify:** manual test with known data against the worked example in APP_SPEC.md (150 burpees over 30 days with perfect team = 1,854 points per member)
+
+**Phase 11 — Leaderboard expansion**
+- Add "Rep Score" board type (individual, filtered by gender × time period)
+- Add "Team Score" board type (filtered by time period only, shows team name + combined score)
+- Team leaderboard rows tappable to see member breakdown
+- Points display on Profile page (Rep Score + streak info)
+- Team daily progress indicator on Home screen (member avatars with checkmarks)
+- **Verify:** all 5 board types work, team board ranks correctly, profile shows points
+
+**Phase 12 — Team social**
+- Preset message chat on team page (6 messages, Supabase Realtime, message feed with avatars + timestamps)
+- Nudge button: push notification via service worker + in-app fallback badge
+- Rate limiting: 1 nudge per sender per recipient per day
+- Member history timeline tab on team page
+- Push notification permission prompt (on team join or first nudge attempt)
+- **Verify:** preset messages appear in real-time for all team members, nudge triggers notification, history shows join/leave events
 
 ## Pre-existing files — do not delete or break
 
