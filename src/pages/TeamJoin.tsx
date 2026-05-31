@@ -158,7 +158,7 @@ export default function TeamJoin() {
 
       {!profile ? (
         <div className="w-full max-w-sm flex flex-col gap-3">
-          <p className="text-body text-ink-secondary text-center mb-2">
+          <p className="text-headline text-ink-primary text-center mb-2">
             Sign in to join this team
           </p>
           <button
