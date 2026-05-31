@@ -635,7 +635,10 @@ export default function Leaderboard() {
           teamName: row.team_name,
           combinedScore: Number(row.combined_score),
           combinedReps: Number(row.combined_reps || 0),
-          members: row.member_scores || [],
+          members: (row.member_scores || []).map((m: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps?: number }) => ({
+            ...m,
+            base_reps: Number(m.base_reps || 0),
+          })),
         }))
       );
       setLoading(false);
@@ -1040,8 +1043,8 @@ export default function Leaderboard() {
               </button>
               {expandedTeamId === entry.teamId && (
                 <div className="ml-10 mt-1 flex flex-col gap-1">
-                  {entry.members
-                    .sort((a, b) => b.score - a.score)
+                  {[...entry.members]
+                    .sort((a, b) => (b.score || 0) - (a.score || 0))
                     .map((m) => (
                     <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
                       <Avatar url={m.avatar_url} name={m.name} />

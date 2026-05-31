@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix team leaderboard expand crash (2026-05-31)
+
+### Fixed
+- **Expanding a team row crashed the app** -- `.sort()` mutated React state in-place during render, and `base_reps` could be undefined from the JSONB response. Fixed with spread copy and defensive defaults.
+
 ## Leaderboard UX pass (2026-05-31)
 
 ### Changed
