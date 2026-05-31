@@ -138,11 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    let bootstrapped = false;
+    let loadingResolved = false;
 
     async function bootstrap(s: Session | null) {
-      if (cancelled || bootstrapped) return;
-      bootstrapped = true;
+      if (cancelled) return;
       setSession(s);
       try {
         if (s?.user) {
@@ -154,12 +153,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("[auth] profile load failed:", e);
         setProfile(null);
       }
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        loadingResolved = true;
+        setLoading(false);
+      }
     }
 
     // Safety timeout: if auth never resolves (e.g. Android redirect lost), unblock UI
     const timeout = setTimeout(() => {
-      if (!bootstrapped && !cancelled) {
+      if (!loadingResolved && !cancelled) {
         console.warn("[auth] bootstrap timeout — unblocking UI");
         supabase.auth.getSession().then(({ data }) => bootstrap(data.session));
       }
