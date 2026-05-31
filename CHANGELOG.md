@@ -1,9 +1,9 @@
 # Changelog
 
-## Fix Android Google login and team invite sign-in (2026-05-31)
+## Fix mobile Google login and team invite sign-in (2026-05-31)
 
 ### Fixed
-- **Android Google login fails silently** -- PKCE flow relies on a `code_verifier` in localStorage, but Android Chrome Custom Tabs don't share storage with the originating tab. Switched to implicit flow which returns the token directly in the URL hash — no verifier needed.
+- **Mobile Google login fails on iOS and Android** -- PKCE flow stores the `code_verifier` in localStorage, but mobile OAuth redirects (Chrome Custom Tabs, SFSafariViewController) open in a separate browser context that can't read the originating tab's localStorage. Added a dual-storage adapter that writes auth state to both localStorage and cookies — cookies survive the browser context switch, so the verifier is available when the redirect returns.
 - **Team invite page has no sign-in option** -- When opening a `/team/join/:code` link while signed out, users saw "Sign in to join this team" with no way to actually sign in. Added a "Continue with Google" button (redirects back to the invite page after auth) and a "Sign in with Email" fallback link.
 
 ## Fix team leaderboard expand crash (2026-05-31)

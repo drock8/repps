@@ -87,16 +87,23 @@ async function claimGuestReps(userId: string): Promise<void> {
   clearGuestSession();
 }
 
-// Detect recovery flow from URL hash (implicit flow puts type in the hash fragment)
+// --- Module-level PKCE code extraction (runs once, before React) ---
+// Captures the ?code= param and strips it from the URL immediately.
+// This prevents React StrictMode's double-mount from losing the code.
+let _codeExchangePromise: ReturnType<typeof supabase.auth.exchangeCodeForSession> | null = null;
 let _isRecoveryFromUrl = false;
+
 (() => {
-  const hash = window.location.hash;
-  if (hash.includes("type=recovery")) {
-    _isRecoveryFromUrl = true;
-  }
   const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
   if (url.searchParams.get("type") === "recovery") {
     _isRecoveryFromUrl = true;
+  }
+  if (code) {
+    url.searchParams.delete("code");
+    url.searchParams.delete("type");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    _codeExchangePromise = supabase.auth.exchangeCodeForSession(code);
   }
 })();
 
@@ -170,15 +177,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    if (_isRecoveryFromUrl) {
-      setPasswordRecovery(true);
+    if (_codeExchangePromise) {
+      _codeExchangePromise.then(({ data, error }) => {
+        if (error || !data.session) {
+          console.warn("[auth] code exchange failed, falling back to getSession:", error?.message);
+          supabase.auth.getSession().then(({ data: d }) => bootstrap(d.session));
+          return;
+        }
+        if (_isRecoveryFromUrl) {
+          setPasswordRecovery(true);
+        }
+        bootstrap(data.session);
+      });
+    } else {
+      supabase.auth.getSession().then(({ data }) => {
+        bootstrap(data.session);
+      });
     }
-
-    // Implicit flow: Supabase auto-detects tokens in URL hash via detectSessionInUrl.
-    // onAuthStateChange fires with the session; getSession() is the fallback.
-    supabase.auth.getSession().then(({ data }) => {
-      bootstrap(data.session);
-    });
 
     return () => {
       cancelled = true;
