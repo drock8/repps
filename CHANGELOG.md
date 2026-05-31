@@ -1,5 +1,11 @@
 # Changelog
 
+## Home screen cosmetic polish (2026-05-31)
+
+### Changed
+- **DAB button** -- "Drop A Burpee" subtitle now appears between "DAB" and "NOW" on the button itself, reinforcing the acronym.
+- **Activity feed** -- "Be the first to drop a burpee" text only shows for users who haven't done any reps yet. Hidden once the user has logged at least one burpee.
+
 ## Fix Android Google login and team invite sign-in (2026-05-31)
 
 ### Fixed

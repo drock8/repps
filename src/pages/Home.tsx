@@ -306,7 +306,11 @@ export default function Home() {
               onClick={() => { unlockAudio(); navigate("/dab"); }}
               className="cta-button w-[9.5rem] h-[9.5rem] rounded-full bg-accent text-ink-inverse font-extrabold italic text-[28px] flex items-center justify-center text-center leading-[1.1] transition-all duration-200 ease-apple active:scale-95 active:!shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)] active:!animate-none"
             >
-              DAB<br />NOW
+              <span className="flex flex-col items-center leading-none">
+                <span>DAB</span>
+                <span className="text-[10px] font-semibold not-italic tracking-wide opacity-80 my-0.5">Drop A Burpee</span>
+                <span>NOW</span>
+              </span>
             </button>
             <img
               src="/DAB-Repps-Mascot.png"
@@ -314,7 +318,6 @@ export default function Home() {
               className="absolute w-[5.5rem] -right-8 -top-6 pointer-events-none"
             />
           </div>
-          <p className="text-caption text-ink-primary mt-2">Drop A Burpee</p>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
 
 interface ProfileCache {
@@ -27,8 +28,10 @@ const BUBBLE_SIZE = 72;
 const MAX_CACHE_SIZE = 200;
 
 export default function ActivityFeed() {
+  const { user } = useAuth();
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [hasReceivedRep, setHasReceivedRep] = useState(false);
+  const [userHasReps, setUserHasReps] = useState(true);
   const profileCache = useRef<Map<string, ProfileCache>>(new Map());
   const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -53,6 +56,17 @@ export default function ActivityFeed() {
       timeoutsRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("reps")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .then(({ count }) => {
+        setUserHasReps((count ?? 0) > 0);
+      });
+  }, [user]);
 
   const getProfile = useCallback(async (userId: string): Promise<ProfileCache> => {
     const cached = profileCache.current.get(userId);
@@ -128,7 +142,7 @@ export default function ActivityFeed() {
 
   return (
     <>
-      {!hasReceivedRep && bubbles.length === 0 && (
+      {!hasReceivedRep && bubbles.length === 0 && !userHasReps && (
         <div className="h-24 flex items-center justify-center">
           <p className="text-body text-ink-muted">
             Be the first to drop a burpee
@@ -136,7 +150,7 @@ export default function ActivityFeed() {
         </div>
       )}
 
-      {hasReceivedRep && bubbles.length === 0 && <div className="h-24" />}
+      {(hasReceivedRep || userHasReps) && bubbles.length === 0 && <div className="h-24" />}
 
       <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden">
         {bubbles.map((bubble) => (
