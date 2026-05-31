@@ -4,6 +4,7 @@
 
 ### Added
 - **Forgot password flow** -- "Forgot password?" link on sign-in screens triggers Supabase `resetPasswordForEmail`. Shows a "Check your email" confirmation screen with the user's email after sending.
+- **Password reset modal** -- When user clicks the reset link in their email and returns to the app, a modal appears to set a new password. Listens for Supabase `PASSWORD_RECOVERY` auth event. Shows success confirmation after update.
 - **Password visibility toggle** -- Eye icon on all password fields lets users reveal/hide their password to confirm what they typed. Shared `PasswordInput` component used across both Profile and Leaderboard auth forms.
 
 ## Fix email registration flow (2026-05-31)

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ResetPasswordModal from "./components/ResetPasswordModal";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Dab from "./pages/Dab";
@@ -12,6 +13,7 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
+          <ResetPasswordModal />
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<Home />} />

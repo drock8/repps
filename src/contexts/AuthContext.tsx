@@ -19,10 +19,13 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   signInWithGoogle: () => Promise<void>;
   signUpWithEmail: (email: string, password: string, name: string) => Promise<{ confirmationRequired: boolean }>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (fields: Partial<Profile>) => void;
@@ -86,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   const loadProfile = useCallback(async (user: User) => {
     let p = await fetchProfile(user.id);
@@ -137,7 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setPasswordRecovery(true);
+        }
         bootstrap(newSession);
       }
     );
@@ -187,6 +194,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  const updatePassword = useCallback(async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setPasswordRecovery(false);
+  }, []);
+
+  const clearPasswordRecovery = useCallback(() => {
+    setPasswordRecovery(false);
+  }, []);
+
   const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
@@ -210,14 +227,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
+    passwordRecovery,
+    clearPasswordRecovery,
     signInWithGoogle,
     signUpWithEmail,
     signInWithEmail,
     resetPassword,
+    updatePassword,
     signOut,
     refreshProfile,
     updateProfile,
-  }), [session, profile, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, refreshProfile, updateProfile]);
+  }), [session, profile, loading, passwordRecovery, clearPasswordRecovery, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, updatePassword, signOut, refreshProfile, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>
