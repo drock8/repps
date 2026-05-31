@@ -10,6 +10,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/leaderboard": "Leaderboard",
   "/profile": "Profile",
   "/dab": "DAB",
+  "/team": "Teams",
 };
 
 export default function Layout() {
@@ -18,7 +19,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false;
   const title = PAGE_TITLES[pathname] || "";
-  const scrollable = pathname === "/" || pathname === "/leaderboard" || pathname === "/profile";
+  const scrollable = pathname === "/" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team";
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png" : "/repps-logo.png";
 
   return (

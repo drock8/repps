@@ -12,6 +12,8 @@ export interface Profile {
   gender_set: boolean;
   avatar_url: string | null;
   created_at: string;
+  team_id: string | null;
+  team_joined_at: string | null;
 }
 
 interface AuthContextValue {

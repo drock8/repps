@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Dab from "./pages/Dab";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
+import Team from "./pages/Team";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
               <Route path="dab" element={<Dab />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="team" element={<Team />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
