@@ -138,9 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    let bootstrapped = false;
 
     async function bootstrap(s: Session | null) {
-      if (cancelled) return;
+      if (cancelled || bootstrapped) return;
+      bootstrapped = true;
       setSession(s);
       try {
         if (s?.user) {
@@ -155,6 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     }
 
+    // Safety timeout: if auth never resolves (e.g. Android redirect lost), unblock UI
+    const timeout = setTimeout(() => {
+      if (!bootstrapped && !cancelled) {
+        console.warn("[auth] bootstrap timeout — unblocking UI");
+        supabase.auth.getSession().then(({ data }) => bootstrap(data.session));
+      }
+    }, 8000);
+
     // Subscribe to auth state changes FIRST so we never miss PASSWORD_RECOVERY
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
@@ -168,16 +178,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (_codeExchangePromise) {
       _codeExchangePromise.then(({ data, error }) => {
         if (error || !data.session) {
+          // Code exchange failed (e.g. PKCE verifier lost on Android Chrome Custom Tabs)
+          console.warn("[auth] code exchange failed, falling back to getSession:", error?.message);
           supabase.auth.getSession().then(({ data: d }) => bootstrap(d.session));
           return;
         }
-        // Belt-and-suspenders: detect recovery from the exchange result or URL param,
-        // in case onAuthStateChange fires SIGNED_IN instead of PASSWORD_RECOVERY
-        // (happens when localStorage code verifier is missing the /recovery suffix)
         const redirectType = (data as Record<string, unknown>).redirectType;
         if (redirectType === "recovery" || _isRecoveryFromUrl) {
           setPasswordRecovery(true);
         }
+        // Always bootstrap from the exchange result — onAuthStateChange may not fire
+        // reliably on Android (Chrome Custom Tabs can lose context)
+        bootstrap(data.session);
       });
     } else {
       // No code param — bootstrap from existing session
@@ -188,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
       listener.subscription.unsubscribe();
     };
   }, [loadProfile]);

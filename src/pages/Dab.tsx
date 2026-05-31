@@ -168,22 +168,39 @@ export default function Dab() {
       try {
         setLoadStage("Powering up Burpee Detector…");
         setLoadProgress(10);
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+
+        const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+          Promise.race([
+            promise,
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`${label} timed out (${ms / 1000}s)`)), ms)
+            ),
+          ]);
+
+        const vision = await withTimeout(
+          FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+          ),
+          30000,
+          "WASM loading"
         );
         if (cancelled) return;
 
         setLoadStage("Starting camera…");
         setLoadProgress(40);
-        const landmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-            delegate: "CPU",
-          },
-          runningMode: "VIDEO",
-          numPoses: 1,
-        });
+        const landmarker = await withTimeout(
+          PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+              delegate: "CPU",
+            },
+            runningMode: "VIDEO",
+            numPoses: 1,
+          }),
+          30000,
+          "Model loading"
+        );
         if (cancelled) {
           landmarker.close();
           return;
@@ -192,16 +209,18 @@ export default function Dab() {
 
         setLoadStage("Get ready to rumble…");
         setLoadProgress(75);
-        // Request camera + mic together for a single permission prompt
+        // Request video first — combined audio+video prompt confuses Android users
+        // and a permanent audio denial blocks the camera too
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
-          audio: true,
-        }).catch(async () => {
-          // If audio denied, fall back to video-only
-          return navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
-          });
         });
+        // Try to add audio track separately (for recording), non-blocking
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStream.getAudioTracks().forEach((t) => stream.addTrack(t));
+        } catch {
+          // Audio not available — recording will be silent, detection still works
+        }
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -209,10 +228,18 @@ export default function Dab() {
         streamRef.current = stream;
 
         if (videoRef.current) {
-          // Only feed video tracks to the display element (keep it muted)
           const videoOnly = new MediaStream(stream.getVideoTracks());
           videoRef.current.srcObject = videoOnly;
           await videoRef.current.play();
+          // Wait for video to actually produce frames before starting detection
+          if (videoRef.current.readyState < 2) {
+            await new Promise<void>((resolve) => {
+              const vid = videoRef.current!;
+              const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
+              vid.addEventListener("loadeddata", onReady);
+              setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 5000);
+            });
+          }
         }
 
         setLoadStage("Let's go!");
@@ -223,6 +250,12 @@ export default function Dab() {
         let lastRepCount = 0;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) {
+            return;
+          }
+
+          // Skip frame if video hasn't produced data yet (Android slow camera start)
+          if (videoRef.current.readyState < 2) {
+            animationIdRef.current = requestAnimationFrame(detect);
             return;
           }
 
