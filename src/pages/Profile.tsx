@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -33,7 +32,6 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
-  const navigate = useNavigate();
   const { profile, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, refreshProfile } = useAuth();
 
   const handleSignOut = useCallback(async () => {

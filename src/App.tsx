@@ -5,7 +5,6 @@ import ResetPasswordModal from "./components/ResetPasswordModal";
 import Layout from "./components/Layout";
 import LandingGate from "./components/LandingGate";
 import Home from "./pages/Home";
-import Landing from "./pages/Landing";
 import Dab from "./pages/Dab";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
