@@ -137,10 +137,7 @@ export default function Dab() {
           });
       } else {
         supabase
-          .from("reps")
-          .insert({ exercise_type: "burpee" })
-          .select("id")
-          .single()
+          .rpc("insert_guest_rep", { p_exercise_type: "burpee" })
           .then(({ data, error }) => {
             if (error) console.error("Guest rep insert error:", error);
             else if (data?.id) addGuestRep(data.id);
