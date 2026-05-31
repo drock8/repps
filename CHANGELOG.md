@@ -1,5 +1,10 @@
 # Changelog
 
+## Sign out navigates to landing page (2026-06-01)
+
+### Fixed
+- **Sign out left user on Profile sign-in form** -- Now redirects to the landing page (`/`) on sign out so users see the front door experience.
+
 ## Landing page + streak leaderboard fix (2026-05-31)
 
 ### Added
