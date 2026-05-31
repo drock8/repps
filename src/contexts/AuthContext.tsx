@@ -85,6 +85,26 @@ async function claimGuestReps(userId: string): Promise<void> {
   clearGuestSession();
 }
 
+// --- Module-level PKCE code extraction (runs once, before React) ---
+// Captures the ?code= param and strips it from the URL immediately.
+// This prevents React StrictMode's double-mount from losing the code.
+let _codeExchangePromise: ReturnType<typeof supabase.auth.exchangeCodeForSession> | null = null;
+let _isRecoveryFromUrl = false;
+
+(() => {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
+  if (url.searchParams.get("type") === "recovery") {
+    _isRecoveryFromUrl = true;
+  }
+  if (code) {
+    url.searchParams.delete("code");
+    url.searchParams.delete("type");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    _codeExchangePromise = supabase.auth.exchangeCodeForSession(code);
+  }
+})();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -133,27 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setLoading(false);
     }
 
-    // PKCE flow: exchange the ?code= param for a session.
-    // This triggers onAuthStateChange with PASSWORD_RECOVERY for reset links.
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
-    if (code) {
-      url.searchParams.delete("code");
-      window.history.replaceState({}, "", url.pathname + url.search + url.hash);
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (!error && data.session) {
-          // onAuthStateChange will fire PASSWORD_RECOVERY and call bootstrap
-        } else {
-          bootstrap(null);
-        }
-      });
-    } else {
-      // No code param — bootstrap from existing session
-      supabase.auth.getSession().then(({ data }) => {
-        bootstrap(data.session);
-      });
-    }
-
+    // Subscribe to auth state changes FIRST so we never miss PASSWORD_RECOVERY
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         if (event === "PASSWORD_RECOVERY") {
@@ -162,6 +162,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         bootstrap(newSession);
       }
     );
+
+    if (_codeExchangePromise) {
+      _codeExchangePromise.then(({ data, error }) => {
+        if (error || !data.session) {
+          supabase.auth.getSession().then(({ data: d }) => bootstrap(d.session));
+          return;
+        }
+        // Belt-and-suspenders: detect recovery from the exchange result or URL param,
+        // in case onAuthStateChange fires SIGNED_IN instead of PASSWORD_RECOVERY
+        // (happens when localStorage code verifier is missing the /recovery suffix)
+        const redirectType = (data as Record<string, unknown>).redirectType;
+        if (redirectType === "recovery" || _isRecoveryFromUrl) {
+          setPasswordRecovery(true);
+        }
+      });
+    } else {
+      // No code param — bootstrap from existing session
+      supabase.auth.getSession().then(({ data }) => {
+        bootstrap(data.session);
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -203,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = useCallback(async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/",
+      redirectTo: window.location.origin + "/?type=recovery",
     });
     if (error) throw error;
   }, []);
