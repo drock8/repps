@@ -48,15 +48,16 @@ interface TeamScoreEntry {
   teamId: string;
   teamName: string;
   combinedScore: number;
-  members: { user_id: string; name: string; avatar_url: string | null; score: number }[];
+  combinedReps: number;
+  members: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[];
 }
 
 const BOARD_TABS: { label: string; value: BoardType }[] = [
-  { label: "Reps", value: "total" },
-  { label: "Session", value: "session" },
-  { label: "Streak", value: "streak" },
-  { label: "Score", value: "rep_score" },
   { label: "Teams", value: "team_score" },
+  { label: "Score", value: "rep_score" },
+  { label: "Reps", value: "total" },
+  { label: "Streak", value: "streak" },
+  { label: "Session", value: "session" },
 ];
 
 const GENDER_TABS: { label: string; value: GenderFilter }[] = [
@@ -629,10 +630,11 @@ export default function Leaderboard() {
         return;
       }
       setTeamScoreEntries(
-        (data || []).map((row: { team_id: string; team_name: string; combined_score: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number }[] }) => ({
+        (data || []).map((row: { team_id: string; team_name: string; combined_score: number; combined_reps: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[] }) => ({
           teamId: row.team_id,
           teamName: row.team_name,
           combinedScore: Number(row.combined_score),
+          combinedReps: Number(row.combined_reps || 0),
           members: row.member_scores || [],
         }))
       );
@@ -967,11 +969,19 @@ export default function Leaderboard() {
                   {entry.teamStreak > 0 && ` · ${entry.teamStreak}d team`}
                 </span>
               </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {formatNumber(entry.score)}
-                </span>
-                <span className="text-micro text-ink-muted block">pts</span>
+              <div className="text-right ml-2 flex items-baseline gap-2">
+                <div className="text-right">
+                  <span className="text-caption text-ink-secondary tabular-nums">
+                    {formatNumber(entry.baseReps)}
+                  </span>
+                  <span className="text-micro text-ink-muted block">reps</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-body text-accent font-bold tabular-nums">
+                    {formatNumber(entry.score)}
+                  </span>
+                  <span className="text-micro text-ink-muted block">pts</span>
+                </div>
               </div>
             </div>
           ))}
@@ -1008,7 +1018,13 @@ export default function Leaderboard() {
                   </span>
                 </div>
                 <div className="text-right ml-2 flex items-center gap-2">
-                  <div>
+                  <div className="text-right">
+                    <span className="text-caption text-ink-secondary tabular-nums">
+                      {formatNumber(entry.combinedReps)}
+                    </span>
+                    <span className="text-micro text-ink-muted block">reps</span>
+                  </div>
+                  <div className="text-right">
                     <span className="text-body text-accent font-bold tabular-nums">
                       {formatNumber(entry.combinedScore)}
                     </span>
@@ -1031,6 +1047,9 @@ export default function Leaderboard() {
                       <Avatar url={m.avatar_url} name={m.name} />
                       <span className="ml-2 text-caption text-ink-primary truncate flex-1">
                         {m.name}
+                      </span>
+                      <span className="text-micro text-ink-secondary tabular-nums ml-2">
+                        {formatNumber(m.base_reps)}
                       </span>
                       <span className="text-caption text-accent font-bold tabular-nums ml-2">
                         {formatNumber(m.score)}

@@ -1,5 +1,16 @@
 # Changelog
 
+## Leaderboard UX pass (2026-05-31)
+
+### Changed
+- **Tab order** -- Leaderboard tabs reordered to Teams → Score → Reps → Streak → Session (team features promoted).
+- **Score tab shows reps** -- Each row now displays base reps (secondary) alongside the Rep Score points.
+- **Teams tab shows reps** -- Team rows show combined reps next to combined score. Expanded member breakdown also shows per-member reps.
+- **Home team card redesigned** -- Each member avatar now has a pill badge showing their today rep count (accent when target hit, muted otherwise). Left side shows team total reps for the day.
+
+### Added
+- **Migration 011** -- `get_team_score_leaderboard` RPC updated to return `combined_reps` and per-member `base_reps`.
+
 ## Phase 10 — Scoring engine (2026-05-31)
 
 ### Added

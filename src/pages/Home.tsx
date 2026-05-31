@@ -255,12 +255,17 @@ export default function Home() {
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">
           <div className="flex items-center justify-between bg-bg-surface rounded-lg px-3 py-2.5">
-            <span className="text-micro text-ink-muted uppercase tracking-wide">Team today</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <span className="text-micro text-ink-muted uppercase tracking-wide">Team today</span>
+              <span className="text-caption text-accent font-bold tabular-nums">
+                {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
               {teamMembers.map((m) => {
                 const hit = m.todayCount >= dailyTarget;
                 return (
-                  <div key={m.id} className="relative" title={`${m.name}: ${m.todayCount}/${dailyTarget}`}>
+                  <div key={m.id} className="relative flex flex-col items-center" title={`${m.name}: ${m.todayCount}/${dailyTarget}`}>
                     {m.avatarUrl ? (
                       <img
                         src={m.avatarUrl}
@@ -275,19 +280,16 @@ export default function Home() {
                         {m.name.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    {hit && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-accent rounded-full flex items-center justify-center">
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </div>
-                    )}
+                    <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 min-w-[1rem] h-4 rounded-full flex items-center justify-center px-0.5 ${
+                      hit ? "bg-accent" : "bg-ink-muted/60"
+                    }`}>
+                      <span className="text-[9px] font-bold text-white tabular-nums leading-none">
+                        {m.todayCount}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
-              <span className="text-micro text-ink-secondary tabular-nums ml-1">
-                {teamMembers.filter((m) => m.todayCount >= dailyTarget).length}/{teamMembers.length}
-              </span>
             </div>
           </div>
         </div>
