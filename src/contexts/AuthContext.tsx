@@ -87,23 +87,16 @@ async function claimGuestReps(userId: string): Promise<void> {
   clearGuestSession();
 }
 
-// --- Module-level PKCE code extraction (runs once, before React) ---
-// Captures the ?code= param and strips it from the URL immediately.
-// This prevents React StrictMode's double-mount from losing the code.
-let _codeExchangePromise: ReturnType<typeof supabase.auth.exchangeCodeForSession> | null = null;
+// Detect recovery flow from URL hash (implicit flow puts type in the hash fragment)
 let _isRecoveryFromUrl = false;
-
 (() => {
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get("code");
-  if (url.searchParams.get("type") === "recovery") {
+  const hash = window.location.hash;
+  if (hash.includes("type=recovery")) {
     _isRecoveryFromUrl = true;
   }
-  if (code) {
-    url.searchParams.delete("code");
-    url.searchParams.delete("type");
-    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
-    _codeExchangePromise = supabase.auth.exchangeCodeForSession(code);
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("type") === "recovery") {
+    _isRecoveryFromUrl = true;
   }
 })();
 
@@ -177,28 +170,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    if (_codeExchangePromise) {
-      _codeExchangePromise.then(({ data, error }) => {
-        if (error || !data.session) {
-          // Code exchange failed (e.g. PKCE verifier lost on Android Chrome Custom Tabs)
-          console.warn("[auth] code exchange failed, falling back to getSession:", error?.message);
-          supabase.auth.getSession().then(({ data: d }) => bootstrap(d.session));
-          return;
-        }
-        const redirectType = (data as Record<string, unknown>).redirectType;
-        if (redirectType === "recovery" || _isRecoveryFromUrl) {
-          setPasswordRecovery(true);
-        }
-        // Always bootstrap from the exchange result — onAuthStateChange may not fire
-        // reliably on Android (Chrome Custom Tabs can lose context)
-        bootstrap(data.session);
-      });
-    } else {
-      // No code param — bootstrap from existing session
-      supabase.auth.getSession().then(({ data }) => {
-        bootstrap(data.session);
-      });
+    if (_isRecoveryFromUrl) {
+      setPasswordRecovery(true);
     }
+
+    // Implicit flow: Supabase auto-detects tokens in URL hash via detectSessionInUrl.
+    // onAuthStateChange fires with the session; getSession() is the fallback.
+    supabase.auth.getSession().then(({ data }) => {
+      bootstrap(data.session);
+    });
 
     return () => {
       cancelled = true;

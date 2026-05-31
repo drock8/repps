@@ -1,5 +1,11 @@
 # Changelog
 
+## Fix Android Google login and team invite sign-in (2026-05-31)
+
+### Fixed
+- **Android Google login fails silently** -- PKCE flow relies on a `code_verifier` in localStorage, but Android Chrome Custom Tabs don't share storage with the originating tab. Switched to implicit flow which returns the token directly in the URL hash — no verifier needed.
+- **Team invite page has no sign-in option** -- When opening a `/team/join/:code` link while signed out, users saw "Sign in to join this team" with no way to actually sign in. Added a "Continue with Google" button (redirects back to the invite page after auth) and a "Sign in with Email" fallback link.
+
 ## Fix team leaderboard expand crash (2026-05-31)
 
 ### Fixed
