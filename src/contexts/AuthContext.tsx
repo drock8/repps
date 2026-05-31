@@ -209,14 +209,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     const redirectTo = window.location.origin + "/";
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo,
         queryParams: { prompt: "select_account" },
+        skipBrowserRedirect: true,
       },
     });
     if (error) throw error;
+    if (data?.url) {
+      // Navigate in the same tab to avoid Chrome Custom Tabs losing PKCE verifier
+      window.location.href = data.url;
+    }
   }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, name: string): Promise<{ confirmationRequired: boolean }> => {

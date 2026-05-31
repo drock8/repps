@@ -1,10 +1,11 @@
 # Changelog
 
-## Fix mobile Google login and team invite sign-in (2026-05-31)
+## Fix Android Google login and team invite sign-in (2026-05-31)
 
 ### Fixed
-- **Mobile Google login fails on iOS and Android** -- PKCE flow stores the `code_verifier` in localStorage, but mobile OAuth redirects (Chrome Custom Tabs, SFSafariViewController) open in a separate browser context that can't read the originating tab's localStorage. Added a dual-storage adapter that writes auth state to both localStorage and cookies — cookies survive the browser context switch, so the verifier is available when the redirect returns.
+- **Android Google login fails** -- Chrome Custom Tabs open OAuth in a separate browser context that can't read the PKCE `code_verifier` from the originating tab's localStorage. Fixed by using `skipBrowserRedirect: true` and navigating in the same tab via `window.location.href`, keeping the PKCE verifier accessible on return.
 - **Team invite page has no sign-in option** -- When opening a `/team/join/:code` link while signed out, users saw "Sign in to join this team" with no way to actually sign in. Added a "Continue with Google" button (redirects back to the invite page after auth) and a "Sign in with Email" fallback link.
+- **Removed ngrok config** -- No longer needed since app is served via Vercel.
 
 ## Fix team leaderboard expand crash (2026-05-31)
 

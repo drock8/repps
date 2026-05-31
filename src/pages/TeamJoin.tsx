@@ -164,13 +164,15 @@ export default function TeamJoin() {
           <button
             onClick={async () => {
               const redirectTo = window.location.href;
-              await supabase.auth.signInWithOAuth({
+              const { data } = await supabase.auth.signInWithOAuth({
                 provider: "google",
                 options: {
                   redirectTo,
                   queryParams: { prompt: "select_account" },
+                  skipBrowserRedirect: true,
                 },
               });
+              if (data?.url) window.location.href = data.url;
             }}
             className="w-full py-4 rounded-pill bg-white border border-ink-border flex items-center justify-center gap-3 font-semibold text-body-lg text-ink-primary transition-all duration-200 ease-apple active:scale-95"
           >
