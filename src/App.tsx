@@ -3,7 +3,9 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ResetPasswordModal from "./components/ResetPasswordModal";
 import Layout from "./components/Layout";
+import LandingGate from "./components/LandingGate";
 import Home from "./pages/Home";
+import Landing from "./pages/Landing";
 import Dab from "./pages/Dab";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
@@ -17,8 +19,9 @@ export default function App() {
         <AuthProvider>
           <ResetPasswordModal />
           <Routes>
+            <Route index element={<LandingGate />} />
             <Route element={<Layout />}>
-              <Route index element={<Home />} />
+              <Route path="home" element={<Home />} />
               <Route path="dab" element={<Dab />} />
               <Route path="leaderboard" element={<Leaderboard />} />
               <Route path="profile" element={<Profile />} />

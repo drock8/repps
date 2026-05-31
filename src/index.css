@@ -77,6 +77,15 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.landing-ticker {
+  animation: ticker-scroll 20s linear infinite;
+}
+
 @keyframes cta-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 20px 4px rgba(var(--color-accent-glow), 0.3); }
   50% { transform: scale(1.03); box-shadow: 0 0 28px 8px rgba(var(--color-accent-glow), 0.45); }

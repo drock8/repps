@@ -1,5 +1,24 @@
 # Changelog
 
+## Landing page + streak leaderboard fix (2026-05-31)
+
+### Added
+- **Landing page** -- New public-facing hero page at `/` for logged-out users. Shows REPPs blue logo, scrolling ticker (CV-VERIFIED / TRIBAL COMPETITION / GLOBAL COUNTER), mission headline ("Let's Get 1 Million Moving for Good."), live global burpee counter, clean video card with play button, and "Join the Movement" CTA. No sign-up required -- CTA navigates straight to the Home page so users can DAB immediately.
+- **`LandingGate` component** -- Routes logged-in users to `/home`, logged-out users see the landing page.
+- **Compact video button on Home** -- YouTube thumbnail replaced with a small pill-style "Watch the mission" button at the bottom of the Home page. Opens the same full-screen video overlay.
+
+### Changed
+- **Routing** -- Home page moved from `/` to `/home`. Bottom nav, Dab page, and Layout updated to match. Logged-in users auto-redirect from `/` to `/home`.
+- **`YouTubeEmbed`** -- Added `compact` prop for the minimal pill button variant used on the Home page.
+
+### Fixed
+- **Streak leaderboard not sorted** -- `get_streak_leaderboard()` RPC returned users in arbitrary database iteration order instead of ranked by longest streak. A 3-day streak could appear at rank 7 while 1-day streaks were rank 1. Fixed by accumulating results into a temp table and returning sorted by `longest_streak desc, current_streak desc`.
+
+### Migration SQL
+```sql
+-- Run supabase/migrations/012_fix_streak_leaderboard_sort.sql
+```
+
 ## Fix password reset redirect (2026-05-31)
 
 ### Fixed

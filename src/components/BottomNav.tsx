@@ -17,7 +17,7 @@ const TEAM_ICON_D = "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-
 const EVENTS_ICON_D = "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z";
 
 const TABS_ORANGE: Tab[] = [
-  { to: "/", label: "Home", icon: { type: "img", src: "/icon-icon-orange.png" }, end: true },
+  { to: "/home", label: "Home", icon: { type: "img", src: "/icon-icon-orange.png" }, end: true },
   { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
   { to: "/leaderboard", label: "Board", icon: { type: "img", src: "/icon-leaderboard.png" }, end: false },
   { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false, disabled: true },
@@ -25,7 +25,7 @@ const TABS_ORANGE: Tab[] = [
 ];
 
 const TABS_BLUE: Tab[] = [
-  { to: "/", label: "Home", icon: { type: "img", src: "/Repps-Blue-Icon.png" }, end: true },
+  { to: "/home", label: "Home", icon: { type: "img", src: "/Repps-Blue-Icon.png" }, end: true },
   { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
   { to: "/leaderboard", label: "Board", icon: { type: "img", src: "/Leaderboard-Blue-Icon.png" }, end: false },
   { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false, disabled: true },

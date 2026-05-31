@@ -7,7 +7,7 @@ import { useTheme } from "../contexts/ThemeContext";
 
 function getPageTitle(pathname: string): string {
   const titles: Record<string, string> = {
-    "/": "Home",
+    "/home": "Home",
     "/leaderboard": "Leaderboard",
     "/profile": "Profile",
     "/dab": "DAB",
@@ -23,7 +23,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false;
   const title = getPageTitle(pathname);
-  const scrollable = pathname === "/" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/");
+  const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/");
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png" : "/repps-logo.png";
 
   return (

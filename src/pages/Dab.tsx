@@ -586,7 +586,7 @@ export default function Dab() {
           <button
             onClick={() => {
               if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-              navigate("/");
+              navigate("/home");
             }}
             className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
           >
@@ -645,7 +645,7 @@ export default function Dab() {
         <p className="text-display-md">📷</p>
         <p className="text-body text-ink-primary mt-4">{cameraError}</p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/home")}
           className="mt-8 bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
         >
           Back to Home
