@@ -40,6 +40,10 @@ export default function Team() {
   const [leaveInput, setLeaveInput] = useState("");
   const [leaving, setLeaving] = useState(false);
 
+  // Remove member state
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+
   // Share state
   const [copied, setCopied] = useState(false);
 
@@ -161,6 +165,16 @@ export default function Team() {
     setLeaving(false);
     setShowLeaveConfirm(false);
     setLeaveInput("");
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    setRemoving(true);
+    const { data } = await supabase.rpc("remove_member", { p_user_id: memberId });
+    if (data?.success) {
+      await fetchTeamData();
+    }
+    setRemoving(false);
+    setRemovingMemberId(null);
   };
 
   const handleShare = async () => {
@@ -348,47 +362,78 @@ export default function Team() {
       <div className="flex flex-col gap-2 mb-6">
         <p className="text-micro text-ink-muted uppercase tracking-wide">Members</p>
         {members.map((m) => (
-          <div key={m.id} className="bg-bg-surface rounded-lg p-4 flex items-center gap-3">
-            {m.avatar_url ? (
-              <img
-                src={m.avatar_url}
-                alt={m.name}
-                referrerPolicy="no-referrer"
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                <span className="text-body-lg font-bold text-ink-inverse">
-                  {m.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-body font-semibold text-ink-primary truncate">{m.name}</p>
-                {team.captain_id === m.id && (
-                  <span className="text-micro text-accent uppercase tracking-wide flex-shrink-0">Capt</span>
-                )}
-              </div>
-              <p className="text-caption text-ink-muted">
-                {m.today_count}/{dailyTarget} today
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              {m.today_count >= dailyTarget ? (
-                <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
+          <div key={m.id} className="bg-bg-surface rounded-lg overflow-hidden">
+            <div className="p-4 flex items-center gap-3">
+              {m.avatar_url ? (
+                <img
+                  src={m.avatar_url}
+                  alt={m.name}
+                  referrerPolicy="no-referrer"
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center">
-                  <span className="text-caption text-ink-muted font-bold">
-                    {m.today_count}
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                  <span className="text-body-lg font-bold text-ink-inverse">
+                    {m.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-body font-semibold text-ink-primary truncate">{m.name}</p>
+                  {team.captain_id === m.id && (
+                    <span className="text-micro text-accent uppercase tracking-wide flex-shrink-0">Capt</span>
+                  )}
+                </div>
+                <p className="text-caption text-ink-muted">
+                  {m.today_count}/{dailyTarget} today
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {m.today_count >= dailyTarget ? (
+                  <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center">
+                    <span className="text-caption text-ink-muted font-bold">
+                      {m.today_count}
+                    </span>
+                  </div>
+                )}
+                {isCaptain && m.id !== profile.id && (
+                  <button
+                    onClick={() => setRemovingMemberId(removingMemberId === m.id ? null : m.id)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 ease-apple hover:bg-bg-elevated"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted">
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="12" cy="5" r="1" />
+                      <circle cx="12" cy="19" r="1" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
+            {removingMemberId === m.id && (
+              <div className="px-4 pb-4 flex gap-2">
+                <button
+                  onClick={() => handleRemoveMember(m.id)}
+                  disabled={removing}
+                  className="flex-1 py-2 rounded-pill bg-error/20 text-error text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+                >
+                  {removing ? "Removing..." : `Remove ${m.name.split(" ")[0]}`}
+                </button>
+                <button
+                  onClick={() => setRemovingMemberId(null)}
+                  className="py-2 px-4 rounded-pill bg-bg-elevated text-ink-muted text-caption font-semibold transition-all duration-200 ease-apple active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         ))}
 
