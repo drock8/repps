@@ -36,9 +36,9 @@ export default function Profile() {
   const navigate = useNavigate();
   const { profile, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, refreshProfile } = useAuth();
 
-  const handleSignOut = useCallback(async () => {
-    await signOut();
+  const handleSignOut = useCallback(() => {
     navigate("/");
+    signOut();
   }, [signOut, navigate]);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
