@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 10 — Scoring engine (2026-05-31)
+
+### Added
+- **`calculate_user_rep_score(p_user_id, p_period)` RPC** -- Full Rep Score with all 4 multipliers: daily team 3x, weekly team 2x, individual streak bonus (+1→+11), team streak bonus (+3→+33). Supports `daily`, `weekly`, `monthly`, `yearly`, `all` periods. Returns score, base reps, and current streak info.
+- **`get_team_streak(p_team_id)` RPC** -- Returns current and longest consecutive-day team streak (days where all 3 members hit the daily target).
+- **Performance index** on `reps(user_id, validated_at)` for day-level grouping queries.
+- All multiplier values read from `settings` table at runtime (admin-adjustable, not hardcoded).
+
 ## Fix YouTube embed loading blank screen (2026-05-31)
 
 ### Fixed
