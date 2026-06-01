@@ -1,5 +1,20 @@
 # Changelog
 
+## Improve DAB flow: silhouette guide, GO audio, Finish button, confetti, calibration fix (2026-06-01)
+
+### Added
+- **"GO!" voice cue** -- ElevenLabs-generated audio plays when calibration completes, alongside the visual flash. Preloaded with rep audio for instant playback.
+- **Confetti celebration** -- 2-second particle burst when user taps Finish. Rendered on both the visible overlay and the recording canvas so it appears in shared videos. Triple haptic pulse on tap.
+- **Confetti module** (`src/lib/confetti.ts`) -- Lightweight canvas-based particle system with fade-out.
+
+### Changed
+- **Silhouette guide redesigned** -- Replaced faint dashed-line outline with a dark mask (60-70% opacity) covering the camera feed, with a body-shaped cutout. Target position is now unmistakable.
+- **"I'm Done" button → "Finish"** -- Moved from small floating circle (top-right of camera) to full-width pill button fixed above bottom nav. Only appears after calibration.
+- **Summary action bar simplified** -- Removed separate "Save" button. "Share" opens native share sheet (includes save/download on both iOS and Android). Falls back to download if share API unavailable.
+
+### Fixed
+- **Burpees not registering after delayed camera setup** -- Stability guard previously only required 2 of 4 core landmarks visible, allowing it to lock in "stable" while user was still across the room. Now requires all 7 key landmarks (nose, shoulders, hips, ankles) visible with vertical torso before stability tracking begins. Also reverts stability if body disappears before calibration completes, preventing a stale baseline.
+
 ## Fix home team card counting yesterday's reps (2026-06-01)
 
 ### Fixed

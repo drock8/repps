@@ -1,6 +1,7 @@
 let audioCtx: AudioContext | null = null;
 let gainNode: GainNode | null = null;
 const bufferCache = new Map<number, AudioBuffer>();
+let goBuffer: AudioBuffer | null = null;
 let unlocked = false;
 
 const VOLUME_GAIN = 3.0;
@@ -46,6 +47,39 @@ export function preloadRepAudio(upTo = 10) {
         .then((buf) => bufferCache.set(i, buf))
         .catch(() => {});
     }
+  }
+  if (!goBuffer) {
+    fetch("/audio/go.mp3")
+      .then((r) => r.arrayBuffer())
+      .then((ab) => ctx.decodeAudioData(ab))
+      .then((buf) => { goBuffer = buf; })
+      .catch(() => {});
+  }
+}
+
+export function playGoAudio() {
+  const ctx = getAudioContext();
+  if (ctx.state === "suspended") {
+    ctx.resume();
+  }
+  const gain = getGainNode();
+  if (goBuffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = goBuffer;
+    src.connect(gain);
+    src.start(0);
+  } else {
+    fetch("/audio/go.mp3")
+      .then((r) => r.arrayBuffer())
+      .then((ab) => ctx.decodeAudioData(ab))
+      .then((buf) => {
+        goBuffer = buf;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(gain);
+        src.start(0);
+      })
+      .catch(() => {});
   }
 }
 

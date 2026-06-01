@@ -203,15 +203,27 @@ export class DetectionEngineV2 {
 
   private checkStability(landmarks: Landmark[], now: number): { status: StabilityStatus; progress: number } {
     const lm = this.extractLandmarks(landmarks);
-    const core = [lm.lShoulder, lm.rShoulder, lm.lHip, lm.rHip];
-    const visible = core.filter((l) => (l.visibility ?? 0) > MIN_VISIBILITY);
-    if (visible.length < 2) {
+
+    // Require a full standing body to even begin stability tracking —
+    // prevents locking in stability while user is still setting up the phone
+    const keyLandmarks = [lm.nose, lm.lShoulder, lm.rShoulder, lm.lHip, lm.rHip, lm.lAnkle, lm.rAnkle];
+    const allVisible = keyLandmarks.every((l) => (l.visibility ?? 0) > MIN_VISIBILITY);
+    if (!allVisible) {
       this.stabilityFrames = [];
       return { status: "unstable", progress: 0 };
     }
 
-    const cx = visible.reduce((a, l) => a + l.x, 0) / visible.length;
-    const cy = visible.reduce((a, l) => a + l.y, 0) / visible.length;
+    // Check torso is vertical (person is standing, not lying down / phone tilted)
+    const shoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
+    const hipY = (lm.lHip.y + lm.rHip.y) / 2;
+    if (hipY - shoulderY < 0.06) {
+      this.stabilityFrames = [];
+      return { status: "unstable", progress: 0 };
+    }
+
+    const core = [lm.lShoulder, lm.rShoulder, lm.lHip, lm.rHip];
+    const cx = core.reduce((a, l) => a + l.x, 0) / core.length;
+    const cy = core.reduce((a, l) => a + l.y, 0) / core.length;
     this.stabilityFrames.push({ x: cx, y: cy, time: now });
 
     // Trim to window
@@ -341,6 +353,18 @@ export class DetectionEngineV2 {
       const shoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
       const hipY = (lm.lHip.y + lm.rHip.y) / 2;
       const torsoVertical = hipY - shoulderY > 0.08;
+
+      // If body disappears during calibration, revert to stability check
+      // so we don't lock in a bad baseline
+      if (!allVisible && this.calibrationHeights.length === 0) {
+        this.isStable = false;
+        this.stabilityFrames = [];
+        return emptyFrame({
+          alignmentStatus: "stabilizing",
+          stabilityStatus: "unstable",
+          stabilityProgress: 0,
+        });
+      }
 
       let alignmentStatus: AlignmentStatus = "no-pose";
       if (!allVisible) {

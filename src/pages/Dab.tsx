@@ -11,7 +11,7 @@ import { DetectionEngineV1, DEFAULT_THRESHOLDS as V1_DEFAULTS } from "../lib/det
 import { DetectionEngineV2 } from "../lib/detectionV2";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
-import { preloadRepAudio, playRepAudio } from "../lib/repAudio";
+import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
 import {
   generateQRDataUrl,
   loadImage,
@@ -19,6 +19,7 @@ import {
   createVideoRecorder,
   downloadBlob,
 } from "../lib/videoRecorder";
+import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep, setGuestGender } from "../lib/guestSession";
 import type { Gender } from "../contexts/AuthContext";
@@ -61,7 +62,10 @@ export default function Dab() {
     };
   }, [recordedUrl]);
 
+  const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
+
   const [screen, setScreen] = useState<Screen>("detecting");
+  const [celebrating, setCelebrating] = useState(false);
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<string>("UNKNOWN");
   const [ratio, setRatio] = useState(0);
@@ -334,6 +338,7 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
+                playGoAudio();
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
                 accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
@@ -384,6 +389,7 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
+                playGoAudio();
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
                 accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
@@ -448,13 +454,8 @@ export default function Dab() {
     };
   }, [authLoading, screen, insertRep, tuneMode, engineVersion]);
 
-  const handleStop = async () => {
-    // 1. Stop detection loop immediately
-    cancelAnimationFrame(animationIdRef.current);
-
-    // 2. Capture video blob BEFORE changing screen state.
-    //    setScreen("summary") triggers useEffect cleanup which kills stream
-    //    tracks — the recorder needs them alive to flush its final data.
+  const finishSession = useCallback(async () => {
+    // Capture video blob BEFORE changing screen state
     let blob: Blob | null = null;
     try {
       if (recorderRef.current?.isRecording) {
@@ -464,18 +465,15 @@ export default function Dab() {
       // Recording failed — continue without video
     }
 
-    // 3. Tear down camera + landmarker
     stopCamera();
 
-    // 4. NOW transition to summary — useEffect cleanup is a no-op since
-    //    we already cleaned up above
     if (blob && blob.size > 0) {
       setRecordedBlob(blob);
       setRecordedUrl(URL.createObjectURL(blob));
     }
+    setCelebrating(false);
     setScreen("summary");
 
-    // 5. Fetch totals — summary already visible, these fill in when ready
     try {
       if (profile) {
         const [userResult, globalResult] = await Promise.all([
@@ -494,7 +492,81 @@ export default function Dab() {
     } catch {
       // Network failed — totals stay at 0
     }
-  };
+  }, [stopCamera, profile]);
+
+  const handleStop = useCallback(() => {
+    cancelAnimationFrame(animationIdRef.current);
+    setCelebrating(true);
+    navigator.vibrate?.([100, 50, 100, 50, 200]);
+
+    // Run confetti on the visible canvas overlay
+    const confettiCanvas = confettiCanvasRef.current;
+    if (confettiCanvas) {
+      const parent = confettiCanvas.parentElement;
+      if (parent) {
+        confettiCanvas.width = parent.clientWidth * (window.devicePixelRatio || 1);
+        confettiCanvas.height = parent.clientHeight * (window.devicePixelRatio || 1);
+      }
+    }
+
+    // Also render confetti into the recording canvas
+    const recCanvas = recordCanvasRef.current;
+    const video = videoRef.current;
+    const skelCanvas = canvasRef.current;
+    if (recCanvas && video && recorderRef.current?.isRecording) {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const rctx = recCanvas.getContext("2d");
+      const particles = createParticles(vw, vh);
+      const startTime = performance.now();
+
+      const drawRecordingFrame = (now: number) => {
+        if (!rctx) return;
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / CONFETTI_DURATION, 1);
+
+        rctx.clearRect(0, 0, vw, vh);
+        // Draw mirrored video
+        rctx.save();
+        rctx.translate(vw, 0);
+        rctx.scale(-1, 1);
+        rctx.drawImage(video, 0, 0, vw, vh);
+        rctx.restore();
+        // Draw skeleton
+        if (skelCanvas) {
+          rctx.save();
+          rctx.translate(vw, 0);
+          rctx.scale(-1, 1);
+          rctx.drawImage(skelCanvas, 0, 0, vw, vh);
+          rctx.restore();
+        }
+        // Draw brand overlay
+        if (brandConfigRef.current) {
+          drawBrandOverlay(rctx, vw, vh, brandConfigRef.current);
+        }
+        // Draw confetti — update particle positions
+        for (const p of particles) {
+          p.x += p.vx;
+          p.vy += GRAVITY;
+          p.y += p.vy;
+          p.rotation += p.rotationSpeed;
+        }
+        drawConfettiFrame(rctx, vw, vh, progress, particles);
+
+        if (progress < 1) {
+          requestAnimationFrame(drawRecordingFrame);
+        }
+      };
+      requestAnimationFrame(drawRecordingFrame);
+    }
+
+    // Run visible confetti and transition after it finishes
+    if (confettiCanvas) {
+      runConfetti(confettiCanvas, () => finishSession());
+    } else {
+      setTimeout(() => finishSession(), CONFETTI_DURATION);
+    }
+  }, [finishSession]);
 
   if (authLoading) return null;
 
@@ -617,17 +689,6 @@ export default function Dab() {
               >
                 Share
               </button>
-              <div className="w-px my-2 bg-divider" />
-              <button
-                onClick={() => {
-                  const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-                  downloadBlob(recordedBlob, `repps-${reps}-reps.${ext}`);
-                  if (reps > 0) setScreen("gender-picker");
-                }}
-                className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
-              >
-                Save
-              </button>
             </>
           )}
         </div>
@@ -708,73 +769,65 @@ export default function Dab() {
         )}
         {!loading && !calibrated && (
           <div className="absolute inset-0 z-20 pointer-events-none">
-            {/* Silhouette guide */}
+            {/* Dark mask with body-shaped cutout */}
             <svg
               viewBox="0 0 300 400"
               className="absolute inset-0 w-full h-full"
-              preserveAspectRatio="xMidYMid meet"
+              preserveAspectRatio="xMidYMid slice"
             >
-              <g
-                transform="translate(150, 200)"
-                opacity={alignmentStatus === "aligned" ? 0.9 : 0.6}
+              <defs>
+                <mask id="body-cutout">
+                  <rect width="300" height="400" fill="white" />
+                  {/* Body silhouette path — standing person shape */}
+                  <path
+                    d="
+                      M 150 50
+                      C 138 50, 128 60, 128 72
+                      C 128 84, 138 94, 150 94
+                      C 162 94, 172 84, 172 72
+                      C 172 60, 162 50, 150 50
+                      Z
+                      M 132 98
+                      C 118 100, 112 108, 110 118
+                      L 96 162
+                      C 94 168, 98 172, 104 170
+                      L 120 158
+                      L 120 230
+                      L 108 310
+                      C 106 320, 112 326, 120 324
+                      L 128 322
+                      C 134 321, 138 316, 139 310
+                      L 148 248
+                      L 152 248
+                      L 161 310
+                      C 162 316, 166 321, 172 322
+                      L 180 324
+                      C 188 326, 194 320, 192 310
+                      L 180 230
+                      L 180 158
+                      L 196 170
+                      C 202 172, 206 168, 204 162
+                      L 190 118
+                      C 188 108, 182 100, 168 98
+                      Z
+                    "
+                    fill="black"
+                    transform="translate(0, 12)"
+                  />
+                </mask>
+              </defs>
+              <rect
+                width="300" height="400"
+                fill="black"
+                opacity={alignmentStatus === "aligned" ? 0.6 : 0.7}
+                mask="url(#body-cutout)"
                 className="transition-opacity duration-300"
-              >
-                {/* Head */}
-                <circle
-                  cx="0" cy="-130" r="22"
-                  fill="none"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-                {/* Torso */}
-                <rect
-                  x="-30" y="-105" width="60" height="80" rx="8"
-                  fill="none"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-                {/* Left leg */}
-                <line
-                  x1="-15" y1="-25" x2="-20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-                {/* Right leg */}
-                <line
-                  x1="15" y1="-25" x2="20" y2="65"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-                {/* Left arm */}
-                <line
-                  x1="-30" y1="-95" x2="-45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-                {/* Right arm */}
-                <line
-                  x1="30" y1="-95" x2="45" y2="-30"
-                  stroke={alignmentStatus === "aligned" ? "var(--color-accent)" : "#C8CCD2"}
-                  strokeWidth="3"
-                  strokeDasharray="6 4"
-                  className="transition-all duration-300"
-                />
-              </g>
+              />
             </svg>
 
-            {/* Instruction card */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center px-4">
-              <div className="bg-bg-base/80 backdrop-blur-sm rounded-xl px-6 py-4 text-center max-w-xs">
+            {/* Instruction card — positioned at bottom of camera area */}
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center px-4">
+              <div className="bg-bg-base/85 backdrop-blur-sm rounded-xl px-6 py-4 text-center max-w-xs">
                 <p className="text-body-lg text-ink-primary font-semibold">
                   {preCalMsg.title}
                 </p>
@@ -823,14 +876,25 @@ export default function Dab() {
         />
         {/* Hidden canvas for recording — composites video + skeleton + brand overlay */}
         <canvas ref={recordCanvasRef} style={{ display: "none" }} />
-        {/* Floating "I'm Done" button — top-right of camera area */}
-        <button
-          onClick={handleStop}
-          className="cta-button absolute top-3 right-3 z-30 bg-accent text-ink-inverse font-bold text-caption rounded-full h-14 w-14 flex items-center justify-center transition-all duration-200 ease-apple active:scale-90 active:!animate-none"
-        >
-          I'm<br/>Done
-        </button>
+        {/* Confetti overlay canvas */}
+        <canvas
+          ref={confettiCanvasRef}
+          className="absolute inset-0 z-30 pointer-events-none"
+          style={{ width: "100%", height: "100%" }}
+        />
       </div>
+
+      {/* Finish button — fixed above bottom nav */}
+      {calibrated && !celebrating && (
+        <div className="fixed bottom-[76px] left-0 right-0 z-50 px-4 pb-2">
+          <button
+            onClick={handleStop}
+            className="cta-button w-full max-w-md mx-auto block bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 transition-all duration-200 ease-apple active:scale-95 active:!animate-none"
+          >
+            Finish
+          </button>
+        </div>
+      )}
 
       {/* Debug strip */}
       {!tuneMode && (
