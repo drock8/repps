@@ -202,7 +202,7 @@ export default function Home() {
   const animatedMovers = useAnimatedCounter(moverCount, 200);
 
   const MILESTONE_TARGET = 1000;
-  const MILESTONE_DATE = "2026-05-31";
+  const MILESTONE_DATE = "2026-06-06";
   const milestonePercent = Math.min((totalReps / MILESTONE_TARGET) * 100, 100);
 
   return (
@@ -221,7 +221,7 @@ export default function Home() {
           <p className="text-display-md text-ink-primary tabular-nums leading-tight mt-0.5">
             {formatNumber(MILESTONE_TARGET)}
           </p>
-          <p className="text-micro text-ink-secondary mt-0.5">by May 31</p>
+          <p className="text-micro text-ink-secondary mt-0.5">by Jun 6</p>
           <p className="text-micro text-accent font-semibold">{formatCountdown(MILESTONE_DATE)}</p>
         </div>
         <div className="text-center">

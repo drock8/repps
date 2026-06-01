@@ -1,5 +1,17 @@
 # Changelog
 
+## DAB flow improvements + milestone date update (2026-06-01)
+
+### Changed
+- **Milestone target date** -- Extended from May 31 to June 6 for the 1,000 burpee goal.
+- **Camera + mic permission** -- Combined into a single getUserMedia request instead of two separate pop-ups.
+- **Video poster frame** -- Summary screen now shows the user's first rep as the video thumbnail instead of a black screen.
+- **Summary screen sizing** -- Video and action bar fit entirely within the viewport without scrolling.
+
+### Fixed
+- **Guest rep flow** -- Added missing `insert_guest_rep` and `claim_guest_reps` RPCs, fixed scoring trigger crash on null user_id for guest reps.
+- **Confetti debugging** -- Added console logging to diagnose confetti canvas sizing on Finish tap.
+
 ## Tighten top spacing so CTA is visible on load (2026-06-01)
 
 ### Changed

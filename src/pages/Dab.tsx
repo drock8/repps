@@ -55,6 +55,7 @@ export default function Dab() {
   const brandConfigRef = useRef<BrandOverlayConfig | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -210,17 +211,17 @@ export default function Dab() {
 
         setLoadStage("Get ready to rumble…");
         setLoadProgress(75);
-        // Request video first — combined audio+video prompt confuses Android users
-        // and a permanent audio denial blocks the camera too
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-        });
-        // Try to add audio track separately (for recording), non-blocking
+        let stream: MediaStream;
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          audioStream.getAudioTracks().forEach((t) => stream.addTrack(t));
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: true,
+          });
         } catch {
-          // Audio not available — recording will be silent, detection still works
+          // Audio denied or unavailable — fall back to video only
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+          });
         }
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -359,6 +360,23 @@ export default function Dab() {
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
+                // Capture poster frame on first rep (user is fresh)
+                if (frame.repCount === 1) {
+                  try {
+                    if (videoRef.current && videoRef.current.videoWidth > 0) {
+                      const pc = document.createElement("canvas");
+                      pc.width = videoRef.current.videoWidth;
+                      pc.height = videoRef.current.videoHeight;
+                      const pctx = pc.getContext("2d");
+                      if (pctx) {
+                        pctx.translate(pc.width, 0);
+                        pctx.scale(-1, 1);
+                        pctx.drawImage(videoRef.current, 0, 0);
+                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                      }
+                    }
+                  } catch { /* ignore */ }
+                }
               }
 
               if (frame.stateChanged) {
@@ -410,6 +428,22 @@ export default function Dab() {
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
+                if (frame.repCount === 1) {
+                  try {
+                    if (videoRef.current && videoRef.current.videoWidth > 0) {
+                      const pc = document.createElement("canvas");
+                      pc.width = videoRef.current.videoWidth;
+                      pc.height = videoRef.current.videoHeight;
+                      const pctx = pc.getContext("2d");
+                      if (pctx) {
+                        pctx.translate(pc.width, 0);
+                        pctx.scale(-1, 1);
+                        pctx.drawImage(videoRef.current, 0, 0);
+                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                      }
+                    }
+                  } catch { /* ignore */ }
+                }
               }
 
               if (frame.stateChanged) {
@@ -502,11 +536,15 @@ export default function Dab() {
     // Run confetti on the visible canvas overlay
     const confettiCanvas = confettiCanvasRef.current;
     if (confettiCanvas) {
+      const dpr = window.devicePixelRatio || 1;
       const parent = confettiCanvas.parentElement;
-      if (parent) {
-        confettiCanvas.width = parent.clientWidth * (window.devicePixelRatio || 1);
-        confettiCanvas.height = parent.clientHeight * (window.devicePixelRatio || 1);
-      }
+      const w = parent?.clientWidth || confettiCanvas.clientWidth || window.innerWidth;
+      const h = parent?.clientHeight || confettiCanvas.clientHeight || window.innerHeight;
+      confettiCanvas.width = w * dpr;
+      confettiCanvas.height = h * dpr;
+      console.log("[confetti] canvas sized:", w, "x", h, "dpr:", dpr, "buffer:", confettiCanvas.width, "x", confettiCanvas.height);
+    } else {
+      console.warn("[confetti] canvas ref is null!");
     }
 
     // Also render confetti into the recording canvas
@@ -607,9 +645,9 @@ export default function Dab() {
 
   if (screen === "summary") {
     return (
-      <div className="flex flex-col h-[100dvh] -mx-4 -mt-6">
+      <div className="flex flex-col -mx-4" style={{ height: "calc(100dvh - 44px - 68px)" }}>
         {/* Stats row */}
-        <div className="flex items-baseline justify-center gap-4 px-4 pt-4 pb-2">
+        <div className="flex items-baseline justify-center gap-4 px-4 pt-2 pb-1 flex-shrink-0">
           <div className="text-center">
             <p className="text-body-lg text-ink-primary font-bold tabular-nums leading-none">{summaryGlobalTotal.toLocaleString()}</p>
             <p className="text-micro text-ink-muted mt-0.5">GLOBAL</p>
@@ -630,12 +668,13 @@ export default function Dab() {
           )}
         </div>
 
-        {/* Video preview — fills space between stats and fixed action bar */}
-        <div className="flex-1 min-h-0 pb-[108px] flex items-center justify-center px-4 py-1">
+        {/* Video preview — constrained to fit between stats and action bar */}
+        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-1">
           {recordedUrl ? (
-            <div className="h-full rounded-xl overflow-hidden bg-bg-surface" style={{ aspectRatio: "9/16" }}>
+            <div className="max-h-full rounded-xl overflow-hidden bg-bg-surface" style={{ aspectRatio: "9/16" }}>
               <video
                 src={recordedUrl}
+                poster={posterUrl || undefined}
                 controls
                 playsInline
                 className="w-full h-full"
@@ -649,8 +688,8 @@ export default function Dab() {
           )}
         </div>
 
-        {/* Action bar — fixed directly above bottom nav */}
-        <div className="fixed bottom-[76px] left-0 right-0 z-50 px-4">
+        {/* Action bar */}
+        <div className="flex-shrink-0 px-4 pb-2">
         <div className="bg-bg-elevated rounded-xl flex max-w-md mx-auto">
           <button
             onClick={() => {
