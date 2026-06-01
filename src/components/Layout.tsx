@@ -29,7 +29,7 @@ export default function Layout() {
   return (
     <div className={`h-screen bg-bg-base text-ink-primary flex flex-col ${scrollable ? "" : "overflow-hidden"}`}>
       <header className="sticky top-0 z-40 bg-bg-base flex-shrink-0">
-        <div className="mx-auto max-w-md px-4 pt-4 pb-1">
+        <div className="mx-auto max-w-md px-4 pt-2 pb-1">
           <div className="relative flex items-center justify-center h-7">
             <img src={logo} alt="REPPs" className="absolute left-0 h-8" />
             <span className="text-caption font-semibold text-ink-secondary uppercase tracking-wide">
@@ -38,7 +38,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className={`mx-auto max-w-md w-full px-4 pt-2 flex-1 ${scrollable ? "pb-24 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
+      <main className={`mx-auto max-w-md w-full px-4 pt-1 flex-1 ${scrollable ? "pb-24 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
         <Outlet />
       </main>
       {!showGenderPrompt && <BottomNav />}

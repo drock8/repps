@@ -1,5 +1,22 @@
 # Changelog
 
+## Tighten top spacing so CTA is visible on load (2026-06-01)
+
+### Changed
+- **Landing page** -- Reduced vertical spacing throughout so "Join the Movement" button is visible without scrolling. Moved video below the CTA.
+- **Layout header/main** -- Reduced top padding on header (pt-4 → pt-2) and main content area (pt-2 → pt-1).
+- **Home page** -- Removed redundant pt-4 top padding from the Home component.
+
+## Profile charts and heatmap improvements (2026-06-01)
+
+### Added
+- **Weekly bar chart** -- 7-day bar chart on Profile showing daily rep counts for the current week, with today highlighted in accent color.
+- **Weekly trend chart** -- 8-week sparkline on Profile showing weekly rep totals over time.
+
+### Changed
+- **Activity heatmap intensity** -- Switched from relative scale (based on personal max) to absolute thresholds (10/25/50/75/100+). Legend now shows "0" to "100+" instead of "Less" to "More".
+- **Profile today count** -- Uses local timezone boundary instead of the RPC's UTC-based count, fixing the same off-by-one issue as the home team card.
+
 ## Improve DAB flow: silhouette guide, GO audio, Finish button, confetti, calibration fix (2026-06-01)
 
 ### Added

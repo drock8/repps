@@ -98,47 +98,47 @@ export default function Landing() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col items-center text-center px-4 pt-10 pb-16 w-full max-w-md">
+      <div className="flex flex-col items-center text-center px-4 pt-4 pb-16 w-full max-w-md">
         {/* Logo */}
         <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-8" />
 
         {/* HQ badge */}
-        <p className="mt-6 text-micro text-ink-muted uppercase tracking-[0.15em]">
+        <p className="mt-3 text-micro text-ink-muted uppercase tracking-[0.15em]">
           Global Movement HQ
         </p>
 
         {/* Mission label */}
-        <p className="mt-5 text-micro text-accent uppercase tracking-[0.15em] font-bold">
+        <p className="mt-3 text-micro text-accent uppercase tracking-[0.15em] font-bold">
           The Mission
         </p>
 
         {/* Headline */}
-        <h1 className="mt-3 text-display-md text-ink-primary font-bold leading-tight tracking-tight">
+        <h1 className="mt-2 text-display-md text-ink-primary font-bold leading-tight tracking-tight">
           Let's Get 1 Million<br />Moving for Good.
         </h1>
 
         {/* Live global counter */}
-        <div className="mt-8">
+        <div className="mt-4">
           <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
           <p className="text-display-xl repps-gradient-text tabular-nums leading-none mt-1">
             {formatNumber(animatedCount)}
           </p>
         </div>
 
-        {/* Video — clean card, no busy thumbnail */}
-        <div className="mt-8 w-4/5">
-          <VideoPlayer videoId="pZpr_WPCzf4" />
-        </div>
-
         {/* CTA */}
         <button
           onClick={() => navigate("/home")}
-          className="mt-8 w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+          className="mt-5 w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
         >
           Join the Movement
         </button>
 
-        <p className="mt-3 text-micro text-ink-muted">No sign-up required</p>
+        <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
+
+        {/* Video — clean card, no busy thumbnail */}
+        <div className="mt-6 w-4/5">
+          <VideoPlayer videoId="pZpr_WPCzf4" />
+        </div>
       </div>
     </div>
   );

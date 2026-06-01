@@ -206,7 +206,7 @@ export default function Home() {
   const milestonePercent = Math.min((totalReps / MILESTONE_TARGET) * 100, 100);
 
   return (
-    <div className="flex flex-col items-center text-center h-full pt-4">
+    <div className="flex flex-col items-center text-center h-full">
       {/* Three-stat row */}
       <div className="grid grid-cols-3 gap-2 w-full px-2">
         <div className="text-center">
