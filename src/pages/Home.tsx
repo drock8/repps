@@ -353,7 +353,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-caption text-accent font-bold tabular-nums">
-                    {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
+                    {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} repps
                   </span>
                   <span className="text-micro text-ink-muted">today</span>
                 </div>

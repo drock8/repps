@@ -51,7 +51,7 @@ const COMPETITION_MODES = [
   {
     value: "individual_most",
     label: "Individual Most",
-    description: "Whoever gets the most reps wins",
+    description: "Whoever gets the most repps wins",
     icon: "person",
     hasTarget: false,
     isTeam: false,
@@ -67,7 +67,7 @@ const COMPETITION_MODES = [
   {
     value: "team_most",
     label: "Team Most",
-    description: "Team with the most combined reps wins",
+    description: "Team with the most combined repps wins",
     icon: "group",
     hasTarget: false,
     isTeam: true,
@@ -91,7 +91,7 @@ const COMPETITION_MODES = [
   {
     value: "live_sprint",
     label: "Live Sprint",
-    description: "Max reps in a timed window — everyone DABs at once",
+    description: "Max repps in a timed window — everyone DABs at once",
     icon: "timer",
     hasTarget: false,
     isTeam: false,
@@ -725,10 +725,10 @@ export default function CreateEvent() {
             </div>
           </div>
 
-          {/* Target reps */}
+          {/* Target repps */}
           {needsTarget && (
             <div>
-              <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Target Reps</label>
+              <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Target Repps</label>
               <input
                 type="number"
                 value={form.target_reps}
@@ -784,7 +784,7 @@ export default function CreateEvent() {
                     : "bg-bg-input text-ink-secondary"
                 }`}
               >
-                Rep Score
+                Repp Score
               </button>
             </div>
           </div>
@@ -913,7 +913,7 @@ export default function CreateEvent() {
             <textarea
               value={form.rules}
               onChange={(e) => update({ rules: e.target.value })}
-              placeholder="Competition rules, eligibility, rep validation requirements, etc."
+              placeholder="Competition rules, eligibility, repp validation requirements, etc."
               maxLength={2000}
               rows={4}
               className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent resize-none"
@@ -1013,8 +1013,8 @@ export default function CreateEvent() {
             <ReviewRow label="Visibility" value={form.visibility === "public" ? "Public" : "Invite Only"} />
             <ReviewRow label="Mode" value={selectedMode.label} />
             {isSprint && <ReviewRow label="Duration" value={`${form.sprint_duration_minutes} minutes`} />}
-            {needsTarget && <ReviewRow label="Target" value={`${parseInt(form.target_reps).toLocaleString("en-US")} reps`} />}
-            <ReviewRow label="Scoring" value={form.scoring_method === "rep_score" ? "Rep Score" : "Raw Reps"} />
+            {needsTarget && <ReviewRow label="Target" value={`${parseInt(form.target_reps).toLocaleString("en-US")} repps`} />}
+            <ReviewRow label="Scoring" value={form.scoring_method === "rep_score" ? "Repp Score" : "Raw Repps"} />
             {(isTeamMode ? form.max_teams : form.max_participants) && (
               <ReviewRow
                 label={isTeamMode ? "Max Teams" : "Max Participants"}

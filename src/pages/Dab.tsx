@@ -681,7 +681,7 @@ export default function Dab() {
             </div>
           ) : (
             <p className="text-body text-ink-muted">
-              {reps > 0 ? "Nice work!" : "No reps this time"}
+              {reps > 0 ? "Nice work!" : "No repps this time"}
             </p>
           )}
         </div>
@@ -704,13 +704,13 @@ export default function Dab() {
               <button
                 onClick={async () => {
                   const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-                  const filename = `repps-${reps}-reps.${ext}`;
+                  const filename = `repps-${reps}-repps.${ext}`;
                   const file = new File([recordedBlob], filename, { type: recordedBlob.type });
                   if (navigator.canShare?.({ files: [file] })) {
                     try {
                       await navigator.share({
                         files: [file],
-                        title: `${reps} ${reps === 1 ? "rep" : "reps"} on REPPs`,
+                        title: `${reps} ${reps === 1 ? "repp" : "repps"} on REPPs`,
                       });
                     } catch (e) {
                       if ((e as Error).name !== "AbortError") {
@@ -787,7 +787,7 @@ export default function Dab() {
         <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
         <p className="text-display-xl text-accent tabular-nums">{reps}</p>
         {calibrated && reps === 0 && (
-          <p className="text-micro text-ink-muted mt-0.5">Each rep must be under 10 seconds</p>
+          <p className="text-micro text-ink-muted mt-0.5">Each repp must be under 10 seconds</p>
         )}
       </div>
 

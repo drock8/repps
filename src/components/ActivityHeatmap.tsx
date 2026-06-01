@@ -217,7 +217,7 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
           }}
         >
           <span className="font-bold tabular-nums">{tooltip.count}</span>{" "}
-          {tooltip.count === 1 ? "rep" : "reps"} on{" "}
+          {tooltip.count === 1 ? "repp" : "repps"} on{" "}
           {new Date(tooltip.day + "T00:00:00").toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",

@@ -810,7 +810,7 @@ export default function Leaderboard() {
                       </div>
                     </div>
                     <span className="ml-3 text-body text-accent truncate flex-1 font-semibold">
-                      Your reps
+                      Your repps
                     </span>
                     <span className="text-body text-accent font-bold tabular-nums ml-2">
                       {signupReps}
@@ -913,7 +913,7 @@ export default function Leaderboard() {
                 <span className="text-body text-accent font-bold tabular-nums">
                   {entry.repCount}
                 </span>
-                <span className="text-micro text-ink-muted block">reps</span>
+                <span className="text-micro text-ink-muted block">repps</span>
               </div>
             </div>
           ))}
@@ -982,7 +982,7 @@ export default function Leaderboard() {
                   <span className="text-caption text-ink-secondary tabular-nums">
                     {formatNumber(entry.baseReps)}
                   </span>
-                  <span className="text-micro text-ink-muted block">reps</span>
+                  <span className="text-micro text-ink-muted block">repps</span>
                 </div>
                 <div className="text-right">
                   <span className="text-body text-accent font-bold tabular-nums">
@@ -1039,7 +1039,7 @@ export default function Leaderboard() {
                     <span className="text-caption text-ink-secondary tabular-nums">
                       {formatNumber(entry.combinedReps)}
                     </span>
-                    <span className="text-micro text-ink-muted block">reps</span>
+                    <span className="text-micro text-ink-muted block">repps</span>
                   </div>
                   <div className="text-right">
                     <span className="text-body text-accent font-bold tabular-nums">

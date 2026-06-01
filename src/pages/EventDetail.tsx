@@ -461,7 +461,7 @@ export default function EventDetail() {
             {MODE_LABELS[event.competition_mode]}
           </span>
           {isTargetMode && event.target_reps && (
-            <span className="text-caption text-ink-muted">· {formatNumber(event.target_reps)} reps</span>
+            <span className="text-caption text-ink-muted">· {formatNumber(event.target_reps)} repps</span>
           )}
         </div>
         <p className={`text-caption mt-1 ${time.isLive ? "text-success font-semibold" : time.isCompleted ? "text-ink-muted" : "text-ink-secondary"}`}>
@@ -485,7 +485,7 @@ export default function EventDetail() {
             />
           </div>
           <p className="text-caption text-ink-secondary mt-1">
-            {formatNumber(progress.total_reps)} / {formatNumber(progress.target_reps)} reps · {Math.round(progress.percentage || 0)}%
+            {formatNumber(progress.total_reps)} / {formatNumber(progress.target_reps)} repps · {Math.round(progress.percentage || 0)}%
           </p>
         </div>
       )}
@@ -706,7 +706,7 @@ function LeaderboardTab({
                 {isWinner && <p className="text-micro text-accent font-bold mb-1">WINNER</p>}
                 <p className="text-body text-ink-primary font-semibold truncate">{team.team_name}</p>
                 <p className="text-display-md text-accent font-bold mt-2 tabular-nums">{formatNumber(team.total_reps)}</p>
-                <p className="text-micro text-ink-muted mt-1">reps</p>
+                <p className="text-micro text-ink-muted mt-1">repps</p>
               </button>
             );
           })}
@@ -924,15 +924,15 @@ function DetailsTab({ event, creatorName, progress }: { event: EventData; creato
         {event.sprint_duration_minutes && (
           <DetailRow label="Sprint duration" value={`${event.sprint_duration_minutes} minutes`} />
         )}
-        <DetailRow label="Scoring" value={event.scoring_method === "rep_score" ? "Rep Score" : "Raw Reps"} />
+        <DetailRow label="Scoring" value={event.scoring_method === "rep_score" ? "Repp Score" : "Raw Repps"} />
         {event.target_reps && (
-          <DetailRow label="Target" value={`${formatNumber(event.target_reps)} reps`} />
+          <DetailRow label="Target" value={`${formatNumber(event.target_reps)} repps`} />
         )}
         {event.prize_type === "bragging_rights" && (
           <DetailRow label="Prize" value="Bragging rights" />
         )}
         <DetailRow label="Late join" value={event.allow_late_join ? "Allowed" : "Not allowed"} />
-        <DetailRow label="Retroactive reps" value={event.retroactive_reps ? "Yes" : "No"} />
+        <DetailRow label="Retroactive repps" value={event.retroactive_reps ? "Yes" : "No"} />
         <DetailRow label="Visibility" value={event.visibility === "public" ? "Public" : "Invite only"} />
         <DetailRow
           label="Participants"

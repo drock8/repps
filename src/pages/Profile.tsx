@@ -146,7 +146,7 @@ export default function Profile() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
         <p className="text-headline text-ink-primary mb-2">Profile</p>
         <p className="text-body text-ink-secondary mb-8 text-center">
-          Sign in to track your reps and claim your leaderboard spot
+          Sign in to track your repps and claim your leaderboard spot
         </p>
 
         {authMode === "choose" && (
@@ -642,10 +642,10 @@ export default function Profile() {
           </button>
         )}
 
-        {/* Rep Score */}
+        {/* Repp Score */}
         <div className="bg-bg-surface rounded-lg p-4">
           <p className="text-micro text-ink-muted uppercase tracking-wide">
-            Rep Score
+            Repp Score
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="text-display-lg repps-gradient-text tabular-nums">
@@ -741,7 +741,7 @@ export default function Profile() {
               <p className="text-display-md text-ink-primary tabular-nums">
                 {stats ? stats.bestSessionCount : "—"}
               </p>
-              <p className="text-caption text-ink-muted">reps</p>
+              <p className="text-caption text-ink-muted">repps</p>
             </div>
             {stats && stats.bestSessionDuration > 0 && (
               <p className="text-caption text-ink-muted mt-0.5">

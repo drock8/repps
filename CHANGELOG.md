@@ -1,5 +1,12 @@
 # Changelog
 
+## Rebrand "rep/reps" → "repp/repps" across all UI text (2026-06-01)
+
+### Changed
+- All user-facing display text updated: "rep" → "repp", "reps" → "repps", "Rep Score" → "Repp Score", "Raw Reps" → "Raw Repps".
+- Affected pages: Leaderboard, Profile, Home, Dab, Team, Events, EventDetail, EventJoin, CreateEvent, ActivityHeatmap.
+- Variable names, DB columns, and RPC names left unchanged (code-only identifiers).
+
 ## Fix link preview showing blue logo (2026-06-01)
 
 ### Fixed

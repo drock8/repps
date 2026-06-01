@@ -197,7 +197,7 @@ export default function Team() {
     if (!code) return;
     const name = team?.name || teamName;
     const url = `${window.location.origin}/team/join/${code}`;
-    const text = `Join ${name} on REPPs — we're on a mission to inspire 1,000,000 people to move more and live better. It starts with one rep. ${url}`;
+    const text = `Join ${name} on REPPs — we're on a mission to inspire 1,000,000 people to move more and live better. It starts with one repp. ${url}`;
 
     if (navigator.share) {
       try {
@@ -360,7 +360,7 @@ export default function Team() {
       <div className="flex flex-col items-center pt-8 px-4">
         <p className="text-headline text-ink-primary mb-1">Create a Team</p>
         <p className="text-body text-ink-secondary text-center mb-6">
-          Teams of 3 unlock multipliers on your Rep Score
+          Teams of 3 unlock multipliers on your Repp Score
         </p>
 
         <div className="w-full max-w-sm flex flex-col gap-3">
@@ -535,7 +535,7 @@ export default function Team() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
             <path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>
           </svg>
-          How to maximize your Rep Score
+          How to maximize your Repp Score
         </button>
       </div>
 
@@ -664,7 +664,7 @@ export default function Team() {
       <div className="bg-bg-surface rounded-lg p-4 mb-4">
         <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Daily Team Target</p>
         <p className="text-body text-ink-secondary">
-          All 3 members hit <span className="text-accent font-bold">{dailyTarget} reps</span> to unlock the <span className="text-accent font-bold">3x multiplier</span>
+          All 3 members hit <span className="text-accent font-bold">{dailyTarget} repps</span> to unlock the <span className="text-accent font-bold">3x multiplier</span>
         </p>
         {team.status === "active" && (
           <div className="mt-3">
@@ -690,7 +690,7 @@ export default function Team() {
             className="w-full max-w-md max-h-[85vh] bg-bg-base rounded-t-2xl overflow-y-auto overscroll-contain"
           >
             <div className="sticky top-0 bg-bg-base z-10 px-5 pt-5 pb-3 flex items-center justify-between border-b border-bg-elevated">
-              <p className="text-body-lg text-ink-primary font-bold">Maximize Your Rep Score</p>
+              <p className="text-body-lg text-ink-primary font-bold">Maximize Your Repp Score</p>
               <button
                 onClick={() => setShowScoring(false)}
                 className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center"
@@ -717,7 +717,7 @@ export default function Team() {
                   <p className="text-caption text-ink-primary font-bold">Daily Team Bonus (3x)</p>
                 </div>
                 <p className="text-caption text-ink-secondary">
-                  When all 3 team members hit <span className="font-semibold">{dailyTarget}+ reps</span> in a day, everyone's base points for that day are <span className="text-accent font-bold">tripled</span>.
+                  When all 3 team members hit <span className="font-semibold">{dailyTarget}+ repps</span> in a day, everyone's base points for that day are <span className="text-accent font-bold">tripled</span>.
                 </p>
               </div>
 

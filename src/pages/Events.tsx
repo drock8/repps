@@ -152,7 +152,7 @@ function EventCard({ event, onClick }: { event: EventWithCounts; onClick: () => 
             {mode.label}
           </span>
           {isTargetMode && event.target_reps && (
-            <span className="text-micro text-ink-muted">· {formatNumber(event.target_reps)} reps</span>
+            <span className="text-micro text-ink-muted">· {formatNumber(event.target_reps)} repps</span>
           )}
         </div>
 

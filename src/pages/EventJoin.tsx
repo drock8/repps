@@ -253,7 +253,7 @@ export default function EventJoin() {
           {MODE_LABELS[event.competition_mode]}
         </span>
         {event.target_reps && (
-          <span className="text-caption text-ink-muted">· {event.target_reps.toLocaleString("en-US")} reps</span>
+          <span className="text-caption text-ink-muted">· {event.target_reps.toLocaleString("en-US")} repps</span>
         )}
       </div>
       <p className="text-caption text-ink-muted mt-1.5">
