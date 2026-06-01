@@ -1,5 +1,10 @@
 # Changelog
 
+## Scoring modal: replace emojis with Material icons in brand color (2026-06-01)
+
+### Changed
+- **Multiplier icons** — Replaced emoji (🔥📅⚡👥) with filled Google Material Symbols SVGs in electric blue accent color: local_fire_department, date_range, bolt, groups.
+
 ## Scoring table: color-coded individual vs team breakdown (2026-06-01)
 
 ### Changed
