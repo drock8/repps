@@ -140,7 +140,7 @@ function EventCard({ event, onClick }: { event: EventWithCounts; onClick: () => 
         <img
           src={event.banner_url}
           alt=""
-          className="w-full h-32 object-cover"
+          className="w-full aspect-video object-cover"
         />
       )}
       <div className="p-4">

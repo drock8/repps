@@ -1,5 +1,18 @@
 # Changelog
 
+## Event rules, sponsors, richer prizes, banner aspect fix (2026-06-01)
+
+### Added
+- **Rules field** — optional textarea (2000 chars) on event creation step 4. Displayed in its own card on the event detail page with `whitespace-pre-line` formatting.
+- **Sponsors system** — dynamic list of sponsors per event, each with name, logo upload (to `event-sponsors` storage bucket), and website URL. Add/remove sponsors freely during creation or editing. Displayed as tappable cards on event detail (logo, name, external link icon).
+- **Richer prize description** — upgraded from single-line input (200 chars) to textarea (1000 chars) for detailed prize info. Displayed in a dedicated card with medal icon on event detail.
+- **Migration 023** — adds `rules` (text, max 2000), `sponsors` (jsonb array of `{name, logo_url, link_url}`), widens `prize_description` to 1000 chars, creates `event-sponsors` storage bucket with RLS, updates `create_event` and `update_event` RPCs with new params.
+
+### Changed
+- **Banner aspect ratio** — all event banners now use `aspect-video` (16:9) instead of fixed heights (`h-32`/`h-40`) across CreateEvent upload preview, Events list cards, and EventDetail page. Prevents side-cropping on phone screens.
+- **Step 4 label** — renamed from "Prizes" to "Prizes & Rules" in the wizard step indicator.
+- **Prize type label** — "Custom Prize" button renamed to "Sponsored / Custom" to better reflect sponsor-backed events.
+
 ## Live Sprint mode, location field, edit event, category fix (2026-06-01)
 
 ### Added

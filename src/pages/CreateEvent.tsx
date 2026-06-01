@@ -5,8 +5,17 @@ import { useAuth } from "../contexts/AuthContext";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_BANNER_SIZE = 5 * 1024 * 1024;
+const MAX_SPONSOR_LOGO_SIZE = 2 * 1024 * 1024;
 
 type Step = 1 | 2 | 3 | 4 | 5;
+
+interface SponsorEntry {
+  name: string;
+  logoFile: File | null;
+  logoPreview: string | null;
+  logoUrl: string | null;
+  linkUrl: string;
+}
 
 interface FormData {
   name: string;
@@ -26,6 +35,8 @@ interface FormData {
   ends_at: string;
   prize_type: "bragging_rights" | "custom_prize";
   prize_description: string;
+  rules: string;
+  sponsors: SponsorEntry[];
 }
 
 const COMPETITION_MODES = [
@@ -167,13 +178,14 @@ function formatDuration(startStr: string, endStr: string): string {
   return `Runs for ${days} day${days !== 1 ? "s" : ""}, ${hours} hour${hours !== 1 ? "s" : ""}`;
 }
 
-const STEP_LABELS = ["Identity", "Competition", "Timing", "Prizes", "Review"];
+const STEP_LABELS = ["Identity", "Competition", "Timing", "Prizes & Rules", "Review"];
 
 export default function CreateEvent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const sponsorLogoRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const editEventId = searchParams.get("edit");
   const isEditMode = !!editEventId;
 
@@ -202,6 +214,8 @@ export default function CreateEvent() {
     ends_at: getDefaultEndDate(),
     prize_type: "bragging_rights",
     prize_description: "",
+    rules: "",
+    sponsors: [],
   });
 
   const update = (fields: Partial<FormData>) => setForm((prev) => ({ ...prev, ...fields }));
@@ -246,6 +260,16 @@ export default function CreateEvent() {
       ends_at: toLocalDatetimeString(new Date(ev.ends_at)),
       prize_type: ev.prize_type || "bragging_rights",
       prize_description: ev.prize_description || "",
+      rules: ev.rules || "",
+      sponsors: ((ev.sponsors || []) as Array<{ name: string; logo_url: string | null; link_url: string | null }>).map(
+        (s: { name: string; logo_url: string | null; link_url: string | null }) => ({
+          name: s.name,
+          logoFile: null,
+          logoPreview: s.logo_url || null,
+          logoUrl: s.logo_url || null,
+          linkUrl: s.link_url || "",
+        })
+      ),
     });
     setLoadingEdit(false);
   }, [editEventId, profile]);
@@ -315,6 +339,50 @@ export default function CreateEvent() {
     return data.publicUrl;
   };
 
+  const handleSponsorLogoSelect = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError("Only JPEG, PNG, WebP, and GIF allowed");
+      return;
+    }
+    if (file.size > MAX_SPONSOR_LOGO_SIZE) {
+      setError("Sponsor logo must be under 2 MB");
+      return;
+    }
+    setError("");
+    const preview = URL.createObjectURL(file);
+    const updated = [...form.sponsors];
+    updated[index] = { ...updated[index], logoFile: file, logoPreview: preview };
+    update({ sponsors: updated });
+  };
+
+  const addSponsor = () => {
+    update({ sponsors: [...form.sponsors, { name: "", logoFile: null, logoPreview: null, logoUrl: null, linkUrl: "" }] });
+  };
+
+  const removeSponsor = (index: number) => {
+    update({ sponsors: form.sponsors.filter((_, i) => i !== index) });
+  };
+
+  const updateSponsor = (index: number, fields: Partial<SponsorEntry>) => {
+    const updated = [...form.sponsors];
+    updated[index] = { ...updated[index], ...fields };
+    update({ sponsors: updated });
+  };
+
+  const uploadSponsorLogo = async (sponsor: SponsorEntry): Promise<string | null> => {
+    if (!sponsor.logoFile || !profile) return sponsor.logoUrl;
+    const ext = sponsor.logoFile.name.split(".").pop();
+    const path = `${profile.id}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+    const { error: uploadErr } = await supabase.storage
+      .from("event-sponsors")
+      .upload(path, sponsor.logoFile, { upsert: true });
+    if (uploadErr) throw uploadErr;
+    const { data } = supabase.storage.from("event-sponsors").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const handleSubmit = async (announce: boolean) => {
     if (!profile) return;
     setSubmitting(true);
@@ -325,6 +393,16 @@ export default function CreateEvent() {
       if (form.bannerFile) {
         bannerUrl = await uploadBanner();
       }
+
+      const sponsorsJson = await Promise.all(
+        form.sponsors
+          .filter((s) => s.name.trim())
+          .map(async (s) => ({
+            name: s.name.trim(),
+            logo_url: await uploadSponsorLogo(s),
+            link_url: s.linkUrl.trim() || null,
+          }))
+      );
 
       let computedEndsAt: string;
       if (isSprint) {
@@ -360,6 +438,9 @@ export default function CreateEvent() {
           p_clear_banner: bannerCleared,
           p_clear_location: !form.location.trim(),
           p_clear_description: !form.description.trim(),
+          p_rules: form.rules.trim() || undefined,
+          p_clear_rules: !form.rules.trim(),
+          p_sponsors: sponsorsJson,
         };
 
         if (finalBannerUrl) updateParams.p_banner_url = finalBannerUrl;
@@ -400,6 +481,8 @@ export default function CreateEvent() {
           p_prize_description: form.prize_type === "custom_prize" ? form.prize_description.trim() : null,
           p_location: form.location.trim() || null,
           p_sprint_duration_minutes: isSprint ? parseInt(form.sprint_duration_minutes) : null,
+          p_rules: form.rules.trim() || null,
+          p_sponsors: sponsorsJson,
         };
 
         const { data, error: rpcError } = await supabase.rpc("create_event", params);
@@ -513,7 +596,7 @@ export default function CreateEvent() {
             <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Banner Image</label>
             <button
               onClick={() => bannerInputRef.current?.click()}
-              className="w-full h-32 bg-bg-input rounded-lg flex flex-col items-center justify-center gap-2 overflow-hidden transition-all duration-200 ease-apple active:scale-[0.98]"
+              className="w-full aspect-video bg-bg-input rounded-lg flex flex-col items-center justify-center gap-2 overflow-hidden transition-all duration-200 ease-apple active:scale-[0.98]"
             >
               {form.bannerPreview ? (
                 <img src={form.bannerPreview} alt="" className="w-full h-full object-cover" />
@@ -778,9 +861,10 @@ export default function CreateEvent() {
         </div>
       )}
 
-      {/* Step 4: Prizes */}
+      {/* Step 4: Prizes, Rules & Sponsors */}
       {step === 4 && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {/* Prize type */}
           <div>
             <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Prize Type</label>
             <div className="flex gap-2">
@@ -802,24 +886,113 @@ export default function CreateEvent() {
                     : "bg-bg-input text-ink-secondary"
                 }`}
               >
-                Custom Prize
+                Sponsored / Custom
               </button>
             </div>
           </div>
 
+          {/* Prize description */}
           {form.prize_type === "custom_prize" && (
             <div>
-              <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Prize Description</label>
-              <input
-                type="text"
+              <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Prize Details</label>
+              <textarea
                 value={form.prize_description}
                 onChange={(e) => update({ prize_description: e.target.value })}
-                placeholder="e.g. Winner gets a free smoothie"
-                maxLength={200}
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+                placeholder="Describe the prizes — what's up for grabs, how many winners, etc."
+                maxLength={1000}
+                rows={4}
+                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent resize-none"
               />
+              <p className="text-micro text-ink-muted mt-1">{form.prize_description.length}/1000</p>
             </div>
           )}
+
+          {/* Rules */}
+          <div>
+            <label className="text-micro text-ink-muted uppercase tracking-wide block mb-1.5">Rules (optional)</label>
+            <textarea
+              value={form.rules}
+              onChange={(e) => update({ rules: e.target.value })}
+              placeholder="Competition rules, eligibility, rep validation requirements, etc."
+              maxLength={2000}
+              rows={4}
+              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent resize-none"
+            />
+            <p className="text-micro text-ink-muted mt-1">{form.rules.length}/2000</p>
+          </div>
+
+          {/* Sponsors */}
+          <div>
+            <label className="text-micro text-ink-muted uppercase tracking-wide block mb-2">Sponsors (optional)</label>
+            <div className="flex flex-col gap-3">
+              {form.sponsors.map((sponsor, i) => (
+                <div key={i} className="bg-bg-surface rounded-lg p-3 flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={sponsor.name}
+                      onChange={(e) => updateSponsor(i, { name: e.target.value })}
+                      placeholder="Sponsor name"
+                      maxLength={60}
+                      className="flex-1 bg-bg-input text-ink-primary text-caption rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    <button
+                      onClick={() => removeSponsor(i)}
+                      className="p-2 text-ink-muted active:text-error transition-colors"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                  <input
+                    type="url"
+                    value={sponsor.linkUrl}
+                    onChange={(e) => updateSponsor(i, { linkUrl: e.target.value })}
+                    placeholder="https://sponsor-website.com"
+                    className="w-full bg-bg-input text-ink-primary text-caption rounded-md px-3 py-2 outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => sponsorLogoRefs.current[i]?.click()}
+                      className="flex items-center gap-2 px-3 py-2 bg-bg-input rounded-md transition-all duration-200 ease-apple active:scale-[0.98]"
+                    >
+                      {sponsor.logoPreview ? (
+                        <img src={sponsor.logoPreview} alt="" className="w-8 h-8 rounded object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded bg-bg-elevated flex items-center justify-center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                          </svg>
+                        </div>
+                      )}
+                      <span className="text-micro text-ink-muted">{sponsor.logoPreview ? "Change logo" : "Add logo"}</span>
+                    </button>
+                    <input
+                      ref={(el) => { sponsorLogoRefs.current[i] = el; }}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => handleSponsorLogoSelect(i, e)}
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={addSponsor}
+                className="w-full py-3 rounded-lg border border-dashed border-ink-muted/30 text-caption text-ink-secondary flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-[0.98]"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Sponsor
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -874,8 +1047,15 @@ export default function CreateEvent() {
             )}
             <ReviewRow
               label="Prize"
-              value={form.prize_type === "custom_prize" ? form.prize_description : "Bragging rights"}
+              value={form.prize_type === "custom_prize" ? (form.prize_description || "Custom prize") : "Bragging rights"}
             />
+            {form.rules && <ReviewRow label="Rules" value={form.rules.length > 80 ? form.rules.slice(0, 80) + "…" : form.rules} />}
+            {form.sponsors.filter((s) => s.name.trim()).length > 0 && (
+              <ReviewRow
+                label="Sponsors"
+                value={form.sponsors.filter((s) => s.name.trim()).map((s) => s.name.trim()).join(", ")}
+              />
+            )}
           </div>
         </div>
       )}

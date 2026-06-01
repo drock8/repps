@@ -6,6 +6,12 @@ import { useAuth } from "../contexts/AuthContext";
 
 type DetailTab = "leaderboard" | "details" | "qr";
 
+interface SponsorData {
+  name: string;
+  logo_url: string | null;
+  link_url: string | null;
+}
+
 interface EventData {
   id: string;
   name: string;
@@ -31,6 +37,8 @@ interface EventData {
   created_at: string;
   location: string | null;
   sprint_duration_minutes: number | null;
+  rules: string | null;
+  sponsors: SponsorData[];
 }
 
 interface IndividualEntry {
@@ -440,7 +448,7 @@ export default function EventDetail() {
         <img
           src={event.banner_url}
           alt=""
-          className="w-full h-40 object-cover rounded-lg"
+          className="w-full aspect-video object-cover rounded-lg"
         />
       )}
 
@@ -816,13 +824,14 @@ function LeaderboardTab({
 
 function DetailsTab({ event, creatorName, progress }: { event: EventData; creatorName: string; progress: ProgressData | null }) {
   const isTeamMode = event.competition_mode.startsWith("team");
+  const sponsors = (event.sponsors || []) as SponsorData[];
 
   return (
     <div className="flex flex-col gap-4">
       {event.description && (
         <div>
           <p className="text-micro text-ink-muted uppercase tracking-wide mb-1">Description</p>
-          <p className="text-body text-ink-secondary">{event.description}</p>
+          <p className="text-body text-ink-secondary whitespace-pre-line">{event.description}</p>
         </div>
       )}
 
@@ -839,6 +848,75 @@ function DetailsTab({ event, creatorName, progress }: { event: EventData; creato
         </div>
       )}
 
+      {/* Rules */}
+      {event.rules && (
+        <div className="bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Rules</p>
+          <p className="text-body text-ink-secondary whitespace-pre-line">{event.rules}</p>
+        </div>
+      )}
+
+      {/* Prizes */}
+      {event.prize_type === "custom_prize" && event.prize_description && (
+        <div className="bg-bg-surface rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent-gold flex-shrink-0">
+              <circle cx="12" cy="8" r="7" />
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+            </svg>
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Prizes</p>
+          </div>
+          <p className="text-body text-ink-secondary whitespace-pre-line">{event.prize_description}</p>
+        </div>
+      )}
+
+      {/* Sponsors */}
+      {sponsors.length > 0 && (
+        <div>
+          <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Sponsors</p>
+          <div className="flex flex-col gap-2">
+            {sponsors.map((sponsor, i) => {
+              const content = (
+                <div className="bg-bg-surface rounded-lg p-3 flex items-center gap-3">
+                  {sponsor.logo_url ? (
+                    <img
+                      src={sponsor.logo_url}
+                      alt={sponsor.name}
+                      className="w-10 h-10 rounded-md object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-accent/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-body font-bold text-accent">{sponsor.name.charAt(0).toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-body text-ink-primary font-semibold truncate">{sponsor.name}</p>
+                    {sponsor.link_url && (
+                      <p className="text-micro text-accent truncate">{sponsor.link_url.replace(/^https?:\/\//, "")}</p>
+                    )}
+                  </div>
+                  {sponsor.link_url && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted flex-shrink-0">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                  )}
+                </div>
+              );
+
+              return sponsor.link_url ? (
+                <a key={i} href={sponsor.link_url} target="_blank" rel="noopener noreferrer" className="block">
+                  {content}
+                </a>
+              ) : (
+                <div key={i}>{content}</div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="bg-bg-surface rounded-lg p-4 flex flex-col gap-3">
         <DetailRow label="Created by" value={creatorName} />
         <DetailRow label="Category" value={event.category === "official" ? "Official" : "Community"} />
@@ -850,10 +928,9 @@ function DetailsTab({ event, creatorName, progress }: { event: EventData; creato
         {event.target_reps && (
           <DetailRow label="Target" value={`${formatNumber(event.target_reps)} reps`} />
         )}
-        <DetailRow
-          label="Prize"
-          value={event.prize_type === "custom_prize" ? (event.prize_description || "Custom prize") : "Bragging rights"}
-        />
+        {event.prize_type === "bragging_rights" && (
+          <DetailRow label="Prize" value="Bragging rights" />
+        )}
         <DetailRow label="Late join" value={event.allow_late_join ? "Allowed" : "Not allowed"} />
         <DetailRow label="Retroactive reps" value={event.retroactive_reps ? "Yes" : "No"} />
         <DetailRow label="Visibility" value={event.visibility === "public" ? "Public" : "Invite only"} />
