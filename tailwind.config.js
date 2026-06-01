@@ -20,6 +20,10 @@ export default {
           muted: "#5C6066",
           inverse: "#111315",
         },
+        avatar: {
+          bg: "#FFD600",
+          text: "#111315",
+        },
         success: "#34C759",
         error: "#FF453A",
         divider: "#2A2E33",

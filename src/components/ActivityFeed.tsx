@@ -174,7 +174,7 @@ export default function ActivityFeed() {
                 className="w-7 h-7 rounded-full object-cover"
               />
             ) : (
-              <div className="w-7 h-7 rounded-full text-ink-inverse flex items-center justify-center text-caption font-bold" style={{ backgroundColor: "rgba(var(--color-accent-glow), 0.8)" }}>
+              <div className="w-7 h-7 rounded-full text-avatar-text flex items-center justify-center text-caption font-bold bg-avatar-bg">
                 {bubble.name.charAt(0).toUpperCase()}
               </div>
             )}

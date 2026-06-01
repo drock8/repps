@@ -553,8 +553,8 @@ export default function Team() {
                   className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                  <span className="text-body-lg font-bold text-ink-inverse">
+                <div className="w-10 h-10 rounded-full bg-avatar-bg flex items-center justify-center flex-shrink-0">
+                  <span className="text-body-lg font-bold text-avatar-text">
                     {m.name.charAt(0).toUpperCase()}
                   </span>
                 </div>

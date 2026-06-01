@@ -1,5 +1,11 @@
 # Changelog
 
+## Standardize default avatar colors (2026-06-01)
+
+### Changed
+- **Default avatar background** — all user initial avatars now use a consistent yellow (`#FFD600`) background with black text, replacing the previous per-theme accent color. Affects profile, leaderboard, team, event detail, team join, and activity feed.
+- Added `avatar-bg` and `avatar-text` design tokens to Tailwind config.
+
 ## Event rules, sponsors, richer prizes, banner aspect fix (2026-06-01)
 
 ### Added

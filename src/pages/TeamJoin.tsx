@@ -138,8 +138,8 @@ export default function TeamJoin() {
                   className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-                  <span className="text-caption font-bold text-ink-inverse">
+                <div className="w-8 h-8 rounded-full bg-avatar-bg flex items-center justify-center">
+                  <span className="text-caption font-bold text-avatar-text">
                     {m.name.charAt(0).toUpperCase()}
                   </span>
                 </div>

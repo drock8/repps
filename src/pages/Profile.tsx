@@ -522,8 +522,8 @@ export default function Profile() {
               className="w-20 h-20 rounded-full object-cover"
             />
           ) : (
-            <div className="w-20 h-20 rounded-full bg-accent flex items-center justify-center">
-              <span className="text-display-md text-ink-inverse">
+            <div className="w-20 h-20 rounded-full bg-avatar-bg flex items-center justify-center">
+              <span className="text-display-md text-avatar-text">
                 {profile.name.charAt(0).toUpperCase()}
               </span>
             </div>

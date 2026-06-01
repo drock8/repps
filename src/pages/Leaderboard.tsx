@@ -94,7 +94,7 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
     );
   }
   return (
-    <div className="w-8 h-8 rounded-full bg-accent text-ink-inverse flex items-center justify-center text-caption font-bold flex-shrink-0">
+    <div className="w-8 h-8 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-caption font-bold flex-shrink-0">
       {name.charAt(0).toUpperCase()}
     </div>
   );
