@@ -425,7 +425,7 @@ export default function Team() {
   return (
     <div className="flex flex-col pb-8">
       {/* Team header */}
-      <div className="flex flex-col pt-4 mb-6">
+      <div className="flex flex-col items-center pt-4 mb-6">
         <div className="flex items-center gap-4">
           {/* Team logo with camera badge */}
           <button
@@ -524,7 +524,7 @@ export default function Team() {
 
         <button
           onClick={() => setShowScoring(true)}
-          className="mt-3 self-start py-2.5 px-5 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+          className="mt-3 py-2.5 px-5 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center gap-2 transition-all duration-200 ease-apple active:scale-95"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
             <path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>
