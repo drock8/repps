@@ -1,5 +1,12 @@
 # Changelog
 
+## Team header: horizontal layout with camera badge (2026-06-01)
+
+### Changed
+- **Team header layout** — Switched from vertically stacked (centered logo above name) to horizontal (logo left, name/status/members right). Saves vertical space.
+- **Camera badge** — Small electric blue circle with camera icon on the bottom-right of the team logo, matching the profile page pattern. Replaces the hover overlay which didn't work well on mobile.
+- **Pending approval card** — Approve/Reject buttons now side by side instead of stacked.
+
 ## Team logo upload with captain approval (2026-06-01)
 
 ### Added
