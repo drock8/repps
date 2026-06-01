@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { supabase } from "../lib/supabase";
 import {
   PoseLandmarker,
@@ -31,6 +32,7 @@ const CALIBRATION_FRAMES = 30;
 
 export default function Dab() {
   const { profile, loading: authLoading } = useAuth();
+  const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
@@ -105,7 +107,7 @@ export default function Dab() {
     (async () => {
       try {
         const [logo, qrDataUrl] = await Promise.all([
-          loadImage("/Repps-Blue-Logo.png").catch(() => null),
+          loadImage(theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png").catch(() => null),
           generateQRDataUrl(profile?.id || "guest"),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;

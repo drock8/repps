@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 
-type Theme = "orange" | "blue";
+type Theme = "orange" | "blue" | "yellow";
+
+const VALID_THEMES: Theme[] = ["orange", "blue", "yellow"];
+
+function parseTheme(value: string | undefined | null): Theme {
+  return VALID_THEMES.includes(value as Theme) ? (value as Theme) : "orange";
+}
 
 const ThemeContext = createContext<Theme>("orange");
 
@@ -15,7 +21,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       .eq("key", "theme")
       .single()
       .then(({ data }) => {
-        if (data?.value === "blue") setTheme("blue");
+        setTheme(parseTheme(data?.value));
       });
 
     const channel = supabase
@@ -25,7 +31,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         { event: "UPDATE", schema: "public", table: "settings", filter: "key=eq.theme" },
         (payload) => {
           const value = (payload.new as { value: string }).value;
-          setTheme(value === "blue" ? "blue" : "orange");
+          setTheme(parseTheme(value));
         }
       )
       .subscribe();
@@ -40,7 +46,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     const appleTouchIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-    const iconPath = theme === "blue" ? "/repps-blue-icon-192.png" : "/repps-icon-192.png";
+    const iconPath = theme === "blue" ? "/repps-blue-icon-192.png"
+      : theme === "yellow" ? "/repps-yellow-icon-192.png"
+      : "/repps-icon-192.png";
     if (favicon) favicon.href = iconPath;
     if (appleTouchIcon) appleTouchIcon.href = iconPath;
   }, [theme]);

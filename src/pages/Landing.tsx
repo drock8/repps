@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useRepsChannel } from "../hooks/useRepsChannel";
+import { useTheme } from "../contexts/ThemeContext";
 import ActivityFeed from "../components/ActivityFeed";
 
 function formatNumber(n: number): string {
@@ -50,9 +51,13 @@ let cachedLandingCount: number | null = null;
 
 export default function Landing() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [totalReps, setTotalReps] = useState(cachedLandingCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
   const mountedRef = useRef(true);
+  const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
+    : theme === "yellow" ? "/Repps-Yellow-Logo.png"
+    : "/repps-logo.png";
 
   useEffect(() => {
     mountedRef.current = true;
@@ -99,7 +104,7 @@ export default function Landing() {
       <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pb-[3vh] pt-[6vh]">
         {/* Logo + HQ badge — top, tight together */}
         <div className="flex flex-col items-center flex-shrink-0">
-          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-10" />
+          <img src={logo} alt="REPPs" className="h-10" />
           <p className="mt-1 text-micro text-ink-muted uppercase tracking-[0.15em]">
             Global Movement HQ
           </p>

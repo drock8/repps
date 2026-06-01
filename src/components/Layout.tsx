@@ -24,7 +24,9 @@ export default function Layout() {
   const showGenderPrompt = profile && profile.gender_set === false;
   const title = getPageTitle(pathname);
   const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/");
-  const logo = theme === "blue" ? "/Repps-Blue-Logo.png" : "/repps-logo.png";
+  const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
+    : theme === "yellow" ? "/Repps-Yellow-Logo.png"
+    : "/repps-logo.png";
 
   return (
     <div className={`h-screen bg-bg-base text-ink-primary flex flex-col ${scrollable ? "" : "overflow-hidden"}`}>
