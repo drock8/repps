@@ -86,6 +86,16 @@ body {
   animation: ticker-scroll 20s linear infinite;
 }
 
+.landing-headline {
+  font-size: clamp(24px, 4vh, 32px);
+}
+
+.landing-counter {
+  font-size: clamp(40px, 7.5vh, 64px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
 @keyframes cta-pulse {
   0%, 100% { transform: scale(1); box-shadow: 0 0 20px 4px rgba(var(--color-accent-glow), 0.3); }
   50% { transform: scale(1.03); box-shadow: 0 0 28px 8px rgba(var(--color-accent-glow), 0.45); }

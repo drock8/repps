@@ -82,11 +82,11 @@ export default function Landing() {
   });
 
   return (
-    <div className="h-screen bg-bg-base text-ink-primary flex flex-col relative overflow-hidden">
+    <div className="h-[100dvh] bg-bg-base text-ink-primary flex flex-col relative overflow-hidden">
       <ActivityFeed />
 
       {/* Scrolling ticker — flush to top */}
-      <div className="w-full overflow-hidden bg-bg-surface border-b border-divider py-2 flex-shrink-0">
+      <div className="w-full overflow-hidden bg-bg-surface border-b border-divider py-1.5 flex-shrink-0">
         <div className="landing-ticker flex whitespace-nowrap">
           {TICKER_ITEMS.map((item, i) => (
             <span key={i} className="text-micro text-ink-secondary uppercase tracking-[0.15em] mx-6 flex items-center gap-3">
@@ -97,43 +97,43 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Main content — fills remaining space, content centered */}
-      <div className="flex-1 flex flex-col items-center text-center px-4 pt-4 pb-6 w-full max-w-md mx-auto justify-between">
-        <div className="flex flex-col items-center">
+      {/* Main content — fills remaining space, distributed vertically */}
+      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto justify-between py-[3vh]">
+        <div className="flex flex-col items-center gap-[1.5vh]">
           {/* Logo */}
-          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-8" />
+          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-7" />
 
           {/* HQ badge */}
-          <p className="mt-2 text-micro text-ink-muted uppercase tracking-[0.15em]">
+          <p className="text-micro text-ink-muted uppercase tracking-[0.15em]">
             Global Movement HQ
           </p>
 
           {/* Mission label */}
-          <p className="mt-2 text-micro text-accent uppercase tracking-[0.15em] font-bold">
+          <p className="text-micro text-accent uppercase tracking-[0.15em] font-bold">
             The Mission
           </p>
 
           {/* Headline */}
-          <h1 className="mt-2 text-display-md text-ink-primary font-bold leading-tight tracking-tight">
+          <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
             Let's Get 1 Million<br />Moving for Good.
           </h1>
 
           {/* Live global counter */}
-          <div className="mt-3">
+          <div>
             <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
-            <p className="text-display-xl repps-gradient-text tabular-nums leading-none mt-1">
+            <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
               {formatNumber(animatedCount)}
             </p>
           </div>
 
           {/* Video */}
-          <div className="mt-4 w-4/5">
+          <div className="w-4/5 max-h-[22vh]">
             <VideoPlayer videoId="pZpr_WPCzf4" />
           </div>
         </div>
 
-        {/* CTA — pinned to bottom of viewport */}
-        <div className="w-full flex flex-col items-center mt-4">
+        {/* CTA — sits above bottom with sufficient padding */}
+        <div className="w-full flex flex-col items-center flex-shrink-0">
           <button
             onClick={() => navigate("/home")}
             className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
@@ -152,7 +152,7 @@ function VideoPlayer({ videoId }: { videoId: string }) {
 
   if (playing) {
     return (
-      <div className="relative w-full rounded-xl overflow-hidden aspect-video bg-black">
+      <div className="relative w-full rounded-xl overflow-hidden aspect-video max-h-full bg-black">
         <iframe
           className="absolute inset-0 w-full h-full"
           src={`https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&autoplay=1`}
@@ -168,7 +168,7 @@ function VideoPlayer({ videoId }: { videoId: string }) {
   return (
     <button
       onClick={() => setPlaying(true)}
-      className="relative w-full rounded-xl overflow-hidden aspect-video bg-bg-surface group border border-divider"
+      className="relative w-full rounded-xl overflow-hidden aspect-video max-h-full bg-bg-surface group border border-divider"
     >
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
         <div className="w-14 h-14 rounded-full bg-accent/20 flex items-center justify-center transition-transform duration-200 group-active:scale-90">

@@ -1,5 +1,13 @@
 # Changelog
 
+## Landing page responsive fit (2026-06-01)
+
+### Changed
+- **Viewport height** -- Switched from `h-screen` to `100dvh` so mobile Safari address bar doesn't cause overflow.
+- **Responsive typography** -- Headline and counter use `clamp()` to scale with viewport height instead of fixed sizes.
+- **Spacing** -- Replaced fixed margins with `vh`-based gaps so content compresses gracefully on short screens.
+- **Video** -- Capped at `22vh` max height so it doesn't push the CTA off-screen on smaller devices.
+
 ## DAB flow improvements + milestone date update (2026-06-01)
 
 ### Changed
