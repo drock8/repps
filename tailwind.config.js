@@ -11,8 +11,8 @@ export default {
           input: "#2A2E33",
         },
         accent: {
-          DEFAULT: "var(--color-accent)",
-          gold: "var(--color-accent-secondary)",
+          DEFAULT: "rgba(var(--color-accent-glow), <alpha-value>)",
+          gold: "rgba(var(--color-accent-glow-secondary), <alpha-value>)",
         },
         ink: {
           primary: "#F5F2EA",
