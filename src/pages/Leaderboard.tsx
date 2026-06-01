@@ -56,7 +56,7 @@ interface TeamScoreEntry {
 const BOARD_TABS: { label: string; value: BoardType }[] = [
   { label: "Teams", value: "team_score" },
   { label: "Score", value: "rep_score" },
-  { label: "Reps", value: "total" },
+  { label: "Repps", value: "total" },
   { label: "Streak", value: "streak" },
   { label: "Session", value: "session" },
 ];

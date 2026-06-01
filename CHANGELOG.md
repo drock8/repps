@@ -1,5 +1,15 @@
 # Changelog
 
+## Fix missing Score leaderboard entries, rename Reps tab (2026-06-01)
+
+### Fixed
+- **Score leaderboard missing users** — 5 users (including Ying Liu with 30 reps) had reps but no `rep_scores` rows, so they appeared on the Reps leaderboard but not the Score leaderboard. Backfilled all missing scores via `refresh_user_rep_scores`. Root cause: orphaned reps row with NULL `user_id` crashed the original migration backfill partway through.
+- **NULL guard on `refresh_user_rep_scores`** — Function now returns early if passed a NULL `user_id`, preventing trigger crashes from orphaned data.
+- **Orphaned reps cleanup** — Deleted reps rows with NULL `user_id` from the database.
+
+### Changed
+- **Leaderboard tab label** — Renamed "Reps" to "Repps" to match brand spelling.
+
 ## Team header: horizontal layout with camera badge (2026-06-01)
 
 ### Changed
