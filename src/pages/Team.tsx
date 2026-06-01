@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
 
@@ -46,6 +46,10 @@ export default function Team() {
 
   // Share state
   const [copied, setCopied] = useState(false);
+
+  // Scoring info modal
+  const [showScoring, setShowScoring] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Invite screen (after create)
   const [newJoinCode, setNewJoinCode] = useState("");
@@ -389,7 +393,7 @@ export default function Team() {
                   {m.today_count}/{dailyTarget} today
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center flex-shrink-0 w-[4.5rem] justify-end gap-2">
                 {m.today_count >= dailyTarget ? (
                   <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -403,7 +407,7 @@ export default function Team() {
                     </span>
                   </div>
                 )}
-                {isCaptain && m.id !== profile.id && (
+                {isCaptain && m.id !== profile.id ? (
                   <button
                     onClick={() => setRemovingMemberId(removingMemberId === m.id ? null : m.id)}
                     className="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200 ease-apple hover:bg-bg-elevated"
@@ -414,6 +418,8 @@ export default function Team() {
                       <circle cx="12" cy="19" r="1" />
                     </svg>
                   </button>
+                ) : (
+                  <div className="w-8" />
                 )}
               </div>
             </div>
@@ -478,7 +484,7 @@ export default function Team() {
       )}
 
       {/* Daily target info */}
-      <div className="bg-bg-surface rounded-lg p-4 mb-6">
+      <div className="bg-bg-surface rounded-lg p-4 mb-4">
         <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Daily Team Target</p>
         <p className="text-body text-ink-secondary">
           All 3 members hit <span className="text-accent font-bold">{dailyTarget} reps</span> to unlock the <span className="text-accent font-bold">3x multiplier</span>
@@ -495,6 +501,156 @@ export default function Team() {
           </div>
         )}
       </div>
+
+      {/* How to maximize button */}
+      <button
+        onClick={() => setShowScoring(true)}
+        className="w-full py-3 mb-6 rounded-pill bg-bg-surface text-ink-secondary font-semibold text-caption flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        How to maximize your Rep Score
+      </button>
+
+      {/* Scoring explainer modal */}
+      {showScoring && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowScoring(false); }}
+        >
+          <div
+            ref={modalRef}
+            className="w-full max-w-md max-h-[85vh] bg-bg-base rounded-t-2xl overflow-y-auto overscroll-contain"
+          >
+            <div className="sticky top-0 bg-bg-base z-10 px-5 pt-5 pb-3 flex items-center justify-between border-b border-bg-elevated">
+              <p className="text-body-lg text-ink-primary font-bold">Maximize Your Rep Score</p>
+              <button
+                onClick={() => setShowScoring(false)}
+                className="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-ink-muted">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-5 py-4 flex flex-col gap-5">
+              {/* Base */}
+              <div>
+                <p className="text-caption text-ink-primary font-bold mb-1">Base Points</p>
+                <p className="text-caption text-ink-secondary">Every validated burpee = <span className="text-accent font-bold">1 point</span></p>
+              </div>
+
+              {/* Daily 3x */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-body-lg">🔥</span>
+                  <p className="text-caption text-ink-primary font-bold">Daily Team Bonus (3x)</p>
+                </div>
+                <p className="text-caption text-ink-secondary">
+                  When all 3 team members hit <span className="font-semibold">{dailyTarget}+ reps</span> in a day, everyone's base points for that day are <span className="text-accent font-bold">tripled</span>.
+                </p>
+              </div>
+
+              {/* Weekly 2x */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-body-lg">📅</span>
+                  <p className="text-caption text-ink-primary font-bold">Weekly Team Bonus (2x)</p>
+                </div>
+                <p className="text-caption text-ink-secondary">
+                  If all 3 members hit the daily target on at least <span className="font-semibold">5 of 7 days</span> in a week, the whole week's points are <span className="text-accent font-bold">doubled</span>. Stacks with the daily 3x — a perfect week = <span className="text-accent font-bold">6x</span>.
+                </p>
+              </div>
+
+              {/* Individual streak */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-body-lg">⚡</span>
+                  <p className="text-caption text-ink-primary font-bold">Individual Streak (+1 → +11)</p>
+                </div>
+                <p className="text-caption text-ink-secondary">
+                  Hit the daily target on consecutive days to build your streak. Starting day 2, earn <span className="font-semibold">+1 bonus per day</span>. Every 10 days it escalates by +1, capping at <span className="text-accent font-bold">+11/day</span> (day 101+). Miss a day? Streak resets to zero.
+                </p>
+              </div>
+
+              {/* Team streak */}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-body-lg">👥</span>
+                  <p className="text-caption text-ink-primary font-bold">Team Streak (+3 → +33)</p>
+                </div>
+                <p className="text-caption text-ink-secondary">
+                  When <span className="font-semibold">all 3 members</span> hit the target on consecutive days, the team streak grows. Starts at <span className="font-semibold">+3/day per member</span>, escalating by +3 every 10 days, capping at <span className="text-accent font-bold">+33/day</span>. If anyone misses, the whole team streak resets.
+                </p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-bg-elevated" />
+
+              {/* Example comparison */}
+              <div>
+                <p className="text-caption text-ink-primary font-bold mb-2">30-Day Example: Solo vs Team</p>
+                <p className="text-micro text-ink-muted mb-3">5 burpees/day for 30 days straight</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-bg-surface rounded-lg p-3 flex flex-col items-center">
+                    <p className="text-micro text-ink-muted uppercase tracking-wide mb-1">Solo</p>
+                    <p className="text-display-sm text-ink-primary font-bold">209</p>
+                    <p className="text-micro text-ink-muted">pts</p>
+                    <p className="text-micro text-ink-secondary mt-1">1.4x return</p>
+                  </div>
+                  <div className="bg-accent/10 rounded-lg p-3 flex flex-col items-center ring-1 ring-accent/30">
+                    <p className="text-micro text-accent uppercase tracking-wide mb-1">With Team</p>
+                    <p className="text-display-sm text-accent font-bold">1,854</p>
+                    <p className="text-micro text-ink-muted">pts</p>
+                    <p className="text-micro text-accent font-semibold mt-1">12.4x return</p>
+                  </div>
+                </div>
+
+                <p className="text-micro text-ink-secondary mt-3 text-center">
+                  Same 150 burpees — a team that shows up together scores <span className="text-accent font-bold">~9x more</span>
+                </p>
+              </div>
+
+              {/* Key days breakdown */}
+              <div>
+                <p className="text-caption text-ink-primary font-bold mb-2">How Points Build (with team)</p>
+                <div className="bg-bg-surface rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-4 gap-px bg-bg-elevated text-micro">
+                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted">Day</div>
+                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Base</div>
+                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Bonus</div>
+                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Total</div>
+                    {[
+                      { day: 1, base: 15, streak: 0, team: 0 },
+                      { day: 2, base: 15, streak: 1, team: 3 },
+                      { day: 10, base: 15, streak: 1, team: 3 },
+                      { day: 11, base: 15, streak: 2, team: 6 },
+                      { day: 21, base: 15, streak: 3, team: 9 },
+                      { day: 30, base: 15, streak: 3, team: 9 },
+                    ].map((r) => (
+                      <Fragment key={r.day}>
+                        <div className="bg-bg-surface px-2 py-1.5 text-ink-secondary">{r.day}</div>
+                        <div className="bg-bg-surface px-2 py-1.5 text-ink-secondary text-right">{r.base}</div>
+                        <div className="bg-bg-surface px-2 py-1.5 text-accent text-right">+{r.streak + r.team}</div>
+                        <div className="bg-bg-surface px-2 py-1.5 text-ink-primary font-semibold text-right">{r.base + r.streak + r.team}</div>
+                      </Fragment>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-micro text-ink-muted mt-2">Base = 5 reps × 3x daily team bonus. Bonuses escalate every 10 days. Weekly 2x applied on top.</p>
+              </div>
+
+              {/* Bottom padding for scroll */}
+              <div className="h-4" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Leave team */}
       {!showLeaveConfirm ? (

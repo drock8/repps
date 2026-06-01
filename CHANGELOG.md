@@ -1,5 +1,13 @@
 # Changelog
 
+## Team page: aligned member rows, scoring explainer modal (2026-06-01)
+
+### Fixed
+- **Member row alignment** — Captain's checkmark/count circle now stays in the same vertical column as other members. A fixed-width right column with a spacer replaces the variable-width layout caused by the 3-dot menu appearing only on non-captain rows.
+
+### Added
+- **"How to maximize your Rep Score" button** — Opens a bottom-sheet modal explaining all 4 multipliers (daily 3x, weekly 2x, individual streak +1→+11, team streak +3→+33) with a 30-day solo vs team comparison (209 pts solo → 1,854 pts with team) and a day-by-day breakdown table.
+
 ## Home team card: rank badge, team name, motivational insight (2026-06-01)
 
 ### Changed
