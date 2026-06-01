@@ -239,6 +239,7 @@ export default function Team() {
       .from("team-logos")
       .upload(path, file, { upsert: true });
     if (uploadError) {
+      console.error("Logo upload failed:", uploadError);
       setLogoError("Upload failed — try again");
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -252,7 +253,7 @@ export default function Team() {
 
     const isCaptainUpload = team?.captain_id === profile.id;
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("teams")
       .update(
         isCaptainUpload
@@ -260,6 +261,11 @@ export default function Team() {
           : { pending_logo_url: publicUrl, pending_logo_uploaded_by: profile.id }
       )
       .eq("id", profile.team_id);
+
+    if (updateError) {
+      console.error("Logo DB update failed:", updateError);
+      setLogoError("Upload failed — try again");
+    }
 
     await fetchTeamData();
     setUploadingLogo(false);
