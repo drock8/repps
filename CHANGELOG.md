@@ -1,5 +1,21 @@
 # Changelog
 
+## Phase 16: Create Event Flow + Join Route (2026-06-01)
+
+### Added
+- **`/events/create` route** — 5-step wizard for creating events (Identity → Competition → Timing → Prizes → Review). Progress bar at top, back/next navigation, field validation per step.
+  - Step 1: Event name (3-60 chars), description (optional, 500 max), banner upload to `event-banners` Supabase Storage bucket, category (Official only for admin), visibility (Public / Invite Only).
+  - Step 2: Competition mode selector with 6 visual cards (globe/person/group icons + descriptions), target reps input (shown for target modes), scoring method (Raw Reps / Rep Score), max participants/teams.
+  - Step 3: Native `datetime-local` inputs styled with dark color scheme, duration preview ("Runs for X days, Y hours").
+  - Step 4: Prize type toggle (Bragging Rights / Custom Prize) with description input.
+  - Step 5: Review summary of all fields, "Announce Now" and "Save as Draft" buttons.
+- **`/events/join/:code` route** — Deep-link join handler with all states: event info + Join button, already joined ("You're already in this event!" + View Event), event full, event ended (+ View Results), not signed in (Google + Email sign-in buttons with auto-join after auth via `sessionStorage`). Team event validation warns if user has no active team.
+- **"+ Create" button** on Events Hub page — accent pill button, top right, visible only to authenticated users.
+
+### Changed
+- **`App.tsx`** — added `/events/create` and `/events/join/:code` routes (before `/events/:id` to match first).
+- **`Layout.tsx`** — added page title mappings for "Create Event" and join routes.
+
 ## Phase 15: Events Hub UI + Event Detail (2026-06-01)
 
 ### Added

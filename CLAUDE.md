@@ -47,10 +47,10 @@ v0.1 shipped in 6 phases (all complete). Now building v0.2 — the team system.
 | 13 | Events DB foundation — `events`, `event_participants`, `event_results` tables, `event-banners` storage, RLS, indexes | **Done** |
 | 14 | Event RPCs — `create_event`, `announce_event`, `join_event`, `leave_event`, `get_event_leaderboard`, `get_event_progress`, `complete_event`, `feature_event` | **Done** |
 | 15 | Events Hub UI + Event Detail — `/events` route with category tabs, event cards, `/events/:id` with leaderboard/details/QR tabs, share button | **Done** |
-| 16 | Create Event Flow + Join Route — multi-step form, banner upload, `/events/join/:code` deep link handler | Planned |
+| 16 | Create Event Flow + Join Route — multi-step form, banner upload, `/events/join/:code` deep link handler | **Done** |
 | 17 | Home Integration + Event Management — featured event on home, organizer controls, auto-status transitions | Planned |
 
-**Currently: Phase 16 ready to build.**
+**Currently: Phase 17 ready to build.**
 
 ### Phase details
 

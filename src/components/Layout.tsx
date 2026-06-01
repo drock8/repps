@@ -15,6 +15,8 @@ function getPageTitle(pathname: string): string {
     "/events": "Events",
   };
   if (pathname.startsWith("/team/join/")) return "Teams";
+  if (pathname === "/events/create") return "Create Event";
+  if (pathname.startsWith("/events/join/")) return "Events";
   if (pathname.startsWith("/events/")) return "Events";
   return titles[pathname] || "";
 }

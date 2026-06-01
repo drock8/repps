@@ -12,6 +12,8 @@ import Team from "./pages/Team";
 import TeamJoin from "./pages/TeamJoin";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
+import CreateEvent from "./pages/CreateEvent";
+import EventJoin from "./pages/EventJoin";
 
 export default function App() {
   return (
@@ -29,6 +31,8 @@ export default function App() {
               <Route path="team" element={<Team />} />
               <Route path="team/join/:code" element={<TeamJoin />} />
               <Route path="events" element={<Events />} />
+              <Route path="events/create" element={<CreateEvent />} />
+              <Route path="events/join/:code" element={<EventJoin />} />
               <Route path="events/:id" element={<EventDetail />} />
               <Route path="reset-password" element={<Home />} />
               <Route path="*" element={<Navigate to="/" replace />} />
