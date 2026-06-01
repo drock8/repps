@@ -1,5 +1,17 @@
 # Changelog
 
+## Live Sprint mode, location field, edit event, category fix (2026-06-01)
+
+### Added
+- **Live Sprint competition mode** — 7th mode: max reps in a timed window, everyone DABs at once. Timer icon, sprint duration picker (5/10/15/30/60 min presets), auto-computed end time from start + duration.
+- **Location field** — optional "Where to Meet" text input (max 200 chars) on event creation. Shown with map pin icon on event detail page.
+- **Edit Event flow** — organizers can edit draft or announced events via Edit button on event detail. Reuses the create wizard with pre-populated fields. Calls new `update_event` RPC.
+- **`update_event` RPC** (migration 022) — accepts all event fields as optional params, validates ownership + status, supports clearing fields via `p_clear_*` booleans.
+- **Migration 021** — adds `location` and `sprint_duration_minutes` columns to events, updates `competition_mode` constraint to include `live_sprint`, replaces `create_event` RPC with version accepting new params.
+
+### Fixed
+- **Category selector** — removed admin-only gate on "Official" category button. Both Official and Community now visible to all users.
+
 ## Phase 16: Create Event Flow + Join Route (2026-06-01)
 
 ### Added

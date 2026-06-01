@@ -29,6 +29,8 @@ interface EventData {
   status: string;
   created_by: string;
   created_at: string;
+  location: string | null;
+  sprint_duration_minutes: number | null;
 }
 
 interface IndividualEntry {
@@ -69,6 +71,7 @@ const MODE_LABELS: Record<string, string> = {
   team_most: "Team Most",
   team_target: "Team Target",
   team_vs_team: "Team vs Team",
+  live_sprint: "Live Sprint",
 };
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -128,7 +131,20 @@ function formatTimeStatus(event: EventData): { text: string; isLive: boolean; is
 function ModeIcon({ mode }: { mode: string }) {
   const isTeam = mode.startsWith("team");
   const isGlobal = mode === "global_target";
+  const isSprint = mode === "live_sprint";
 
+  if (isSprint) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
+        <circle cx="12" cy="13" r="8" />
+        <path d="M12 9v4l2 2" />
+        <path d="M5 3L2 6" />
+        <path d="M22 6l-3-3" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="10" y1="1" x2="14" y2="1" />
+      </svg>
+    );
+  }
   if (isGlobal) {
     return (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
@@ -497,6 +513,14 @@ export default function EventDetail() {
       {/* Organizer controls */}
       {isOrganizer && (
         <div className="flex flex-wrap gap-2">
+          {(event.status === "draft" || event.status === "announced") && (
+            <button
+              onClick={() => navigate(`/events/create?edit=${event.id}`)}
+              className="py-2 px-4 rounded-pill bg-bg-elevated text-ink-primary text-caption font-semibold transition-all duration-200 ease-apple active:scale-95"
+            >
+              Edit
+            </button>
+          )}
           {event.status === "draft" && (
             <button
               onClick={handleAnnounce}
@@ -802,10 +826,26 @@ function DetailsTab({ event, creatorName, progress }: { event: EventData; creato
         </div>
       )}
 
+      {event.location && (
+        <div className="bg-bg-surface rounded-lg p-4 flex items-start gap-3">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0 mt-0.5">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <div>
+            <p className="text-micro text-ink-muted uppercase tracking-wide mb-0.5">Location</p>
+            <p className="text-body text-ink-primary">{event.location}</p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-bg-surface rounded-lg p-4 flex flex-col gap-3">
         <DetailRow label="Created by" value={creatorName} />
         <DetailRow label="Category" value={event.category === "official" ? "Official" : "Community"} />
         <DetailRow label="Mode" value={MODE_LABELS[event.competition_mode] || event.competition_mode} />
+        {event.sprint_duration_minutes && (
+          <DetailRow label="Sprint duration" value={`${event.sprint_duration_minutes} minutes`} />
+        )}
         <DetailRow label="Scoring" value={event.scoring_method === "rep_score" ? "Rep Score" : "Raw Reps"} />
         {event.target_reps && (
           <DetailRow label="Target" value={`${formatNumber(event.target_reps)} reps`} />
