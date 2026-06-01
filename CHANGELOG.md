@@ -1,5 +1,24 @@
 # Changelog
 
+## Phase 15: Events Hub UI + Event Detail (2026-06-01)
+
+### Added
+- **`/events` route** — Events Hub with 4 category tabs (Featured, Official, Community, My Events). Each tab filters events from Supabase with enriched participant counts and progress data via `get_event_progress` RPC.
+- **Event card component** — banner thumbnail, event name, competition mode badge with icon (globe/person/group), time status ("Starts in Xd Xh" / "LIVE · Xd remaining" / "Completed"), participant/team count, progress bar for target modes, prize badge for custom prizes.
+- **`/events/:id` route** — Event Detail page with banner, event header, progress bar (target modes), Join/Share buttons, Leave option, and organizer controls (Announce, Complete, Feature).
+- **Leaderboard tab** — handles all 6 competition modes: `global_target` (collaborative progress bar + contribution list), `individual_most`/`individual_target` (ranked individual list), `team_most`/`team_target` (ranked team list with expandable member breakdown), `team_vs_team` (two-column head-to-head display). Completed events show frozen leaderboard with winner highlighted.
+- **Details tab** — description, creator name, category, mode, scoring method, target, prize, late join, retroactive reps, visibility, participant count, start/end times.
+- **QR Code tab** — client-side QR generation via `qrcode` package (white on dark brand colors), copy link button, download PNG button.
+- **Share button** — Web Share API with template message, copy-to-clipboard fallback (same pattern as team invites).
+- **Events tab enabled in bottom nav** — previously stubbed as disabled, now active and navigating to `/events`.
+- **Auto-complete** — event detail page triggers `complete_event` RPC when visiting an active event past its `ends_at`.
+
+### Changed
+- **`App.tsx`** — added `/events` and `/events/:id` routes.
+- **`BottomNav.tsx`** — removed `disabled: true` from Events tab.
+- **`Layout.tsx`** — added "Events" page title mapping and scrollable flag for events routes.
+- **`CLAUDE.md`** — Phase 15 marked Done, current phase updated to 16.
+
 ## Phase 13: Events DB foundation (2026-06-01)
 
 ### Added

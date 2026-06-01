@@ -12,8 +12,10 @@ function getPageTitle(pathname: string): string {
     "/profile": "Profile",
     "/dab": "DAB",
     "/team": "Teams",
+    "/events": "Events",
   };
   if (pathname.startsWith("/team/join/")) return "Teams";
+  if (pathname.startsWith("/events/")) return "Events";
   return titles[pathname] || "";
 }
 
@@ -23,7 +25,7 @@ export default function Layout() {
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false;
   const title = getPageTitle(pathname);
-  const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/");
+  const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/") || pathname === "/events" || pathname.startsWith("/events/");
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
     : theme === "yellow" ? "/Repps-Yellow-Logo.png"
     : "/repps-logo.png";

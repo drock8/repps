@@ -29,7 +29,7 @@ function makeTabs(theme: string): Tab[] {
     { to: "/home", label: "Home", icon: { type: "img", src: HOME_ICONS[theme] || HOME_ICONS.orange }, end: true },
     { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
     { to: "/leaderboard", label: "Board", icon: { type: "svg", d: BOARD_ICON_D }, end: false },
-    { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false, disabled: true },
+    { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false },
     { to: "/profile", label: "Profile", icon: { type: "svg", d: PROFILE_ICON_D }, end: false },
   ];
 }
