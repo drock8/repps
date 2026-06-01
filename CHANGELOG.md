@@ -1,5 +1,19 @@
 # Changelog
 
+## Security hardening: critical + high severity fixes (2026-06-02)
+
+### Critical fixes (migration 024)
+- **rep_scores RLS** — enabled Row Level Security on the materialized score table; added read-only public policy. Previously any authenticated user could UPDATE scores directly.
+- **Reps direct INSERT bypass** — dropped the misnamed permissive INSERT policy from migration 002 that migration 004 failed to remove. Direct inserts now correctly denied; all reps must go through the rate-limited `insert_rep()` RPC.
+- **claim_guest_reps auth** — added `auth.uid()` validation. Previously any authenticated user could claim guest reps to any account.
+- **insert_guest_rep rate limit** — added 3-second cooldown matching `insert_rep()`. Previously guest rep insertion had zero throttling.
+
+### High severity fixes (migration 025)
+- **Team UPDATE policy** — replaced the overly broad "Team members can update team logo" policy with one that enforces captain_id, status, name, and join_code cannot be changed by non-captains.
+- **join_team race condition** — added `SELECT ... FOR UPDATE` row lock on the team row to serialize concurrent join attempts, preventing teams from exceeding the 3-member limit.
+- **feature_event admin check** — restricted event featuring to admin users (listed in `admin_users` setting). Previously any event creator could globally feature their own official event.
+- **Individual streak threshold** — added `individual_daily_target` setting (default 1) separate from `team_daily_target` (5). Solo users can now build streaks with just 1 burpee/day.
+
 ## Rebrand "rep/reps" → "repp/repps" across all UI text (2026-06-01)
 
 ### Changed
