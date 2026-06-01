@@ -25,7 +25,7 @@ function createParticles(_width: number, _height: number): Particle[] {
       y: 0.4,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 0.012,
-      size: 4 + (i % 4) * 3,
+      size: 6 + (i % 4) * 4,
       color: COLORS[i % COLORS.length],
       rotation: (i * 37) % 360,
       rotationSpeed: (i % 2 === 0 ? 1 : -1) * (3 + (i % 5)),
@@ -45,12 +45,14 @@ export function runConfetti(
     return () => {};
   }
 
-  const w = canvas.width;
-  const h = canvas.height;
-  const particles = createParticles(w, h);
+  const cssW = canvas.clientWidth || canvas.width;
+  const cssH = canvas.clientHeight || canvas.height;
+  const particles = createParticles(cssW, cssH);
   const startTime = performance.now();
   let animId = 0;
   let cancelled = false;
+
+  const dpr = canvas.width / cssW || 1;
 
   const draw = (now: number) => {
     if (cancelled) return;
@@ -58,7 +60,9 @@ export function runConfetti(
     const progress = Math.min(elapsed / DURATION_MS, 1);
     const fade = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
 
-    ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(dpr, dpr);
     ctx.globalAlpha = fade;
 
     for (const p of particles) {
@@ -67,8 +71,8 @@ export function runConfetti(
       p.y += p.vy;
       p.rotation += p.rotationSpeed;
 
-      const px = p.x * w;
-      const py = p.y * h;
+      const px = p.x * cssW;
+      const py = p.y * cssH;
 
       ctx.save();
       ctx.translate(px, py);
@@ -85,10 +89,11 @@ export function runConfetti(
       ctx.restore();
     }
 
+    ctx.restore();
     ctx.globalAlpha = 1;
 
     if (progress >= 1) {
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       onComplete();
       return;
     }

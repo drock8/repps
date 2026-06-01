@@ -1,5 +1,15 @@
 # Changelog
 
+## Finish screen polish: confetti, Go audio, video view (2026-06-01)
+
+### Fixed
+- **Confetti** — DPR-aware rendering so particles appear at correct visual size on high-density screens instead of being nearly invisible.
+- **Video preview** — Removed forced 9:16 aspect ratio and `objectFit: cover` that cropped the rep counter and QR code in corners. Video now displays at natural aspect ratio.
+
+### Changed
+- **Go audio** — Regenerated with Rachel voice (ElevenLabs) saying "Ready? Let's go!" instead of flat "Go!" for more energy on calibration complete.
+- **Confetti particles** — Bumped sizes from 4–15px to 6–22px for more visual impact.
+
 ## Landing page responsive fit (2026-06-01)
 
 ### Changed
