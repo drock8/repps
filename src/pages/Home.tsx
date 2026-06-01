@@ -74,6 +74,7 @@ interface TeamRankInfo {
   rank: number;
   teamName: string;
   teamScore: number;
+  teamLogoUrl: string | null;
   insight: string | null;
 }
 
@@ -182,7 +183,7 @@ export default function Home() {
     const [membersRes, settingRes, teamRes, leaderboardRes] = await Promise.all([
       supabase.from("profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
       supabase.from("settings").select("value").eq("key", "team_daily_target").single(),
-      supabase.from("teams").select("name").eq("id", profile.team_id).single(),
+      supabase.from("teams").select("name, logo_url").eq("id", profile.team_id).single(),
       supabase.rpc("get_team_score_leaderboard", { p_period: "all", p_limit: 50 }),
     ]);
 
@@ -202,10 +203,11 @@ export default function Home() {
         rank,
         teamName: teamRes.data.name,
         teamScore: score,
+        teamLogoUrl: teamRes.data.logo_url || null,
         insight: rank > 0 ? generateTeamInsight(rank, score, allTeams, profile.team_id!) : null,
       });
     } else if (teamRes.data) {
-      setTeamRank({ rank: 0, teamName: teamRes.data.name, teamScore: 0, insight: null });
+      setTeamRank({ rank: 0, teamName: teamRes.data.name, teamScore: 0, teamLogoUrl: teamRes.data.logo_url || null, insight: null });
     }
 
     if (!membersRes.data) return;
@@ -318,24 +320,40 @@ export default function Home() {
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">
           <div className="flex items-center justify-between bg-bg-surface rounded-lg px-3 py-2.5">
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                {teamRank && teamRank.rank > 0 && (
-                  <span className="text-body-lg leading-none flex-shrink-0">
-                    {teamRank.rank <= 3 ? MEDALS[teamRank.rank - 1] : (
-                      <span className="text-caption text-ink-muted font-bold">#{teamRank.rank}</span>
-                    )}
+            <div className="flex items-center gap-2.5 min-w-0">
+              {teamRank?.teamLogoUrl ? (
+                <img
+                  src={teamRank.teamLogoUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-accent">
+                    <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+                  </svg>
+                </div>
+              )}
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {teamRank && teamRank.rank > 0 && (
+                    <span className="text-body-lg leading-none flex-shrink-0">
+                      {teamRank.rank <= 3 ? MEDALS[teamRank.rank - 1] : (
+                        <span className="text-caption text-ink-muted font-bold">#{teamRank.rank}</span>
+                      )}
+                    </span>
+                  )}
+                  <span className="text-caption text-ink-primary font-bold truncate">
+                    {teamRank?.teamName ?? "Team"}
                   </span>
-                )}
-                <span className="text-caption text-ink-primary font-bold truncate">
-                  {teamRank?.teamName ?? "Team"}
-                </span>
-              </div>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-caption text-accent font-bold tabular-nums">
-                  {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
-                </span>
-                <span className="text-micro text-ink-muted">today</span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-0.5">
+                  <span className="text-caption text-accent font-bold tabular-nums">
+                    {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
+                  </span>
+                  <span className="text-micro text-ink-muted">today</span>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">

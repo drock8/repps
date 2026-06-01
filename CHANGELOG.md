@@ -1,5 +1,14 @@
 # Changelog
 
+## Team logo upload with captain approval (2026-06-01)
+
+### Added
+- **Team logo** — Any team member can upload a profile image (JPEG/PNG/WebP/GIF, max 5 MB). If uploaded by the captain, it goes live immediately. If uploaded by another member, it's held as pending until the captain approves or rejects it.
+- **Captain approval UI** — Captain sees a card with the proposed logo, uploader's name, and Approve/Reject buttons. Non-captain uploaders see a "pending captain approval" notice.
+- **Logo display** — Team logo appears on: team page header (tappable to upload), home team card, and team leaderboard rows. Falls back to a groups icon when no logo is set.
+- **DB migration** — `logo_url`, `pending_logo_url`, `pending_logo_uploaded_by` columns on `teams`. `team-logos` Supabase Storage bucket with public read and authenticated write.
+- **Leaderboard RPC update** — `get_team_score_leaderboard` now returns `team_logo_url`.
+
 ## Move scoring button to top of team page, electric blue style (2026-06-01)
 
 ### Changed

@@ -47,6 +47,7 @@ interface RepScoreEntry {
 interface TeamScoreEntry {
   teamId: string;
   teamName: string;
+  teamLogoUrl: string | null;
   combinedScore: number;
   combinedReps: number;
   members: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[];
@@ -630,9 +631,10 @@ export default function Leaderboard() {
         return;
       }
       setTeamScoreEntries(
-        (data || []).map((row: { team_id: string; team_name: string; combined_score: number; combined_reps: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[] }) => ({
+        (data || []).map((row: { team_id: string; team_name: string; team_logo_url: string | null; combined_score: number; combined_reps: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[] }) => ({
           teamId: row.team_id,
           teamName: row.team_name,
+          teamLogoUrl: row.team_logo_url || null,
           combinedScore: Number(row.combined_score),
           combinedReps: Number(row.combined_reps || 0),
           members: (row.member_scores || []).map((m: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps?: number }) => ({
@@ -1004,14 +1006,23 @@ export default function Leaderboard() {
                     <span className="text-body text-ink-muted">{i + 1}.</span>
                   )}
                 </span>
-                <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </div>
+                {entry.teamLogoUrl ? (
+                  <img
+                    src={entry.teamLogoUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="ml-2 w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                      <circle cx="9" cy="7" r="4"/>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                  </div>
+                )}
                 <div className="ml-3 flex-1 min-w-0">
                   <span className="text-body text-ink-primary truncate block">
                     {entry.teamName}

@@ -9,7 +9,13 @@ interface TeamData {
   captain_id: string;
   status: "forming" | "active" | "disbanded";
   created_at: string;
+  logo_url: string | null;
+  pending_logo_url: string | null;
+  pending_logo_uploaded_by: string | null;
 }
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
 interface MemberWithReps extends Profile {
   today_count: number;
@@ -50,6 +56,11 @@ export default function Team() {
   // Scoring info modal
   const [showScoring, setShowScoring] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Logo upload state
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState("");
 
   // Invite screen (after create)
   const [newJoinCode, setNewJoinCode] = useState("");
@@ -205,6 +216,74 @@ export default function Team() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.team_id) return;
+    setLogoError("");
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setLogoError("Only JPEG, PNG, WebP, and GIF allowed");
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      setLogoError("Image must be under 5 MB");
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      return;
+    }
+
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop();
+    const path = `${profile.team_id}/logo-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("team-logos")
+      .upload(path, file, { upsert: true });
+    if (uploadError) {
+      setLogoError("Upload failed — try again");
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("team-logos")
+      .getPublicUrl(path);
+    const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+
+    const isCaptainUpload = team?.captain_id === profile.id;
+
+    await supabase
+      .from("teams")
+      .update(
+        isCaptainUpload
+          ? { logo_url: publicUrl, pending_logo_url: null, pending_logo_uploaded_by: null }
+          : { pending_logo_url: publicUrl, pending_logo_uploaded_by: profile.id }
+      )
+      .eq("id", profile.team_id);
+
+    await fetchTeamData();
+    setUploadingLogo(false);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
+
+  const handleApproveLogo = async () => {
+    if (!team?.pending_logo_url) return;
+    await supabase
+      .from("teams")
+      .update({ logo_url: team.pending_logo_url, pending_logo_url: null, pending_logo_uploaded_by: null })
+      .eq("id", team.id);
+    await fetchTeamData();
+  };
+
+  const handleRejectLogo = async () => {
+    if (!team) return;
+    await supabase
+      .from("teams")
+      .update({ pending_logo_url: null, pending_logo_uploaded_by: null })
+      .eq("id", team.id);
+    await fetchTeamData();
+  };
+
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
@@ -347,6 +426,47 @@ export default function Team() {
     <div className="flex flex-col pb-8">
       {/* Team header */}
       <div className="flex flex-col items-center pt-4 mb-6">
+        {/* Team logo */}
+        <button
+          onClick={() => logoInputRef.current?.click()}
+          disabled={uploadingLogo}
+          className="relative w-16 h-16 rounded-full mb-3 group transition-all duration-200 ease-apple active:scale-95"
+        >
+          {team.logo_url ? (
+            <img
+              src={team.logo_url}
+              alt={team.name}
+              referrerPolicy="no-referrer"
+              className="w-16 h-16 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" className="text-accent">
+                <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+              </svg>
+            </div>
+          )}
+          <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          {uploadingLogo && (
+            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </button>
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleLogoUpload}
+        />
+        {logoError && <p className="text-micro text-error mb-1">{logoError}</p>}
+
         <div className="flex items-center gap-2">
           <p className="text-headline text-ink-primary">{team.name}</p>
           <span className={`text-micro uppercase tracking-wide px-2 py-0.5 rounded-pill ${
@@ -360,6 +480,43 @@ export default function Team() {
         <p className="text-caption text-ink-muted mt-1">
           {members.length}/3 members
         </p>
+
+        {/* Pending logo approval (captain only) */}
+        {isCaptain && team.pending_logo_url && (
+          <div className="mt-3 bg-bg-surface rounded-lg p-3 flex items-center gap-3 w-full max-w-sm">
+            <img
+              src={team.pending_logo_url}
+              alt="Proposed logo"
+              referrerPolicy="no-referrer"
+              className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-caption text-ink-primary font-semibold">New logo proposed</p>
+              <p className="text-micro text-ink-muted">
+                {members.find(m => m.id === team.pending_logo_uploaded_by)?.name || "A teammate"} wants to update the team logo
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5 flex-shrink-0">
+              <button
+                onClick={handleApproveLogo}
+                className="px-3 py-1.5 rounded-pill bg-success/20 text-success text-micro font-semibold transition-all duration-200 ease-apple active:scale-95"
+              >
+                Approve
+              </button>
+              <button
+                onClick={handleRejectLogo}
+                className="px-3 py-1.5 rounded-pill bg-bg-elevated text-ink-muted text-micro font-semibold transition-all duration-200 ease-apple active:scale-95"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pending notice for non-captain who uploaded */}
+        {!isCaptain && team.pending_logo_url && team.pending_logo_uploaded_by === profile.id && (
+          <p className="mt-2 text-micro text-ink-muted italic">Logo pending captain approval</p>
+        )}
         <button
           onClick={() => setShowScoring(true)}
           className="mt-3 py-2.5 px-5 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center gap-2 transition-all duration-200 ease-apple active:scale-95"
