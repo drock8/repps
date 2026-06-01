@@ -1,5 +1,10 @@
 # Changelog
 
+## Scoring table: color-coded individual vs team breakdown (2026-06-01)
+
+### Changed
+- **Breakdown table redesigned** — 7-column table showing Reps, 3x daily, individual streak, team streak, weekly 2x, and daily total. Blue columns for individual bonuses, green for team bonuses. Includes week-end rows where the ×2 weekly multiplier kicks in. Legend below explains abbreviations.
+
 ## Team page: aligned member rows, scoring explainer modal (2026-06-01)
 
 ### Fixed

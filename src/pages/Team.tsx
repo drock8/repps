@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
 
@@ -616,33 +616,63 @@ export default function Team() {
                 </p>
               </div>
 
-              {/* Key days breakdown */}
+              {/* Full breakdown table */}
               <div>
-                <p className="text-caption text-ink-primary font-bold mb-2">How Points Build (with team)</p>
-                <div className="bg-bg-surface rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-4 gap-px bg-bg-elevated text-micro">
-                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted">Day</div>
-                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Base</div>
-                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Bonus</div>
-                    <div className="bg-bg-surface px-2 py-1.5 font-bold text-ink-muted text-right">Total</div>
-                    {[
-                      { day: 1, base: 15, streak: 0, team: 0 },
-                      { day: 2, base: 15, streak: 1, team: 3 },
-                      { day: 10, base: 15, streak: 1, team: 3 },
-                      { day: 11, base: 15, streak: 2, team: 6 },
-                      { day: 21, base: 15, streak: 3, team: 9 },
-                      { day: 30, base: 15, streak: 3, team: 9 },
-                    ].map((r) => (
-                      <Fragment key={r.day}>
-                        <div className="bg-bg-surface px-2 py-1.5 text-ink-secondary">{r.day}</div>
-                        <div className="bg-bg-surface px-2 py-1.5 text-ink-secondary text-right">{r.base}</div>
-                        <div className="bg-bg-surface px-2 py-1.5 text-accent text-right">+{r.streak + r.team}</div>
-                        <div className="bg-bg-surface px-2 py-1.5 text-ink-primary font-semibold text-right">{r.base + r.streak + r.team}</div>
-                      </Fragment>
-                    ))}
-                  </div>
+                <p className="text-caption text-ink-primary font-bold mb-1">How Points Build (with team)</p>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="flex items-center gap-1 text-[10px]">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                    <span className="text-blue-400 font-semibold">Individual</span>
+                  </span>
+                  <span className="flex items-center gap-1 text-[10px]">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                    <span className="text-emerald-400 font-semibold">Team</span>
+                  </span>
                 </div>
-                <p className="text-micro text-ink-muted mt-2">Base = 5 reps × 3x daily team bonus. Bonuses escalate every 10 days. Weekly 2x applied on top.</p>
+                <div className="bg-bg-surface rounded-lg overflow-hidden overflow-x-auto">
+                  <table className="w-full text-[10px] tabular-nums">
+                    <thead>
+                      <tr className="border-b border-bg-elevated">
+                        <th className="px-1.5 py-1.5 text-left text-ink-muted font-bold">Day</th>
+                        <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Reps</th>
+                        <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">3x</th>
+                        <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Str</th>
+                        <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">TStr</th>
+                        <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">Wk2x</th>
+                        <th className="px-1.5 py-1.5 text-right text-ink-primary font-bold">Tot</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { day: 1,  reps: 5, daily3x: 15, indStr: 0, teamStr: 0, wk: false },
+                        { day: 2,  reps: 5, daily3x: 15, indStr: 1, teamStr: 3, wk: false },
+                        { day: 7,  reps: 5, daily3x: 15, indStr: 1, teamStr: 3, wk: true },
+                        { day: 11, reps: 5, daily3x: 15, indStr: 2, teamStr: 6, wk: false },
+                        { day: 14, reps: 5, daily3x: 15, indStr: 2, teamStr: 6, wk: true },
+                        { day: 21, reps: 5, daily3x: 15, indStr: 3, teamStr: 9, wk: true },
+                        { day: 30, reps: 5, daily3x: 15, indStr: 3, teamStr: 9, wk: false },
+                      ].map((r) => {
+                        const preMult = r.daily3x + r.indStr + r.teamStr;
+                        const total = r.wk ? preMult * 2 : preMult;
+                        return (
+                          <tr key={r.day} className="border-b border-bg-elevated/50">
+                            <td className="px-1.5 py-1.5 text-ink-secondary">{r.day}</td>
+                            <td className="px-1.5 py-1.5 text-right text-blue-400">{r.reps}</td>
+                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.daily3x}</td>
+                            <td className="px-1.5 py-1.5 text-right text-blue-400">{r.indStr > 0 ? `+${r.indStr}` : "—"}</td>
+                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.teamStr > 0 ? `+${r.teamStr}` : "—"}</td>
+                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.wk ? "×2" : "—"}</td>
+                            <td className="px-1.5 py-1.5 text-right text-ink-primary font-bold">{total}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-2 flex flex-col gap-0.5 text-[10px] text-ink-muted">
+                  <p><span className="text-emerald-400 font-semibold">3x</span> = daily team bonus (all 3 hit {dailyTarget}). <span className="text-blue-400 font-semibold">Str</span> = your streak bonus. <span className="text-emerald-400 font-semibold">TStr</span> = team streak bonus.</p>
+                  <p><span className="text-emerald-400 font-semibold">Wk2x</span> = weekly bonus (5/7 days hit). Streaks escalate every 10 days.</p>
+                </div>
               </div>
 
               {/* Bottom padding for scroll */}
