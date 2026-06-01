@@ -83,8 +83,6 @@ export default function Landing() {
 
   return (
     <div className="h-[100dvh] bg-bg-base text-ink-primary flex flex-col relative overflow-hidden">
-      <ActivityFeed />
-
       {/* Scrolling ticker — flush to top */}
       <div className="w-full overflow-hidden bg-bg-surface border-b border-divider py-1.5 flex-shrink-0">
         <div className="landing-ticker flex whitespace-nowrap">
@@ -143,6 +141,7 @@ export default function Landing() {
           <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
         </div>
       </div>
+      <ActivityFeed />
     </div>
   );
 }
