@@ -4,6 +4,8 @@ import { useAuth, type Gender } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
 import { useResetCooldown } from "../hooks/useResetCooldown";
 import ActivityHeatmap from "../components/ActivityHeatmap";
+import WeeklyBarChart from "../components/WeeklyBarChart";
+import WeeklyTrendChart from "../components/WeeklyTrendChart";
 import PasswordInput from "../components/PasswordInput";
 
 const genderOptions: { label: string; value: Gender }[] = [
@@ -71,10 +73,18 @@ export default function Profile() {
 
   const fetchStats = useCallback(async () => {
     if (!profile) return;
-    const [statsRes, dailyRes, scoreRes] = await Promise.all([
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [statsRes, dailyRes, scoreRes, todayRes] = await Promise.all([
       supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
       supabase.rpc("get_user_daily_counts", { p_user_id: profile.id }),
       supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: "all" }),
+      supabase
+        .from("reps")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", profile.id)
+        .gte("validated_at", todayStart.toISOString()),
     ]);
 
     if (statsRes.data) {
@@ -83,7 +93,7 @@ export default function Profile() {
         setStats({
           totalReps: Number(row.total_reps),
           daysActive: Number(row.days_active),
-          todayCount: Number(row.today_count),
+          todayCount: todayRes.count ?? Number(row.today_count),
           bestSessionCount: Number(row.best_session_count),
           bestSessionDuration: Number(row.best_session_duration),
           currentStreak: Number(row.current_streak),
@@ -661,6 +671,12 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {/* 7-day bar chart */}
+        <WeeklyBarChart dailyCounts={dailyCounts} />
+
+        {/* Weekly trend sparkline */}
+        <WeeklyTrendChart dailyCounts={dailyCounts} />
 
         {/* Rep Score */}
         <div className="bg-bg-surface rounded-lg p-4">

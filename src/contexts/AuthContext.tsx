@@ -69,13 +69,24 @@ async function ensureProfile(user: User): Promise<Profile> {
 
 async function claimGuestReps(userId: string): Promise<void> {
   const guest = getGuestSession();
-  if (!guest?.repIds?.length) return;
+  if (!guest?.repIds?.length) {
+    console.log("[claim] no guest session or no rep IDs");
+    return;
+  }
 
-  await supabase
-    .from("reps")
-    .update({ user_id: userId })
-    .in("id", guest.repIds)
-    .is("user_id", null);
+  console.log("[claim] attempting to claim", guest.repIds.length, "reps for user", userId, "ids:", guest.repIds);
+
+  const { data, error } = await supabase.rpc("claim_guest_reps", {
+    p_user_id: userId,
+    p_rep_ids: guest.repIds,
+  });
+
+  if (error) {
+    console.error("[claim] RPC error:", error);
+    return;
+  }
+
+  console.log("[claim] result:", data);
 
   if (guest.gender && guest.gender !== "unspecified") {
     await supabase
