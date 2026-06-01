@@ -672,6 +672,9 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Activity heatmap */}
+        <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
+
         {/* 7-day bar chart */}
         <WeeklyBarChart dailyCounts={dailyCounts} />
 
@@ -769,8 +772,6 @@ export default function Profile() {
           <p className="text-body mt-1">{memberSince}</p>
         </div>
 
-        {/* Activity heatmap */}
-        <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
       </div>
 
       {/* Sign out button */}
