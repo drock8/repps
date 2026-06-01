@@ -15,7 +15,7 @@ interface Particle {
   shape: "rect" | "circle";
 }
 
-function createParticles(width: number, height: number): Particle[] {
+function createParticles(_width: number, _height: number): Particle[] {
   const particles: Particle[] = [];
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + (i % 3) * 0.2;

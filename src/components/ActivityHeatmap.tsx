@@ -21,7 +21,7 @@ function getDayLabel(dayIndex: number): string {
 export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
   const [tooltip, setTooltip] = useState<{ day: string; count: number; x: number; y: number } | null>(null);
 
-  const { weeks, monthLabels, maxCount } = useMemo(() => {
+  const { weeks, monthLabels } = useMemo(() => {
     const countMap = new Map<string, number>();
     for (const d of dailyCounts) {
       countMap.set(d.day, d.count);
@@ -39,8 +39,6 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
     let currentWeek: { date: Date; dateStr: string; count: number }[] = [];
     const monthLabels: { label: string; weekIndex: number }[] = [];
     let lastMonth = -1;
-    let maxCount = 0;
-
     const cursor = new Date(start);
     let weekIndex = 0;
 
@@ -53,7 +51,6 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
 
       const dateStr = cursor.toISOString().slice(0, 10);
       const count = countMap.get(dateStr) || 0;
-      if (count > maxCount) maxCount = count;
 
       currentWeek.push({ date: new Date(cursor), dateStr, count });
 
@@ -70,16 +67,15 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
       weeks.push(currentWeek);
     }
 
-    return { weeks, monthLabels, maxCount };
+    return { weeks, monthLabels };
   }, [dailyCounts, months]);
 
   function getIntensity(count: number): string {
     if (count === 0) return "bg-bg-elevated border border-divider";
-    if (maxCount <= 1) return "bg-accent";
-    const ratio = count / maxCount;
-    if (ratio <= 0.25) return "bg-accent/30";
-    if (ratio <= 0.5) return "bg-accent/55";
-    if (ratio <= 0.75) return "bg-accent/80";
+    if (count <= 10) return "bg-accent/20";
+    if (count <= 25) return "bg-accent/35";
+    if (count <= 50) return "bg-accent/55";
+    if (count <= 75) return "bg-accent/75";
     return "bg-accent";
   }
 
@@ -163,13 +159,14 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
 
       {/* Legend */}
       <div className="flex items-center justify-end gap-1 mt-3">
-        <span className="text-micro text-ink-muted mr-1">Less</span>
-        <div className="w-3 h-3 rounded-sm bg-bg-elevated" />
-        <div className="w-3 h-3 rounded-sm bg-accent/25" />
-        <div className="w-3 h-3 rounded-sm bg-accent/50" />
+        <span className="text-micro text-ink-muted mr-1">0</span>
+        <div className="w-3 h-3 rounded-sm bg-bg-elevated border border-divider" />
+        <div className="w-3 h-3 rounded-sm bg-accent/20" />
+        <div className="w-3 h-3 rounded-sm bg-accent/35" />
+        <div className="w-3 h-3 rounded-sm bg-accent/55" />
         <div className="w-3 h-3 rounded-sm bg-accent/75" />
         <div className="w-3 h-3 rounded-sm bg-accent" />
-        <span className="text-micro text-ink-muted ml-1">More</span>
+        <span className="text-micro text-ink-muted ml-1">100+</span>
       </div>
 
       {/* Tooltip */}
