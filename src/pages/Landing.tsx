@@ -95,28 +95,26 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Main content — fills remaining space, distributed vertically */}
-      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto justify-between py-[3vh]">
-        <div className="flex flex-col items-center gap-[1.5vh]">
-          {/* Logo */}
+      {/* Main content — fills remaining space */}
+      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pb-[3vh] pt-[6vh]">
+        {/* Logo + HQ badge — top, tight together */}
+        <div className="flex flex-col items-center flex-shrink-0">
           <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-10" />
-
-          {/* HQ badge */}
-          <p className="text-micro text-ink-muted uppercase tracking-[0.15em]">
+          <p className="mt-1 text-micro text-ink-muted uppercase tracking-[0.15em]">
             Global Movement HQ
           </p>
+        </div>
 
-          {/* Mission label */}
+        {/* Middle content — vertically centered in remaining space */}
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[1.5vh]">
           <p className="text-micro text-accent uppercase tracking-[0.15em] font-bold">
             The Mission
           </p>
 
-          {/* Headline */}
           <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
             Let's Get 1 Million<br />Moving for Good.
           </h1>
 
-          {/* Live global counter */}
           <div>
             <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
             <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
@@ -124,7 +122,6 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* Video */}
           <div className="w-4/5 max-h-[22vh]">
             <VideoPlayer videoId="pZpr_WPCzf4" />
           </div>
