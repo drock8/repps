@@ -8,6 +8,8 @@ import { usePeopleMoving } from "../hooks/usePeopleMoving";
 import { useRepsChannel } from "../hooks/useRepsChannel";
 import YouTubeEmbed from "../components/YouTubeEmbed";
 import { unlockAudio } from "../lib/repAudio";
+import { useTheme } from "../contexts/ThemeContext";
+import { getMascot } from "../lib/mascots";
 
 function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
@@ -114,6 +116,7 @@ function generateTeamInsight(
 export default function Home() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const theme = useTheme();
 
   const [totalReps, setTotalReps] = useState(cachedCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
@@ -415,7 +418,7 @@ export default function Home() {
               </span>
             </button>
             <img
-              src="/DAB-Repps-Mascot.png"
+              src={getMascot(theme, "dab")}
               alt=""
               className="absolute w-[5.5rem] -right-8 -top-6 pointer-events-none"
             />

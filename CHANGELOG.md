@@ -1,5 +1,15 @@
 # Changelog
 
+## Theme-aware mascots (2026-06-01)
+
+### Added
+- **Yellow mascot variants** — `Repps-Dab-Yellow.png` (DAB pose) and `Repps-Pumped-Yellow.png` (pumped/flexing pose) added to `public/`.
+- **`src/lib/mascots.ts`** — central mascot registry mapping theme × pose to image paths. Supports `dab`, `pumped`, and `lfg` poses across `orange`, `blue`, and `yellow` themes. Extensible for future mascots.
+
+### Changed
+- **Home page DAB mascot** — now swaps based on active theme via `getMascot(theme, "dab")`.
+- **Leaderboard pumped mascot** — now swaps based on active theme via `getMascot(theme, "pumped")`.
+
 ## Standardize default avatar colors (2026-06-01)
 
 ### Changed

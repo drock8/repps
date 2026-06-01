@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
+import { getMascot } from "../lib/mascots";
 import { useRepsChannel } from "../hooks/useRepsChannel";
 import { useResetCooldown } from "../hooks/useResetCooldown";
 import PasswordInput from "../components/PasswordInput";
@@ -423,6 +425,7 @@ function SignupOverlay({
 
 export default function Leaderboard() {
   const { profile, signInWithGoogle } = useAuth();
+  const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const signupFlow = searchParams.get("signup") === "1";
   const signupGender = searchParams.get("gender") as GenderFilter | null;
@@ -710,7 +713,7 @@ export default function Leaderboard() {
       <div className="flex-shrink-0 bg-bg-base">
         <div className="relative flex flex-col items-center mt-2 mb-4">
           <img
-            src="/Leaderboard-Mascot-Repps.png"
+            src={getMascot(theme, "pumped")}
             alt=""
             className="absolute w-[4.5rem] left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
           />
