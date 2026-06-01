@@ -99,7 +99,7 @@ export default function Landing() {
       <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto justify-between py-[3vh]">
         <div className="flex flex-col items-center gap-[1.5vh]">
           {/* Logo */}
-          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-7" />
+          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-10" />
 
           {/* HQ badge */}
           <p className="text-micro text-ink-muted uppercase tracking-[0.15em]">
@@ -141,7 +141,7 @@ export default function Landing() {
           <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
         </div>
       </div>
-      <ActivityFeed />
+      <div className="absolute"><ActivityFeed /></div>
     </div>
   );
 }
