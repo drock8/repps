@@ -360,6 +360,15 @@ export default function Team() {
         <p className="text-caption text-ink-muted mt-1">
           {members.length}/3 members
         </p>
+        <button
+          onClick={() => setShowScoring(true)}
+          className="mt-3 py-2.5 px-5 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+            <path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>
+          </svg>
+          How to maximize your Rep Score
+        </button>
       </div>
 
       {/* Members list */}
@@ -501,19 +510,6 @@ export default function Team() {
           </div>
         )}
       </div>
-
-      {/* How to maximize button */}
-      <button
-        onClick={() => setShowScoring(true)}
-        className="w-full py-3 mb-6 rounded-pill bg-bg-surface text-ink-secondary font-semibold text-caption flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-95"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        How to maximize your Rep Score
-      </button>
 
       {/* Scoring explainer modal */}
       {showScoring && (

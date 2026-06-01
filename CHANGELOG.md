@@ -1,5 +1,10 @@
 # Changelog
 
+## Move scoring button to top of team page, electric blue style (2026-06-01)
+
+### Changed
+- **"How to maximize your Rep Score" button** — Moved from below the daily target card to directly under the team name/status header, above the members list. Styled as an electric blue accent pill button with bolt icon to make it stand out.
+
 ## Scoring modal: replace emojis with Material icons in brand color (2026-06-01)
 
 ### Changed
