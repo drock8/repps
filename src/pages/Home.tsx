@@ -70,6 +70,46 @@ interface TeamMemberProgress {
   todayCount: number;
 }
 
+interface TeamRankInfo {
+  rank: number;
+  teamName: string;
+  teamScore: number;
+  insight: string | null;
+}
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function generateTeamInsight(
+  rank: number,
+  teamScore: number,
+  allTeams: { teamId: string; teamName: string; combinedScore: number }[],
+  myTeamId: string
+): string | null {
+  if (allTeams.length <= 1) return null;
+
+  const myIdx = allTeams.findIndex((t) => t.teamId === myTeamId);
+  if (myIdx < 0) return null;
+
+  if (rank === 1 && allTeams.length > 1) {
+    const gap = teamScore - allTeams[1].combinedScore;
+    if (gap <= 20) {
+      return `${allTeams[1].teamName} is only ${gap} pts behind — stay sharp!`;
+    }
+    return `Leading by ${gap} pts over ${allTeams[1].teamName}`;
+  }
+
+  if (myIdx > 0) {
+    const teamAbove = allTeams[myIdx - 1];
+    const gap = teamAbove.combinedScore - teamScore;
+    if (gap <= 30) {
+      return `Only ${gap} pts from overtaking ${teamAbove.teamName} for #${myIdx}!`;
+    }
+    return `${gap} pts behind ${teamAbove.teamName} (#${myIdx})`;
+  }
+
+  return null;
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -130,20 +170,43 @@ export default function Home() {
 
   const [teamMembers, setTeamMembers] = useState<TeamMemberProgress[]>([]);
   const [dailyTarget, setDailyTarget] = useState(5);
+  const [teamRank, setTeamRank] = useState<TeamRankInfo | null>(null);
 
   const fetchTeamProgress = useCallback(async () => {
     if (!profile?.team_id) {
       setTeamMembers([]);
+      setTeamRank(null);
       return;
     }
 
-    const [membersRes, settingRes] = await Promise.all([
+    const [membersRes, settingRes, teamRes, leaderboardRes] = await Promise.all([
       supabase.from("profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
       supabase.from("settings").select("value").eq("key", "team_daily_target").single(),
+      supabase.from("teams").select("name").eq("id", profile.team_id).single(),
+      supabase.rpc("get_team_score_leaderboard", { p_period: "all", p_limit: 50 }),
     ]);
 
     const target = settingRes.data ? Number(settingRes.data.value) : 5;
     setDailyTarget(target);
+
+    if (leaderboardRes.data && teamRes.data) {
+      const allTeams = (leaderboardRes.data as { team_id: string; team_name: string; combined_score: number }[]).map((r) => ({
+        teamId: r.team_id,
+        teamName: r.team_name,
+        combinedScore: Number(r.combined_score),
+      }));
+      const myIdx = allTeams.findIndex((t) => t.teamId === profile.team_id);
+      const rank = myIdx >= 0 ? myIdx + 1 : 0;
+      const score = myIdx >= 0 ? allTeams[myIdx].combinedScore : 0;
+      setTeamRank({
+        rank,
+        teamName: teamRes.data.name,
+        teamScore: score,
+        insight: rank > 0 ? generateTeamInsight(rank, score, allTeams, profile.team_id!) : null,
+      });
+    } else if (teamRes.data) {
+      setTeamRank({ rank: 0, teamName: teamRes.data.name, teamScore: 0, insight: null });
+    }
 
     if (!membersRes.data) return;
 
@@ -255,11 +318,25 @@ export default function Home() {
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">
           <div className="flex items-center justify-between bg-bg-surface rounded-lg px-3 py-2.5">
-            <div className="flex flex-col">
-              <span className="text-micro text-ink-muted uppercase tracking-wide">Team today</span>
-              <span className="text-caption text-accent font-bold tabular-nums">
-                {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
-              </span>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                {teamRank && teamRank.rank > 0 && (
+                  <span className="text-body-lg leading-none flex-shrink-0">
+                    {teamRank.rank <= 3 ? MEDALS[teamRank.rank - 1] : (
+                      <span className="text-caption text-ink-muted font-bold">#{teamRank.rank}</span>
+                    )}
+                  </span>
+                )}
+                <span className="text-caption text-ink-primary font-bold truncate">
+                  {teamRank?.teamName ?? "Team"}
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-caption text-accent font-bold tabular-nums">
+                  {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} reps
+                </span>
+                <span className="text-micro text-ink-muted">today</span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               {teamMembers.map((m) => {
@@ -292,6 +369,13 @@ export default function Home() {
               })}
             </div>
           </div>
+          {teamRank?.insight && (
+            <div className="mt-1.5 px-1">
+              <p className="text-micro text-ink-secondary italic">
+                {teamRank.insight}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## Home team card: rank badge, team name, motivational insight (2026-06-01)
+
+### Changed
+- **Team card header** — Shows the actual team name (e.g. "LFG Team") instead of generic "Team Today". "today" appears as a secondary label next to the rep count.
+- **Rank badge** — Team's leaderboard rank displayed with medal emoji (🥇🥈🥉) for top 3, or `#N` for other positions, matching the leaderboard style.
+
+### Added
+- **Motivational insight** — Contextual message below the team card based on leaderboard standing: warns when rivals are closing in, encourages when overtaking is within reach, or shows the gap to the next team.
+
 ## Finish screen polish: confetti, Go audio, video view (2026-06-01)
 
 ### Fixed
