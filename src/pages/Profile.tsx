@@ -423,10 +423,15 @@ export default function Profile() {
       return;
     }
     setSavingName(true);
-    await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ name: trimmed })
       .eq("id", profile.id);
+    if (error) {
+      setNameError("Failed to save — try again");
+      setSavingName(false);
+      return;
+    }
     await refreshProfile();
     setSavingName(false);
     setEditingName(false);
@@ -435,10 +440,14 @@ export default function Profile() {
   const handleSelectGender = async (gender: Gender) => {
     if (savingGender) return;
     setSavingGender(true);
-    await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ gender, gender_set: true })
       .eq("id", profile.id);
+    if (error) {
+      setSavingGender(false);
+      return;
+    }
     await refreshProfile();
     setSavingGender(false);
     setEditingGender(false);

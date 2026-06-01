@@ -79,6 +79,7 @@ export default function Dab() {
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadStage, setLoadStage] = useState("Powering up…");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
@@ -488,7 +489,7 @@ export default function Dab() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [authLoading, screen, insertRep, tuneMode, engineVersion]);
+  }, [authLoading, screen, insertRep, tuneMode, engineVersion, retryCount]);
 
   const finishSession = useCallback(async () => {
     // Capture video blob BEFORE changing screen state
@@ -605,7 +606,11 @@ export default function Dab() {
     }
   }, [finishSession]);
 
-  if (authLoading) return null;
+  if (authLoading) return (
+    <div className="flex items-center justify-center h-[100dvh]">
+      <div className="w-8 h-8 border-2 border-ink-muted border-t-accent rounded-full animate-spin" />
+    </div>
+  );
 
   if (screen === "gender-picker") {
     const genderOptions: { label: string; value: Gender }[] = [
@@ -735,16 +740,33 @@ export default function Dab() {
   }
 
   if (cameraError) {
+    const isPermissionError = cameraError.includes("camera access") || cameraError.includes("Permission");
     return (
       <div className="flex flex-col items-center justify-center text-center pt-24 px-4">
         <p className="text-display-md">📷</p>
         <p className="text-body text-ink-primary mt-4">{cameraError}</p>
-        <button
-          onClick={() => navigate("/home")}
-          className="mt-8 bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
-        >
-          Back to Home
-        </button>
+        <div className="flex gap-3 mt-8">
+          {!isPermissionError && (
+            <button
+              onClick={() => {
+                setCameraError(null);
+                setLoading(true);
+                setLoadProgress(0);
+                setLoadStage("Powering up…");
+                setRetryCount((c) => c + 1);
+              }}
+              className="bg-accent text-on-accent font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+            >
+              Try Again
+            </button>
+          )}
+          <button
+            onClick={() => navigate("/home")}
+            className="bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
     );
   }

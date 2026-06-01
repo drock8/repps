@@ -9,9 +9,8 @@ let subscribers = new Set<RepCallback>();
 let subscribed = false;
 const onSubscribeCallbacks: (() => void)[] = [];
 
-function ensureChannel() {
-  if (channel) return;
-  channel = supabase
+function createChannel(): RealtimeChannel {
+  return supabase
     .channel("reps-global")
     .on(
       "postgres_changes",
@@ -29,7 +28,20 @@ function ensureChannel() {
         for (const cb of onSubscribeCallbacks) cb();
         onSubscribeCallbacks.length = 0;
       }
+      if (status === "TIMED_OUT" || status === "CLOSED" || status === "CHANNEL_ERROR") {
+        subscribed = false;
+        channel?.unsubscribe();
+        channel = null;
+        if (subscribers.size > 0) {
+          setTimeout(() => ensureChannel(), 3000);
+        }
+      }
     });
+}
+
+function ensureChannel() {
+  if (channel) return;
+  channel = createChannel();
 }
 
 function teardownIfEmpty() {

@@ -1,5 +1,14 @@
 # Changelog
 
+## Medium severity: reliability + UX fixes (2026-06-02)
+
+### Fixed
+- **Realtime reconnect** — `useRepsChannel` now handles `TIMED_OUT`, `CLOSED`, and `CHANNEL_ERROR` statuses with automatic reconnect after 3 seconds. Previously the feed silently died on mobile network drops.
+- **CDN failure retry** — Dab page now shows a "Try Again" button when WASM/model loading fails (timeout, network error). Permission-denied errors still show only "Back to Home" since retry won't help.
+- **Auth loading blank flash** — Dab page shows a spinner instead of blank screen during auth loading.
+- **Supabase mutation error handling** — Profile name save, gender select, team leave, logo approve/reject now check for errors instead of silently assuming success.
+- **OG image absolute URL** — Social link preview image changed from relative `/repps-icon-512.png` to absolute `https://repps.pro/repps-icon-512.png` so previews render on external platforms.
+
 ## Security hardening: critical + high severity fixes (2026-06-02)
 
 ### Critical fixes (migration 024)

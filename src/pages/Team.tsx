@@ -175,7 +175,11 @@ export default function Team() {
   const handleLeave = async () => {
     if (leaveInput.toLowerCase() !== "leave") return;
     setLeaving(true);
-    await supabase.rpc("leave_team");
+    const { data } = await supabase.rpc("leave_team");
+    if (!data?.success) {
+      setLeaving(false);
+      return;
+    }
     await refreshProfile();
     setLeaving(false);
     setShowLeaveConfirm(false);
@@ -274,20 +278,20 @@ export default function Team() {
 
   const handleApproveLogo = async () => {
     if (!team?.pending_logo_url) return;
-    await supabase
+    const { error } = await supabase
       .from("teams")
       .update({ logo_url: team.pending_logo_url, pending_logo_url: null, pending_logo_uploaded_by: null })
       .eq("id", team.id);
-    await fetchTeamData();
+    if (!error) await fetchTeamData();
   };
 
   const handleRejectLogo = async () => {
     if (!team) return;
-    await supabase
+    const { error } = await supabase
       .from("teams")
       .update({ pending_logo_url: null, pending_logo_uploaded_by: null })
       .eq("id", team.id);
-    await fetchTeamData();
+    if (!error) await fetchTeamData();
   };
 
   if (!profile) {
