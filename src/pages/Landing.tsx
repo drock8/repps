@@ -82,11 +82,11 @@ export default function Landing() {
   });
 
   return (
-    <div className="min-h-screen bg-bg-base text-ink-primary flex flex-col items-center relative overflow-hidden">
+    <div className="h-screen bg-bg-base text-ink-primary flex flex-col relative overflow-hidden">
       <ActivityFeed />
 
-      {/* Scrolling ticker */}
-      <div className="w-full overflow-hidden bg-bg-surface border-b border-divider py-2">
+      {/* Scrolling ticker — flush to top */}
+      <div className="w-full overflow-hidden bg-bg-surface border-b border-divider py-2 flex-shrink-0">
         <div className="landing-ticker flex whitespace-nowrap">
           {TICKER_ITEMS.map((item, i) => (
             <span key={i} className="text-micro text-ink-secondary uppercase tracking-[0.15em] mx-6 flex items-center gap-3">
@@ -97,47 +97,50 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-col items-center text-center px-4 pt-4 pb-16 w-full max-w-md">
-        {/* Logo */}
-        <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-8" />
+      {/* Main content — fills remaining space, content centered */}
+      <div className="flex-1 flex flex-col items-center text-center px-4 pt-4 pb-6 w-full max-w-md mx-auto justify-between">
+        <div className="flex flex-col items-center">
+          {/* Logo */}
+          <img src="/Repps-Blue-Logo.png" alt="REPPs" className="h-8" />
 
-        {/* HQ badge */}
-        <p className="mt-3 text-micro text-ink-muted uppercase tracking-[0.15em]">
-          Global Movement HQ
-        </p>
-
-        {/* Mission label */}
-        <p className="mt-3 text-micro text-accent uppercase tracking-[0.15em] font-bold">
-          The Mission
-        </p>
-
-        {/* Headline */}
-        <h1 className="mt-2 text-display-md text-ink-primary font-bold leading-tight tracking-tight">
-          Let's Get 1 Million<br />Moving for Good.
-        </h1>
-
-        {/* Live global counter */}
-        <div className="mt-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
-          <p className="text-display-xl repps-gradient-text tabular-nums leading-none mt-1">
-            {formatNumber(animatedCount)}
+          {/* HQ badge */}
+          <p className="mt-2 text-micro text-ink-muted uppercase tracking-[0.15em]">
+            Global Movement HQ
           </p>
+
+          {/* Mission label */}
+          <p className="mt-2 text-micro text-accent uppercase tracking-[0.15em] font-bold">
+            The Mission
+          </p>
+
+          {/* Headline */}
+          <h1 className="mt-2 text-display-md text-ink-primary font-bold leading-tight tracking-tight">
+            Let's Get 1 Million<br />Moving for Good.
+          </h1>
+
+          {/* Live global counter */}
+          <div className="mt-3">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
+            <p className="text-display-xl repps-gradient-text tabular-nums leading-none mt-1">
+              {formatNumber(animatedCount)}
+            </p>
+          </div>
+
+          {/* Video */}
+          <div className="mt-4 w-4/5">
+            <VideoPlayer videoId="pZpr_WPCzf4" />
+          </div>
         </div>
 
-        {/* CTA */}
-        <button
-          onClick={() => navigate("/home")}
-          className="mt-5 w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-        >
-          Join the Movement
-        </button>
-
-        <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
-
-        {/* Video — clean card, no busy thumbnail */}
-        <div className="mt-6 w-4/5">
-          <VideoPlayer videoId="pZpr_WPCzf4" />
+        {/* CTA — pinned to bottom of viewport */}
+        <div className="w-full flex flex-col items-center mt-4">
+          <button
+            onClick={() => navigate("/home")}
+            className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+          >
+            Join the Movement
+          </button>
+          <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
         </div>
       </div>
     </div>
