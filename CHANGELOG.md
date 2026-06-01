@@ -1,5 +1,37 @@
 # Changelog
 
+## Phase 13: Events DB foundation (2026-06-01)
+
+### Added
+- **`events` table** — full schema with name (3–60 chars), description (500 max), 6 competition modes (`global_target`, `individual_most`, `individual_target`, `team_most`, `team_target`, `team_vs_team`), scoring method (`raw_reps` / `rep_score`), visibility (`public` / `invite_only`), 5-state lifecycle (`draft` → `announced` → `active` → `completed` → `archived`), participation rules (`max_participants`, `max_teams`, `allow_late_join`, `retroactive_reps`), prizes, and featured flag.
+- **`event_participants` table** — links users to events with optional team reference, `unique(event_id, user_id)` constraint, active/withdrawn status.
+- **`event_results` table** — materialized rankings on event completion with final reps, score, rank, and winner flag.
+- **`event-banners` storage bucket** — public read, authenticated upload/update/delete (same pattern as team-logos).
+- **RLS policies** — public reads non-draft events, creator reads own drafts and updates own events, public reads participants and results.
+- **Indexes** — on `status`, `is_featured` (partial), `join_code`, `starts_at`, plus `event_id` on participants and results.
+- **`EVENTS_SPEC.md`** — canonical spec for the full Events system (Phases 13–17).
+
+## Migration 018: team logo + member update RPCs (2026-06-01)
+
+### Added
+- **Migration 018** — team logo and member update RPC additions.
+
+## Fix team logo upload error handling (2026-06-01)
+
+### Fixed
+- **Logo upload silently failed on DB error** — the Supabase update call to set `logo_url` or `pending_logo_url` wasn't checking for errors. Upload appeared successful even when the DB write failed. Now captures the error, shows "Upload failed — try again" to the user, and logs to console.
+
+## Yellow theme support (2026-06-01)
+
+### Added
+- **Yellow theme palette** — `[data-theme="yellow"]` CSS custom properties with gold accent (`#FFD600`) and secondary (`#FFE857`).
+- **Yellow icon assets** — `Repps-Yellow-Icon.png`, `Repps-Yellow-Logo.png`, `repps-yellow-icon-192.png`, `repps-yellow-icon-512.png`.
+
+### Changed
+- **ThemeContext** — type expanded from `"orange" | "blue"` to `"orange" | "blue" | "yellow"` with a `parseTheme()` validator replacing hardcoded `=== "blue"` checks. Removed debug console.log/console.warn lines.
+- **BottomNav** — refactored from duplicate `TABS_ORANGE` / `TABS_BLUE` arrays to a single `makeTabs(theme)` function. Board and Profile tabs now use inline SVG icons instead of theme-specific PNGs.
+- **Layout, Landing, Dab, AddToHomeScreen** — all theme-branching updated to handle three themes (logo, favicon, video overlay logo).
+
 ## Fix missing Score leaderboard entries, rename Reps tab (2026-06-01)
 
 ### Fixed
