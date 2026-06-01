@@ -642,6 +642,39 @@ export default function Profile() {
           </button>
         )}
 
+        {/* Rep Score */}
+        <div className="bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Rep Score
+          </p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <p className="text-display-lg repps-gradient-text tabular-nums">
+              {repScore ? repScore.score.toLocaleString() : "—"}
+            </p>
+            <p className="text-caption text-ink-muted">pts</p>
+          </div>
+          {repScore && repScore.score > 0 && (
+            <div className="flex gap-3 mt-2">
+              <span className="text-micro text-ink-secondary">
+                {repScore.baseReps.toLocaleString()} base
+              </span>
+              {repScore.individualStreak > 0 && (
+                <span className="text-micro text-accent">
+                  {repScore.individualStreak}d streak
+                </span>
+              )}
+              {repScore.teamStreak > 0 && (
+                <span className="text-micro text-accent">
+                  {repScore.teamStreak}d team
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Activity heatmap */}
+        <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
+
         {/* Streak cards */}
         <div className="flex gap-2">
           <div className="flex-1 bg-bg-surface rounded-lg p-4">
@@ -672,44 +705,11 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Activity heatmap */}
-        <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
-
         {/* 7-day bar chart */}
         <WeeklyBarChart dailyCounts={dailyCounts} />
 
         {/* Weekly trend sparkline */}
         <WeeklyTrendChart dailyCounts={dailyCounts} />
-
-        {/* Rep Score */}
-        <div className="bg-bg-surface rounded-lg p-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">
-            Rep Score
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-display-lg repps-gradient-text tabular-nums">
-              {repScore ? repScore.score.toLocaleString() : "—"}
-            </p>
-            <p className="text-caption text-ink-muted">pts</p>
-          </div>
-          {repScore && repScore.score > 0 && (
-            <div className="flex gap-3 mt-2">
-              <span className="text-micro text-ink-secondary">
-                {repScore.baseReps.toLocaleString()} base
-              </span>
-              {repScore.individualStreak > 0 && (
-                <span className="text-micro text-accent">
-                  {repScore.individualStreak}d streak
-                </span>
-              )}
-              {repScore.teamStreak > 0 && (
-                <span className="text-micro text-accent">
-                  {repScore.teamStreak}d team
-                </span>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* Today + Total Reps */}
         <div className="flex gap-2">

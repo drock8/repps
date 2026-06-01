@@ -104,9 +104,21 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
 
   return (
     <div className="bg-bg-surface rounded-lg p-4">
-      <p className="text-micro text-ink-muted uppercase tracking-wide mb-3">
-        Activity
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-micro text-ink-muted uppercase tracking-wide">
+          Activity
+        </p>
+        <div className="flex items-center gap-1">
+          <span className="text-micro text-ink-muted mr-1">0</span>
+          <div className="w-2.5 h-2.5 rounded-sm bg-bg-elevated border border-divider" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-accent/20" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-accent/35" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-accent/55" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-accent/75" />
+          <div className="w-2.5 h-2.5 rounded-sm bg-accent" />
+          <span className="text-micro text-ink-muted ml-1">100+</span>
+        </div>
+      </div>
 
       <div className="relative overflow-x-auto">
         <div className="inline-flex flex-col gap-0">
@@ -115,13 +127,14 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
             {monthLabels.map((m, i) => {
               const nextStart = monthLabels[i + 1]?.weekIndex ?? weeks.length;
               const span = nextStart - m.weekIndex;
+              const widthPx = span * (cellSize + cellGap);
               return (
                 <span
                   key={m.label + m.weekIndex}
-                  className="text-micro text-ink-muted"
-                  style={{ width: span * (cellSize + cellGap), flexShrink: 0 }}
+                  className="text-micro text-ink-muted overflow-hidden"
+                  style={{ width: widthPx, flexShrink: 0 }}
                 >
-                  {m.label}
+                  {span >= 3 ? m.label : ""}
                 </span>
               );
             })}
@@ -191,18 +204,6 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
             })}
           </div>
         </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center justify-end gap-1 mt-3">
-        <span className="text-micro text-ink-muted mr-1">0</span>
-        <div className="w-3 h-3 rounded-sm bg-bg-elevated border border-divider" />
-        <div className="w-3 h-3 rounded-sm bg-accent/20" />
-        <div className="w-3 h-3 rounded-sm bg-accent/35" />
-        <div className="w-3 h-3 rounded-sm bg-accent/55" />
-        <div className="w-3 h-3 rounded-sm bg-accent/75" />
-        <div className="w-3 h-3 rounded-sm bg-accent" />
-        <span className="text-micro text-ink-muted ml-1">100+</span>
       </div>
 
       {/* Tooltip */}
