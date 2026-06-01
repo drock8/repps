@@ -1,5 +1,14 @@
 # Changelog
 
+## Fix link preview showing blue logo (2026-06-01)
+
+### Fixed
+- **Favicon in `index.html`** — changed from hardcoded blue icon to default orange (`repps-icon-192.png`). ThemeContext still swaps it dynamically at runtime.
+- **PWA manifest** — icons changed from blue to default orange (`repps-icon-192.png`, `repps-icon-512.png`).
+
+### Added
+- **Open Graph + Twitter meta tags** — link previews now show the REPPs orange logo, title, and tagline instead of a blank or blue-branded card.
+
 ## Theme-aware mascots (2026-06-01)
 
 ### Added
