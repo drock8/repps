@@ -442,7 +442,7 @@ export default function Home() {
                           {m.name.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 min-w-[1rem] h-4 rounded-full flex items-center justify-center px-0.5 ${
+                      <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 min-w-[1rem] h-4 rounded-full flex items-center justify-center px-0.5 ${
                         hit ? "bg-accent" : "bg-ink-muted/60"
                       }`}>
                         <span className={`text-[9px] font-bold tabular-nums leading-none ${hit ? "text-ink-inverse" : "text-white"}`}>
