@@ -1,5 +1,18 @@
 # Changelog
 
+## Super admin dashboard (2026-06-02)
+
+### Added
+- **`/admin` route** — full-screen admin dashboard outside the main app layout, responsive for desktop and mobile.
+- **Email-based auth guard** — only super admins (by email allowlist) can access the dashboard. Non-admins see "Access Denied"; unauthenticated users see a login redirect.
+- **Platform overview** — stat cards showing total repps, users, active teams, and active events, fetched from Supabase on load.
+- **Verification model selector** — large interactive cards for V1 (Height Ratio) and V2 (Multi-State + Angle Detection) showing name, description, feature list, accuracy assessment, and camera support. Active model highlighted with accent border and badge. Selection persists to `detection_engine` key in `settings` table.
+- **Theme switcher** — gradient color swatches for Orange, Blue, and Yellow themes. Selection updates the `theme` setting in real-time — all users see the change instantly via Supabase Realtime.
+- **Dab page reads `detection_engine` from settings** — replaces hardcoded V2 default. Falls back to V2 if no setting exists. Query param `?v=1` / `?v=2` still overrides for testing.
+
+### Fixed
+- **EventDetail.tsx stray brace** — extra `}` at line 89 broke production builds (rolldown parse error). Removed.
+
 ## Fix photo uploads: avatars + team logos (2026-06-02)
 
 ### Fixed
