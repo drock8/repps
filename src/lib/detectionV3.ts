@@ -307,8 +307,6 @@ export class DetectionEngineV3 {
   private deepestPhase: CyclePhase | null = null;
   private hingingEnteredTime = 0;
   private drivingEnteredTime = 0;
-  private torsoFlattened = false;
-
   // Jump detection
   private jumpDetected = false;
   private handsOverhead = false;
@@ -316,8 +314,6 @@ export class DetectionEngineV3 {
   private airStartTime = 0;
 
   // Ratio tracking for rising detection
-  private risingFrameCount = 0;
-  private prevRatio = 0;
   private bottomMinRatio = 1;
 
   // Lost tracking
@@ -325,7 +321,6 @@ export class DetectionEngineV3 {
 
   // Output per frame
   private lastRejection: RejectionReason | null = null;
-  private lastCoachingCue: CoachingCue | null = null;
 
   // Angle diagnostics
   private lastHipAngle: number | null = null;
@@ -378,16 +373,12 @@ export class DetectionEngineV3 {
     this.deepestPhase = null;
     this.hingingEnteredTime = 0;
     this.drivingEnteredTime = 0;
-    this.torsoFlattened = false;
     this.jumpDetected = false;
     this.handsOverhead = false;
     this.tuckDetected = false;
     this.airStartTime = 0;
-    this.risingFrameCount = 0;
-    this.prevRatio = 0;
     this.bottomMinRatio = 1;
     this.lastRejection = null;
-    this.lastCoachingCue = null;
   }
 
   private extractLandmarks(landmarks: Landmark[]) {
@@ -580,7 +571,6 @@ export class DetectionEngineV3 {
       return false;
     }
 
-    this.torsoFlattened = true;
     return true;
   }
 
@@ -858,15 +848,12 @@ export class DetectionEngineV3 {
           this.cycleStartTime = now;
           this.hingingEnteredTime = now;
           this.deepestPhase = "HINGING";
-          this.torsoFlattened = false;
           this.jumpDetected = false;
           this.handsOverhead = false;
           this.tuckDetected = false;
           this.airStartTime = 0;
-          this.risingFrameCount = 0;
           this.bottomMinRatio = 1;
           this.lastRejection = null;
-          this.lastCoachingCue = null;
           stateChanged = true;
         }
         break;
@@ -903,7 +890,6 @@ export class DetectionEngineV3 {
         if (r > t.floorRatio + 0.05 && dwellTime >= t.minFloorDwell) {
           this.state = "DRIVING";
           this.drivingEnteredTime = now;
-          this.risingFrameCount = 0;
           if (!this.deepestPhase || isPhaseDeeper("DRIVING", this.deepestPhase)) {
             this.deepestPhase = "DRIVING";
           }
@@ -1025,8 +1011,6 @@ export class DetectionEngineV3 {
       (this.state === "HINGING" || this.state === "BOTTOM" || this.state === "DRIVING" || this.state === "RISING")
         ? this.state as CyclePhase
         : null;
-
-    this.prevRatio = r;
 
     return this.makeFrame(now, {
       state: this.state,
