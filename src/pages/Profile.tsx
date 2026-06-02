@@ -704,14 +704,14 @@ export default function Profile() {
                     {todayRow && todayRow.dayTotal > 0 && (
                       <div className="flex flex-col gap-0.5 mt-2">
                         <span className="text-micro text-ink-secondary tabular-nums">{todayRow.reps} base</span>
-                        {todayRow.dailyMultiplied > todayRow.reps && (
-                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} {repScore?.dailyMultiplier || "team"}x</span>
-                        )}
                         {todayRow.streakBonus > 0 && (
                           <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus} streak</span>
                         )}
                         {todayRow.teamStreakBonus > 0 && (
                           <span className="text-micro text-blue-400 tabular-nums">+{todayRow.teamStreakBonus} team streak</span>
+                        )}
+                        {todayRow.dailyMultiplied > todayRow.reps && (
+                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} {repScore?.dailyMultiplier || "team"}x</span>
                         )}
                       </div>
                     )}
@@ -733,14 +733,14 @@ export default function Profile() {
               {repScore && repScore.score > 0 && (
                 <div className="flex flex-col gap-0.5 mt-2">
                   <span className="text-micro text-ink-secondary tabular-nums">{repScore.baseReps.toLocaleString()} base</span>
-                  {repScore.dailyMultiplierPts > 0 && (
-                    <span className="text-micro text-emerald-400 tabular-nums">+{repScore.dailyMultiplierPts.toLocaleString()} {repScore.dailyMultiplier}x</span>
-                  )}
                   {repScore.streakBonusPts > 0 && (
                     <span className="text-micro text-blue-400 tabular-nums">+{repScore.streakBonusPts.toLocaleString()} streak</span>
                   )}
                   {repScore.teamStreakBonusPts > 0 && (
                     <span className="text-micro text-blue-400 tabular-nums">+{repScore.teamStreakBonusPts.toLocaleString()} team streak</span>
+                  )}
+                  {repScore.dailyMultiplierPts > 0 && (
+                    <span className="text-micro text-emerald-400 tabular-nums">+{repScore.dailyMultiplierPts.toLocaleString()} {repScore.dailyMultiplier}x</span>
                   )}
                   {repScore.weeklyMultiplierPts > 0 && (
                     <span className="text-micro text-emerald-400 tabular-nums">+{repScore.weeklyMultiplierPts.toLocaleString()} weekly</span>

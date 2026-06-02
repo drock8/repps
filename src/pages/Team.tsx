@@ -701,13 +701,13 @@ export default function Team() {
 
       {/* Team Repp Score — Today + All Time */}
       {(() => {
-        const todayBase = members.reduce((s, m) => s + (m.today_base || m.today_count), 0);
+        console.log("[Team Today Debug]", members.map(m => ({ name: m.name, today_count: m.today_count, today_base: m.today_base, today_total: m.today_total })));
+        const todayReps = members.reduce((s, m) => s + m.today_count, 0);
         const todayStreakBonus = members.reduce((s, m) => s + m.today_streak_bonus, 0);
         const todayTeamStreakBonus = members.reduce((s, m) => s + m.today_team_streak_bonus, 0);
-        const todayTotal = members.reduce((s, m) => s + (m.today_total || m.today_count), 0);
-        const todayDailyMult = members.reduce((s, m) => s + (m.today_daily_multiplied - (m.today_base || m.today_count)), 0);
-        const displayBase = todayBase;
-        const displayTotal = todayTotal;
+        const todayDailyMult = members.reduce((s, m) => s + Math.max(0, m.today_daily_multiplied - m.today_base), 0);
+        const displayBase = todayReps;
+        const displayTotal = todayReps + todayDailyMult + todayStreakBonus + todayTeamStreakBonus;
         return (
           <div className="bg-bg-surface rounded-lg p-4 mb-4">
             <div className="flex gap-4">
@@ -723,14 +723,14 @@ export default function Team() {
                 {displayTotal > 0 && (
                   <div className="flex flex-col gap-0.5 mt-2">
                     <span className="text-micro text-ink-secondary tabular-nums">{displayBase.toLocaleString()} base</span>
-                    {todayDailyMult > 0 && (
-                      <span className="text-micro text-emerald-400 tabular-nums">+{todayDailyMult.toLocaleString()} {members.length}x</span>
-                    )}
                     {todayStreakBonus > 0 && (
                       <span className="text-micro text-blue-400 tabular-nums">+{todayStreakBonus.toLocaleString()} streak</span>
                     )}
                     {todayTeamStreakBonus > 0 && (
                       <span className="text-micro text-blue-400 tabular-nums">+{todayTeamStreakBonus.toLocaleString()} team streak</span>
+                    )}
+                    {todayDailyMult > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{todayDailyMult.toLocaleString()} {members.length}x</span>
                     )}
                   </div>
                 )}
@@ -749,14 +749,14 @@ export default function Team() {
                 {teamScore && teamScore.total > 0 && (
                   <div className="flex flex-col gap-0.5 mt-2">
                     <span className="text-micro text-ink-secondary tabular-nums">{teamScore.baseReps.toLocaleString()} base</span>
-                    {teamScore.dailyMultiplierPts > 0 && (
-                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.dailyMultiplierPts.toLocaleString()} {teamScore.dailyMultiplier}x</span>
-                    )}
                     {teamScore.streakBonusPts > 0 && (
                       <span className="text-micro text-blue-400 tabular-nums">+{teamScore.streakBonusPts.toLocaleString()} streak</span>
                     )}
                     {teamScore.teamStreakBonusPts > 0 && (
                       <span className="text-micro text-blue-400 tabular-nums">+{teamScore.teamStreakBonusPts.toLocaleString()} team streak</span>
+                    )}
+                    {teamScore.dailyMultiplierPts > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.dailyMultiplierPts.toLocaleString()} {teamScore.dailyMultiplier}x</span>
                     )}
                     {teamScore.weeklyMultiplierPts > 0 && (
                       <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.weeklyMultiplierPts.toLocaleString()} weekly</span>
@@ -897,14 +897,14 @@ export default function Team() {
                 {m.today_total > 0 && (
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className="text-micro text-ink-secondary tabular-nums">{m.today_base} base</span>
-                    {m.today_daily_multiplied > m.today_base && (
-                      <span className="text-micro text-emerald-400 tabular-nums">×3</span>
-                    )}
                     {m.today_streak_bonus > 0 && (
                       <span className="text-micro text-blue-400 tabular-nums">+{m.today_streak_bonus} streak</span>
                     )}
                     {m.today_team_streak_bonus > 0 && (
-                      <span className="text-micro text-emerald-400 tabular-nums">+{m.today_team_streak_bonus} team</span>
+                      <span className="text-micro text-blue-400 tabular-nums">+{m.today_team_streak_bonus} team</span>
+                    )}
+                    {m.today_daily_multiplied > m.today_base && (
+                      <span className="text-micro text-emerald-400 tabular-nums">×3</span>
                     )}
                     <span className="text-micro text-success font-semibold tabular-nums">→ {m.today_total} pts</span>
                   </div>
