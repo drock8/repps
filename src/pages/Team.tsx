@@ -689,15 +689,6 @@ export default function Team() {
           <p className="mt-2 text-micro text-ink-muted italic">Logo pending captain approval</p>
         )}
 
-        <button
-          onClick={() => setShowScoring(true)}
-          className="mt-3 py-2.5 px-5 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center gap-2 transition-all duration-200 ease-apple active:scale-95"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-            <path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>
-          </svg>
-          How to maximize your Repp Score
-        </button>
       </div>
 
       {/* Team Repp Score — Today + All Time */}
@@ -802,8 +793,8 @@ export default function Team() {
           return (
             <div className="mt-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-micro uppercase tracking-wide" style={{ color: level > 0 ? "#F5C518" : undefined }}>{level > 0 ? `Level ${level}` : "Level 0"}</span>
-                <span className="text-micro font-semibold" style={{ color: level > 0 ? "#F5C518" : undefined }}>{bonusPerRep > 0 ? `+${bonusPerRep}/rep` : "+0/rep"}</span>
+                <span className={`text-micro uppercase tracking-wide ${level > 0 ? "text-blue-400" : "text-ink-muted"}`}>{level > 0 ? `Level ${level}` : "Level 0"}</span>
+                <span className={`text-micro font-semibold ${level > 0 ? "text-blue-400" : "text-ink-muted"}`}>{bonusPerRep > 0 ? `+${bonusPerRep}/rep` : "+0/rep"}</span>
               </div>
               <div className="flex items-center gap-1">
                 {Array.from({ length: maxLevel }, (_, i) => {
@@ -812,14 +803,13 @@ export default function Team() {
                   return (
                     <div key={lvl} className="flex-1 flex flex-col items-center">
                       <div
-                        className="w-full h-2.5 rounded-full transition-all duration-300"
-                        style={{
-                          background: filled ? `linear-gradient(90deg, #F5C518, #FFD700)` : undefined,
-                          opacity: filled ? 0.4 + 0.6 * (lvl / maxLevel) : 1,
-                        }}
-                        {...(!filled && { className: "w-full h-2.5 rounded-full bg-bg-elevated" })}
+                        className={`w-full h-2.5 rounded-full transition-all duration-300 ${!filled ? "bg-bg-elevated" : ""}`}
+                        style={filled ? {
+                          background: `linear-gradient(90deg, #60A5FA, #3B82F6)`,
+                          opacity: 0.4 + 0.6 * (lvl / maxLevel),
+                        } : undefined}
                       />
-                      <span className={`text-[8px] tabular-nums mt-0.5 ${lvl <= level ? "" : "text-ink-muted"}`} style={lvl <= level ? { color: "#F5C518" } : undefined}>
+                      <span className={`text-[8px] tabular-nums mt-0.5 ${lvl <= level ? "text-blue-400" : "text-ink-muted"}`}>
                         {lvl * 10}d
                       </span>
                     </div>
@@ -835,17 +825,27 @@ export default function Team() {
                     const daysToNext = nextMilestone - streak;
                     const nextLevel = Math.min(maxLevel, level + 1);
                     return daysToNext <= 3
-                      ? <span style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to level {nextLevel} (+{nextLevel * memberCount}/rep)!</span>
+                      ? <span className="text-blue-400">{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to level {nextLevel} (+{nextLevel * memberCount}/rep)!</span>
                       : <>Next level at {nextMilestone}d streak (+{nextLevel * memberCount}/rep)</>
                   })()}
                 </p>
               ) : (
-                <p className="text-caption mt-2" style={{ color: "#F5C518" }}>Max bonus level reached!</p>
+                <p className="text-caption text-blue-400 mt-2">Max bonus level reached!</p>
               )}
             </div>
           );
         })()}
       </div>
+
+      <button
+        onClick={() => setShowScoring(true)}
+        className="w-full py-3 mb-4 rounded-pill bg-accent text-ink-inverse font-semibold text-caption flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
+          <path d="M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z"/>
+        </svg>
+        How to maximize your Repp Score
+      </button>
 
       {/* Members list */}
       <div className="flex flex-col gap-2 mb-6">
