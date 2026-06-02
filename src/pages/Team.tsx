@@ -701,14 +701,13 @@ export default function Team() {
 
       {/* Team Repp Score — Today + All Time */}
       {(() => {
-        const todayBase = members.reduce((s, m) => s + m.today_base, 0);
-        const todayReps = members.reduce((s, m) => s + m.today_count, 0);
+        const todayBase = members.reduce((s, m) => s + (m.today_base || m.today_count), 0);
         const todayStreakBonus = members.reduce((s, m) => s + m.today_streak_bonus, 0);
         const todayTeamStreakBonus = members.reduce((s, m) => s + m.today_team_streak_bonus, 0);
-        const todayTotal = members.reduce((s, m) => s + m.today_total, 0);
-        const todayDailyMult = members.reduce((s, m) => s + (m.today_daily_multiplied - m.today_base), 0);
-        const displayBase = todayBase || todayReps;
-        const displayTotal = todayTotal || todayReps;
+        const todayTotal = members.reduce((s, m) => s + (m.today_total || m.today_count), 0);
+        const todayDailyMult = members.reduce((s, m) => s + (m.today_daily_multiplied - (m.today_base || m.today_count)), 0);
+        const displayBase = todayBase;
+        const displayTotal = todayTotal;
         return (
           <div className="bg-bg-surface rounded-lg p-4 mb-4">
             <div className="flex gap-4">
