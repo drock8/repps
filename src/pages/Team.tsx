@@ -40,7 +40,11 @@ export default function Team() {
   // Team metrics
   const [teamStreak, setTeamStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
   const [teamDailyCounts, setTeamDailyCounts] = useState<{ day: string; count: number }[]>([]);
-  const [teamScore, setTeamScore] = useState<{ total: number; baseReps: number; streakBonus: number; teamStreakBonus: number; multiplied: number } | null>(null);
+  const [teamScore, setTeamScore] = useState<{
+    total: number; baseReps: number;
+    dailyMultiplierPts: number; streakBonusPts: number; teamStreakBonusPts: number; weeklyMultiplierPts: number;
+    dailyMultiplier: number;
+  } | null>(null);
 
   // Create team state
   const [teamName, setTeamName] = useState("");
@@ -156,18 +160,22 @@ export default function Team() {
         supabase.rpc("calculate_user_rep_score", { p_user_id: m.id, p_period: "all" })
       )
     );
-    let totalScore = 0, totalBase = 0, totalStreak = 0, totalTeamStreak = 0;
+    let totalScore = 0, totalBase = 0, totalDailyMult = 0, totalStreakBonus = 0, totalTeamStreakBonus = 0, totalWeeklyMult = 0;
+    let dailyMult = 1;
     for (const res of scoreResults) {
       if (res.data) {
-        const s = res.data as { score: number; base_reps: number; individual_streak: number; team_streak: number };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s = res.data as any;
         totalScore += Number(s.score);
         totalBase += Number(s.base_reps);
-        totalStreak += Number(s.individual_streak);
-        totalTeamStreak += Number(s.team_streak);
+        totalDailyMult += Number(s.daily_multiplier_pts || 0);
+        totalStreakBonus += Number(s.streak_bonus_pts || 0);
+        totalTeamStreakBonus += Number(s.team_streak_bonus_pts || 0);
+        totalWeeklyMult += Number(s.weekly_multiplier_pts || 0);
+        dailyMult = Math.max(dailyMult, Number(s.daily_multiplier || 1));
       }
     }
-    const totalMultiplied = totalScore - totalBase - totalStreak - totalTeamStreak;
-    setTeamScore({ total: totalScore, baseReps: totalBase, streakBonus: totalStreak, teamStreakBonus: totalTeamStreak, multiplied: Math.max(0, totalMultiplied) });
+    setTeamScore({ total: totalScore, baseReps: totalBase, dailyMultiplierPts: totalDailyMult, streakBonusPts: totalStreakBonus, teamStreakBonusPts: totalTeamStreakBonus, weeklyMultiplierPts: totalWeeklyMult, dailyMultiplier: dailyMult });
 
     // Fetch team aggregate daily counts (sum all members' reps per day)
     const memberIds = (memberProfiles || []).map(m => m.id);
@@ -695,9 +703,10 @@ export default function Team() {
       {(() => {
         const todayBase = members.reduce((s, m) => s + m.today_base, 0);
         const todayReps = members.reduce((s, m) => s + m.today_count, 0);
-        const todayStreak = members.reduce((s, m) => s + m.today_streak_bonus + m.today_team_streak_bonus, 0);
+        const todayStreakBonus = members.reduce((s, m) => s + m.today_streak_bonus, 0);
+        const todayTeamStreakBonus = members.reduce((s, m) => s + m.today_team_streak_bonus, 0);
         const todayTotal = members.reduce((s, m) => s + m.today_total, 0);
-        const todayMultiplier = todayTotal - todayBase - todayStreak;
+        const todayDailyMult = members.reduce((s, m) => s + (m.today_daily_multiplied - m.today_base), 0);
         const displayBase = todayBase || todayReps;
         const displayTotal = todayTotal || todayReps;
         return (
@@ -715,11 +724,14 @@ export default function Team() {
                 {displayTotal > 0 && (
                   <div className="flex flex-col gap-0.5 mt-2">
                     <span className="text-micro text-ink-secondary tabular-nums">{displayBase.toLocaleString()} base</span>
-                    {todayStreak > 0 && (
-                      <span className="text-micro text-blue-400 tabular-nums">+{todayStreak.toLocaleString()} streak bonus</span>
+                    {todayDailyMult > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{todayDailyMult.toLocaleString()} {members.length}x</span>
                     )}
-                    {todayMultiplier > 0 && (
-                      <span className="text-micro text-emerald-400 tabular-nums">+{todayMultiplier.toLocaleString()} team multiplier</span>
+                    {todayStreakBonus > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{todayStreakBonus.toLocaleString()} streak</span>
+                    )}
+                    {todayTeamStreakBonus > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{todayTeamStreakBonus.toLocaleString()} team streak</span>
                     )}
                   </div>
                 )}
@@ -738,11 +750,17 @@ export default function Team() {
                 {teamScore && teamScore.total > 0 && (
                   <div className="flex flex-col gap-0.5 mt-2">
                     <span className="text-micro text-ink-secondary tabular-nums">{teamScore.baseReps.toLocaleString()} base</span>
-                    {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 && (
-                      <span className="text-micro text-blue-400 tabular-nums">+{(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()} streak bonus</span>
+                    {teamScore.dailyMultiplierPts > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.dailyMultiplierPts.toLocaleString()} {teamScore.dailyMultiplier}x</span>
                     )}
-                    {teamScore.multiplied > 0 && (
-                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.multiplied.toLocaleString()} team multiplier</span>
+                    {teamScore.streakBonusPts > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{teamScore.streakBonusPts.toLocaleString()} streak</span>
+                    )}
+                    {teamScore.teamStreakBonusPts > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{teamScore.teamStreakBonusPts.toLocaleString()} team streak</span>
+                    )}
+                    {teamScore.weeklyMultiplierPts > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.weeklyMultiplierPts.toLocaleString()} weekly</span>
                     )}
                   </div>
                 )}

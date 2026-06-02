@@ -61,7 +61,11 @@ export default function Profile() {
     longestStreak: number;
   } | null>(null);
   const [dailyCounts, setDailyCounts] = useState<{ day: string; count: number }[]>([]);
-  const [repScore, setRepScore] = useState<{ score: number; baseReps: number; individualStreak: number; teamStreak: number } | null>(null);
+  const [repScore, setRepScore] = useState<{
+    score: number; baseReps: number; individualStreak: number; teamStreak: number;
+    dailyMultiplierPts: number; streakBonusPts: number; teamStreakBonusPts: number; weeklyMultiplierPts: number;
+    dailyMultiplier: number; hasActiveTeam: boolean;
+  } | null>(null);
   const [scoreHistory, setScoreHistory] = useState<{ day: string; reps: number; dailyMultiplied: number; streakBonus: number; teamStreakBonus: number; weeklyApplied: boolean; dayTotal: number }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -116,12 +120,19 @@ export default function Profile() {
     }
 
     if (scoreRes.data) {
-      const s = scoreRes.data as { score: number; base_reps: number; individual_streak: number; team_streak: number };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = scoreRes.data as any;
       setRepScore({
         score: Number(s.score),
         baseReps: Number(s.base_reps),
         individualStreak: Number(s.individual_streak),
         teamStreak: Number(s.team_streak),
+        dailyMultiplierPts: Number(s.daily_multiplier_pts || 0),
+        streakBonusPts: Number(s.streak_bonus_pts || 0),
+        teamStreakBonusPts: Number(s.team_streak_bonus_pts || 0),
+        weeklyMultiplierPts: Number(s.weekly_multiplier_pts || 0),
+        dailyMultiplier: Number(s.daily_multiplier || 1),
+        hasActiveTeam: Boolean(s.has_active_team),
       });
     }
 
@@ -693,11 +704,14 @@ export default function Profile() {
                     {todayRow && todayRow.dayTotal > 0 && (
                       <div className="flex flex-col gap-0.5 mt-2">
                         <span className="text-micro text-ink-secondary tabular-nums">{todayRow.reps} base</span>
-                        {todayRow.streakBonus + todayRow.teamStreakBonus > 0 && (
-                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus + todayRow.teamStreakBonus} streak bonus</span>
-                        )}
                         {todayRow.dailyMultiplied > todayRow.reps && (
-                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} team multiplier</span>
+                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} {repScore?.dailyMultiplier || "team"}x</span>
+                        )}
+                        {todayRow.streakBonus > 0 && (
+                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus} streak</span>
+                        )}
+                        {todayRow.teamStreakBonus > 0 && (
+                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.teamStreakBonus} team streak</span>
                         )}
                       </div>
                     )}
@@ -719,11 +733,17 @@ export default function Profile() {
               {repScore && repScore.score > 0 && (
                 <div className="flex flex-col gap-0.5 mt-2">
                   <span className="text-micro text-ink-secondary tabular-nums">{repScore.baseReps.toLocaleString()} base</span>
-                  {(repScore.individualStreak + repScore.teamStreak) > 0 && (
-                    <span className="text-micro text-blue-400 tabular-nums">+{(repScore.individualStreak + repScore.teamStreak).toLocaleString()} streak bonus</span>
+                  {repScore.dailyMultiplierPts > 0 && (
+                    <span className="text-micro text-emerald-400 tabular-nums">+{repScore.dailyMultiplierPts.toLocaleString()} {repScore.dailyMultiplier}x</span>
                   )}
-                  {(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak) > 0 && (
-                    <span className="text-micro text-emerald-400 tabular-nums">+{(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak).toLocaleString()} team multiplier</span>
+                  {repScore.streakBonusPts > 0 && (
+                    <span className="text-micro text-blue-400 tabular-nums">+{repScore.streakBonusPts.toLocaleString()} streak</span>
+                  )}
+                  {repScore.teamStreakBonusPts > 0 && (
+                    <span className="text-micro text-blue-400 tabular-nums">+{repScore.teamStreakBonusPts.toLocaleString()} team streak</span>
+                  )}
+                  {repScore.weeklyMultiplierPts > 0 && (
+                    <span className="text-micro text-emerald-400 tabular-nums">+{repScore.weeklyMultiplierPts.toLocaleString()} weekly</span>
                   )}
                 </div>
               )}

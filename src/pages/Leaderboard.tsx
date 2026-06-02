@@ -49,6 +49,12 @@ interface RepScoreEntry {
   baseReps: number;
   individualStreak: number;
   teamStreak: number;
+  dailyMultiplierPts: number;
+  streakBonusPts: number;
+  teamStreakBonusPts: number;
+  weeklyMultiplierPts: number;
+  dailyMultiplier: number;
+  hasActiveTeam: boolean;
 }
 
 interface TeamScoreEntry {
@@ -583,7 +589,8 @@ export default function Leaderboard() {
         return;
       }
       setRepScoreEntries(
-        (data || []).map((row: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number; individual_streak: number; team_streak: number }) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (data || []).map((row: any) => ({
           userId: row.user_id,
           name: row.name,
           avatarUrl: row.avatar_url,
@@ -591,6 +598,12 @@ export default function Leaderboard() {
           baseReps: Number(row.base_reps),
           individualStreak: Number(row.individual_streak),
           teamStreak: Number(row.team_streak),
+          dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
+          streakBonusPts: Number(row.streak_bonus_pts || 0),
+          teamStreakBonusPts: Number(row.team_streak_bonus_pts || 0),
+          weeklyMultiplierPts: Number(row.weekly_multiplier_pts || 0),
+          dailyMultiplier: Number(row.daily_multiplier || 1),
+          hasActiveTeam: Boolean(row.has_active_team),
         }))
       );
       setLoading(false);
@@ -954,25 +967,27 @@ export default function Leaderboard() {
                   {entry.name}
                   {ogIds.has(entry.userId) && <OGBadge />}
                 </span>
-                <span className="text-micro text-ink-muted">
-                  {formatNumber(entry.baseReps)} base
-                  {entry.individualStreak > 0 && ` · ${entry.individualStreak}d streak`}
-                  {entry.teamStreak > 0 && ` · ${entry.teamStreak}d team`}
-                </span>
+                <div className="flex flex-wrap gap-x-2 gap-y-0">
+                  <span className="text-micro text-ink-muted">{formatNumber(entry.baseReps)} base</span>
+                  {entry.dailyMultiplierPts > 0 && (
+                    <span className="text-micro text-accent">+{formatNumber(entry.dailyMultiplierPts)} {entry.dailyMultiplier}x</span>
+                  )}
+                  {entry.streakBonusPts > 0 && (
+                    <span className="text-micro text-accent">+{formatNumber(entry.streakBonusPts)} streak</span>
+                  )}
+                  {entry.teamStreakBonusPts > 0 && (
+                    <span className="text-micro text-accent">+{formatNumber(entry.teamStreakBonusPts)} team</span>
+                  )}
+                  {entry.weeklyMultiplierPts > 0 && (
+                    <span className="text-micro text-accent">+{formatNumber(entry.weeklyMultiplierPts)} weekly</span>
+                  )}
+                </div>
               </div>
-              <div className="text-right ml-2 flex items-baseline gap-2">
-                <div className="text-right">
-                  <span className="text-caption text-ink-secondary tabular-nums">
-                    {formatNumber(entry.baseReps)}
-                  </span>
-                  <span className="text-micro text-ink-muted block">repps</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-body text-accent font-bold tabular-nums">
-                    {formatNumber(entry.score)}
-                  </span>
-                  <span className="text-micro text-ink-muted block">pts</span>
-                </div>
+              <div className="text-right ml-2">
+                <span className="text-body text-accent font-bold tabular-nums">
+                  {formatNumber(entry.score)}
+                </span>
+                <span className="text-micro text-ink-muted block">pts</span>
               </div>
             </div>
           ))}
