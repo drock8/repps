@@ -86,8 +86,6 @@ const MODE_LABELS: Record<string, string> = {
   live_sprint: "Live Sprint",
 };
 
-}
-
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

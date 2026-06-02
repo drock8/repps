@@ -36,8 +36,19 @@ export default function Dab() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
-  // Admin-only: ?v=1 forces V1 engine, default is V2
-  const engineVersion: EngineVersion = searchParams.get("v") === "1" ? "v1" : "v2";
+  const queryEngine = searchParams.get("v");
+  const [settingsEngine, setSettingsEngine] = useState<EngineVersion>("v2");
+  useEffect(() => {
+    supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "detection_engine")
+      .single()
+      .then(({ data }) => {
+        if (data?.value === "v1" || data?.value === "v2") setSettingsEngine(data.value);
+      });
+  }, []);
+  const engineVersion: EngineVersion = queryEngine === "1" ? "v1" : queryEngine === "2" ? "v2" : settingsEngine;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

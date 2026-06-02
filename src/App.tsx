@@ -14,6 +14,7 @@ import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import CreateEvent from "./pages/CreateEvent";
 import EventJoin from "./pages/EventJoin";
+import Admin from "./pages/Admin";
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <ResetPasswordModal />
           <Routes>
             <Route index element={<LandingGate />} />
+            <Route path="admin" element={<Admin />} />
             <Route element={<Layout />}>
               <Route path="home" element={<Home />} />
               <Route path="dab" element={<Dab />} />
