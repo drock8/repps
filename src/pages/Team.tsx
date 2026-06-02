@@ -62,6 +62,12 @@ export default function Team() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoError, setLogoError] = useState("");
 
+  // Rename team state
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
   // Invite screen (after create)
   const [newJoinCode, setNewJoinCode] = useState("");
 
@@ -293,6 +299,25 @@ export default function Team() {
     if (!error) await fetchTeamData();
   };
 
+  const handleRename = async () => {
+    const trimmed = newName.trim();
+    if (trimmed.length < 3 || trimmed.length > 24) {
+      setRenameError("3–24 characters");
+      return;
+    }
+    setRenaming(true);
+    setRenameError("");
+    const { data, error } = await supabase.rpc("rename_team", { p_name: trimmed });
+    if (error || !data?.success) {
+      setRenameError(data?.message || error?.message || "Rename failed");
+      setRenaming(false);
+      return;
+    }
+    setEditingName(false);
+    setRenaming(false);
+    await fetchTeamData();
+  };
+
   if (!profile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
@@ -477,16 +502,69 @@ export default function Team() {
 
           {/* Name, status, members */}
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-headline text-ink-primary truncate">{team.name}</p>
-              <span className={`text-micro uppercase tracking-wide px-2 py-0.5 rounded-pill flex-shrink-0 ${
-                team.status === "active"
-                  ? "bg-success/20 text-success"
-                  : "bg-accent/20 text-accent"
-              }`}>
-                {team.status}
-              </span>
-            </div>
+            {editingName ? (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => { setNewName(e.target.value); setRenameError(""); }}
+                    maxLength={24}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename();
+                      if (e.key === "Escape") { setEditingName(false); setRenameError(""); }
+                    }}
+                    className="w-full bg-bg-input text-ink-primary text-body font-semibold rounded-md px-3 py-1.5 outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <button
+                    onClick={handleRename}
+                    disabled={renaming}
+                    className="flex-shrink-0 w-8 h-8 rounded-full bg-accent flex items-center justify-center transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+                  >
+                    {renaming ? (
+                      <div className="w-3.5 h-3.5 border-2 border-ink-inverse border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111315" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => { setEditingName(false); setRenameError(""); }}
+                    className="flex-shrink-0 w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center transition-all duration-200 ease-apple active:scale-95"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-ink-muted">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+                {renameError && <p className="text-micro text-error">{renameError}</p>}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {isCaptain ? (
+                  <button
+                    onClick={() => { setNewName(team.name); setEditingName(true); setRenameError(""); }}
+                    className="flex items-center gap-1.5 min-w-0 group"
+                  >
+                    <p className="text-headline text-ink-primary truncate">{team.name}</p>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted flex-shrink-0 opacity-0 group-active:opacity-100 transition-opacity">
+                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                    </svg>
+                  </button>
+                ) : (
+                  <p className="text-headline text-ink-primary truncate">{team.name}</p>
+                )}
+                <span className={`text-micro uppercase tracking-wide px-2 py-0.5 rounded-pill flex-shrink-0 ${
+                  team.status === "active"
+                    ? "bg-success/20 text-success"
+                    : "bg-accent/20 text-accent"
+                }`}>
+                  {team.status}
+                </span>
+              </div>
+            )}
             <p className="text-caption text-ink-muted mt-0.5">
               {members.length}/3 members
             </p>
