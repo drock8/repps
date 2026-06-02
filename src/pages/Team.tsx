@@ -793,31 +793,57 @@ export default function Team() {
             </div>
           </div>
         </div>
-        {teamStreak.current > 0 && (
-          <div className="flex items-center gap-1 mt-3">
-            {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
-              <div
-                key={i}
-                className="h-2 rounded-full"
-                style={{
-                  width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
-                  opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
-                  background: `linear-gradient(90deg, #F5C518, #FFD700)`,
-                }}
-              />
-            ))}
-          </div>
-        )}
         {(() => {
-          if (teamStreak.current === 0) {
-            return <p className="text-caption text-ink-muted mt-3">Do your reps today to start a team streak!</p>;
-          }
-          const nextMilestone = Math.ceil((teamStreak.current + 1) / 10) * 10;
-          const daysToNext = nextMilestone - teamStreak.current;
-          if (daysToNext <= 3) {
-            return <p className="text-caption mt-3" style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
-          }
-          return <p className="text-caption text-ink-muted mt-3">Keep it going! All members need to hit target today.</p>;
+          const memberCount = members.length;
+          const maxLevel = 11;
+          const streak = teamStreak.current;
+          const level = streak === 0 ? 0 : Math.min(maxLevel, Math.floor((streak - 1) / 10) + 1);
+          const bonusPerRep = level * memberCount;
+          return (
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-micro uppercase tracking-wide" style={{ color: level > 0 ? "#F5C518" : undefined }}>{level > 0 ? `Level ${level}` : "Level 0"}</span>
+                <span className="text-micro font-semibold" style={{ color: level > 0 ? "#F5C518" : undefined }}>{bonusPerRep > 0 ? `+${bonusPerRep}/rep` : "+0/rep"}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: maxLevel }, (_, i) => {
+                  const lvl = i + 1;
+                  const filled = lvl <= level;
+                  return (
+                    <div key={lvl} className="flex-1 flex flex-col items-center">
+                      <div
+                        className="w-full h-2.5 rounded-full transition-all duration-300"
+                        style={{
+                          background: filled ? `linear-gradient(90deg, #F5C518, #FFD700)` : undefined,
+                          opacity: filled ? 0.4 + 0.6 * (lvl / maxLevel) : 1,
+                        }}
+                        {...(!filled && { className: "w-full h-2.5 rounded-full bg-bg-elevated" })}
+                      />
+                      <span className={`text-[8px] tabular-nums mt-0.5 ${lvl <= level ? "" : "text-ink-muted"}`} style={lvl <= level ? { color: "#F5C518" } : undefined}>
+                        {lvl * 10}d
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {streak === 0 ? (
+                <p className="text-caption text-ink-muted mt-2">Do your reps today to start a team streak!</p>
+              ) : level < maxLevel ? (
+                <p className="text-caption text-ink-muted mt-2">
+                  {(() => {
+                    const nextMilestone = Math.ceil((streak + 1) / 10) * 10;
+                    const daysToNext = nextMilestone - streak;
+                    const nextLevel = Math.min(maxLevel, level + 1);
+                    return daysToNext <= 3
+                      ? <span style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to level {nextLevel} (+{nextLevel * memberCount}/rep)!</span>
+                      : <>Next level at {nextMilestone}d streak (+{nextLevel * memberCount}/rep)</>
+                  })()}
+                </p>
+              ) : (
+                <p className="text-caption mt-2" style={{ color: "#F5C518" }}>Max bonus level reached!</p>
+              )}
+            </div>
+          );
         })()}
       </div>
 

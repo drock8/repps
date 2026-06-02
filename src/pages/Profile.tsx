@@ -787,38 +787,92 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Streak card */}
+        <div className="bg-bg-surface rounded-lg p-4">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Current Streak</p>
+              <div className="flex items-center gap-2 mt-1">
+                {stats && stats.currentStreak > 0 && (
+                  <img src="/Repps-Pumped-Yellow.png" alt="streak" className="w-8 h-8 object-contain" />
+                )}
+                <div className="flex items-baseline gap-1.5">
+                  <p className="text-display-md tabular-nums" style={{ color: "#F5C518" }}>
+                    {stats ? stats.currentStreak : "—"}
+                  </p>
+                  <p className="text-caption text-ink-muted">
+                    {stats?.currentStreak === 1 ? "day" : "days"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="w-px bg-divider" />
+            <div className="flex-1">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <p className="text-display-md text-ink-primary tabular-nums">
+                  {stats ? stats.longestStreak : "—"}
+                </p>
+                <p className="text-caption text-ink-muted">
+                  {stats?.longestStreak === 1 ? "day" : "days"}
+                </p>
+              </div>
+            </div>
+          </div>
+          {(() => {
+            const streak = stats?.currentStreak ?? 0;
+            const maxLevel = 11;
+            const level = streak === 0 ? 0 : Math.min(maxLevel, Math.floor((streak - 1) / 10) + 1);
+            return (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-micro uppercase tracking-wide" style={{ color: level > 0 ? "#F5C518" : undefined }}>{level > 0 ? `Level ${level}` : "Level 0"}</span>
+                  <span className="text-micro font-semibold" style={{ color: level > 0 ? "#F5C518" : undefined }}>{level > 0 ? `+${level}/rep` : "+0/rep"}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: maxLevel }, (_, i) => {
+                    const lvl = i + 1;
+                    const filled = lvl <= level;
+                    return (
+                      <div key={lvl} className="flex-1 flex flex-col items-center">
+                        <div
+                          className="w-full h-2.5 rounded-full transition-all duration-300"
+                          style={{
+                            background: filled ? `linear-gradient(90deg, #F5C518, #FFD700)` : undefined,
+                            opacity: filled ? 0.4 + 0.6 * (lvl / maxLevel) : 1,
+                          }}
+                          {...(!filled && { className: "w-full h-2.5 rounded-full bg-bg-elevated" })}
+                        />
+                        <span className={`text-[8px] tabular-nums mt-0.5 ${lvl <= level ? "" : "text-ink-muted"}`} style={lvl <= level ? { color: "#F5C518" } : undefined}>
+                          {lvl * 10}d
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {streak === 0 ? (
+                  <p className="text-caption text-ink-muted mt-2">Do your reps today to start a streak!</p>
+                ) : level < maxLevel ? (
+                  <p className="text-caption text-ink-muted mt-2">
+                    {(() => {
+                      const nextMilestone = Math.ceil((streak + 1) / 10) * 10;
+                      const daysToNext = nextMilestone - streak;
+                      const nextLevel = Math.min(maxLevel, level + 1);
+                      return daysToNext <= 3
+                        ? <span style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to level {nextLevel} (+{nextLevel}/rep)!</span>
+                        : <>Next level at {nextMilestone}d streak (+{nextLevel}/rep)</>
+                    })()}
+                  </p>
+                ) : (
+                  <p className="text-caption mt-2" style={{ color: "#F5C518" }}>Max bonus level reached!</p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+
         {/* Activity heatmap */}
         <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
-
-        {/* Streak cards */}
-        <div className="flex gap-2">
-          <div className="flex-1 bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Current Streak
-            </p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <p className="text-display-md text-accent tabular-nums">
-                {stats ? stats.currentStreak : "—"}
-              </p>
-              <p className="text-caption text-ink-muted">
-                {stats?.currentStreak === 1 ? "day" : "days"}
-              </p>
-            </div>
-          </div>
-          <div className="flex-1 bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Longest Streak
-            </p>
-            <div className="flex items-baseline gap-1 mt-1">
-              <p className="text-display-md text-ink-primary tabular-nums">
-                {stats ? stats.longestStreak : "—"}
-              </p>
-              <p className="text-caption text-ink-muted">
-                {stats?.longestStreak === 1 ? "day" : "days"}
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* 7-day bar chart */}
         <WeeklyBarChart dailyCounts={dailyCounts} />
