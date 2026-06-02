@@ -470,18 +470,13 @@ export default function Home() {
               return (
                 <div className="mt-2.5 pt-2 border-t border-divider">
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      {streak > 0 && (
-                        <img src="/Repps-Pumped-Yellow.png" alt="" className="w-4 h-4 object-contain" />
-                      )}
-                      <span className="text-micro text-ink-muted">
-                        <span className="text-blue-400 font-bold tabular-nums">{streak}<span className="font-semibold">d</span> streak</span>
-                        {bonusPerRep > 0 && <span className="text-blue-400 font-semibold"> +{bonusPerRep}/rep</span>}
-                      </span>
-                    </div>
+                    <span className="text-micro text-ink-muted">
+                      <span className="text-blue-400 font-bold tabular-nums">{streak}<span className="font-semibold">d</span> streak</span>
+                      {bonusPerRep > 0 && <span className="text-blue-400 font-semibold"> +{bonusPerRep}/rep</span>}
+                    </span>
                     <span className="text-micro text-ink-muted tabular-nums">{nextMilestone}d</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+                  <div className="relative w-full h-1.5 rounded-full bg-bg-elevated overflow-visible">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -489,6 +484,14 @@ export default function Home() {
                         background: `linear-gradient(90deg, #60A5FA, #3B82F6)`,
                       }}
                     />
+                    {streak > 0 && (
+                      <img
+                        src="/Repps-Pumped-Yellow.png"
+                        alt=""
+                        className="absolute top-1/2 -translate-y-1/2 w-5 h-5 object-contain transition-all duration-500"
+                        style={{ left: `${Math.max(progress, 4)}%`, transform: `translate(-50%, -50%)` }}
+                      />
+                    )}
                   </div>
                 </div>
               );
