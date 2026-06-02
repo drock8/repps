@@ -457,10 +457,16 @@ export default function Home() {
             {/* Team streak bar */}
             {(() => {
               const streak = teamStreak.current;
-              const maxLevel = 11;
-              const level = streak === 0 ? 0 : Math.min(maxLevel, Math.floor((streak - 1) / 10) + 1);
               const memberCount = teamMembers.length;
+              const level = streak === 0 ? 0 : Math.min(11, Math.floor((streak - 1) / 10) + 1);
               const bonusPerRep = level * memberCount;
+              const prevMilestone = streak < 100
+                ? Math.floor(streak / 10) * 10
+                : Math.floor(streak / 100) * 100;
+              const nextMilestone = streak < 100
+                ? prevMilestone + 10
+                : prevMilestone + 100;
+              const progress = streak === 0 ? 0 : ((streak - prevMilestone) / (nextMilestone - prevMilestone)) * 100;
               return (
                 <div className="mt-2.5 pt-2 border-t border-divider">
                   <div className="flex items-center justify-between mb-1.5">
@@ -469,29 +475,20 @@ export default function Home() {
                         <img src="/Repps-Pumped-Yellow.png" alt="" className="w-4 h-4 object-contain" />
                       )}
                       <span className="text-micro text-ink-muted">
-                        <span className="text-blue-400 font-bold tabular-nums">{streak}</span> day streak
+                        <span className="text-blue-400 font-bold tabular-nums">{streak}</span>d
+                        {bonusPerRep > 0 && <span className="text-blue-400 font-semibold"> +{bonusPerRep}/rep</span>}
                       </span>
                     </div>
-                    <span className={`text-micro font-semibold ${bonusPerRep > 0 ? "text-blue-400" : "text-ink-muted"}`}>
-                      {bonusPerRep > 0 ? `+${bonusPerRep}/rep` : "+0/rep"}
-                    </span>
+                    <span className="text-micro text-ink-muted tabular-nums">{nextMilestone}d</span>
                   </div>
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: maxLevel }, (_, i) => {
-                      const lvl = i + 1;
-                      const filled = lvl <= level;
-                      return (
-                        <div key={lvl} className="flex-1">
-                          <div
-                            className={`w-full h-1.5 rounded-full transition-all duration-300 ${!filled ? "bg-bg-elevated" : ""}`}
-                            style={filled ? {
-                              background: `linear-gradient(90deg, #60A5FA, #3B82F6)`,
-                              opacity: 0.4 + 0.6 * (lvl / maxLevel),
-                            } : undefined}
-                          />
-                        </div>
-                      );
-                    })}
+                  <div className="w-full h-1.5 rounded-full bg-bg-elevated overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.max(progress, streak > 0 ? 4 : 0)}%`,
+                        background: `linear-gradient(90deg, #60A5FA, #3B82F6)`,
+                      }}
+                    />
                   </div>
                 </div>
               );
