@@ -784,7 +784,7 @@ export default function Dab() {
 
   // Determine pre-calibration message based on engine version
   const getPreCalibrationMessage = () => {
-    if (engineVersion === "v2" && alignmentStatus === "stabilizing") {
+    if (alignmentStatus === "stabilizing") {
       return {
         title: "Place your phone down",
         subtitle: "Finding a stable position…",
@@ -799,7 +799,7 @@ export default function Dab() {
         alignmentStatus === "too-far" ? "Move closer" :
         alignmentStatus === "off-center" ? "Move to center" :
         "Hold still…",
-      subtitle: alignmentStatus === "aligned" ? "Calibrating your position" : "Line up with the outline",
+      subtitle: alignmentStatus === "aligned" ? "Calibrating your position…" : "Line up with the outline",
       progress: calibrationCount / CALIBRATION_FRAMES,
       color: alignmentStatus === "aligned" ? "var(--color-accent)" : "#5C6066",
     };

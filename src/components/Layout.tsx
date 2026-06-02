@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import GenderPrompt from "./GenderPrompt";
 
+import AddToHomeScreen from "./AddToHomeScreen";
 import FeedbackFAB from "./FeedbackFAB";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -48,6 +49,8 @@ export default function Layout() {
       <main className={`mx-auto max-w-md w-full px-4 pt-1 flex-1 ${scrollable ? "pb-24 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
         <Outlet />
       </main>
+      {/* AddToHomeScreen — ready to enable when app is solid */}
+      {/* {profile && !showGenderPrompt && <AddToHomeScreen />} */}
       {!showGenderPrompt && <BottomNav />}
       {showGenderPrompt && <GenderPrompt />}
 

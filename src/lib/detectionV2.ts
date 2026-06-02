@@ -70,10 +70,13 @@ const SIDE_THRESHOLDS: V2Thresholds = {
   hipAngleLow: 130,
 };
 
-const STABILITY_WINDOW_MS = 1000;
+const STABILITY_WINDOW_MS = 1500;
 const STABILITY_MAX_DRIFT = 0.02;
-const STABILITY_MIN_FRAMES = 10;
+const STABILITY_MIN_FRAMES = 15;
 const CALIBRATION_FRAMES = 15;
+const CALIBRATION_MIN_DURATION_MS = 2000;
+const MIN_STANDING_HEIGHT = 0.35;
+const MAX_STANDING_HEIGHT = 0.85;
 const MIN_VISIBILITY = 0.5;
 const ANGLE_VOTE_THRESHOLD = 0.65;
 
@@ -117,6 +120,9 @@ export class DetectionEngineV2 {
   // Stability tracking
   private stabilityFrames: { x: number; y: number; time: number }[] = [];
   private isStable = false;
+
+  // Calibration timing — ensures frames span a real wall-clock duration
+  private calibrationStartTime = 0;
 
   // Descent tracking
   private reachedDown = false;
@@ -173,6 +179,7 @@ export class DetectionEngineV2 {
     this.standingHeight = 0;
 
     this.calibrationHeights = [];
+    this.calibrationStartTime = 0;
     this.ratioBuffer = [];
     this.repState = "UNKNOWN";
     this.lowEnteredTime = 0;
@@ -354,16 +361,26 @@ export class DetectionEngineV2 {
       const hipY = (lm.lHip.y + lm.rHip.y) / 2;
       const torsoVertical = hipY - shoulderY > 0.08;
 
-      // If body disappears during calibration, revert to stability check
-      // so we don't lock in a bad baseline
-      if (!allVisible && this.calibrationHeights.length === 0) {
-        this.isStable = false;
-        this.stabilityFrames = [];
-        return emptyFrame({
-          alignmentStatus: "stabilizing",
-          stabilityStatus: "unstable",
-          stabilityProgress: 0,
-        });
+      // If body disappears or isn't properly aligned during calibration,
+      // reset EVERYTHING including stability — prevents locking in a bad baseline
+      // from partial/transient detections while the user is still setting up
+      const bodyGood = allVisible && torsoVertical && currentHeight > 0.15;
+      if (!bodyGood) {
+        if (this.calibrationHeights.length > 0) {
+          this.calibrationHeights = [];
+          this.calibrationStartTime = 0;
+          this.angleVotes = { front: 0, side: 0 };
+        }
+        // If body fully disappeared, also reset stability
+        if (!allVisible) {
+          this.isStable = false;
+          this.stabilityFrames = [];
+          return emptyFrame({
+            alignmentStatus: "no-pose",
+            stabilityStatus: "unstable",
+            stabilityProgress: 0,
+          });
+        }
       }
 
       let alignmentStatus: AlignmentStatus = "no-pose";
@@ -381,23 +398,59 @@ export class DetectionEngineV2 {
         else alignmentStatus = "aligned";
       }
 
-      if (allVisible && torsoVertical && currentHeight > 0.15) {
+      if (bodyGood && alignmentStatus === "aligned") {
+        if (this.calibrationHeights.length === 0) {
+          this.calibrationStartTime = now;
+        }
         this.calibrationHeights.push(currentHeight);
 
-        // Vote on camera angle each calibration frame
         const vote = this.detectAngle(landmarks);
         if (vote === "front") this.angleVotes.front++;
         else this.angleVotes.side++;
-      } else {
+      } else if (bodyGood) {
+        // Body is visible but not well-aligned — reset calibration
         this.calibrationHeights = [];
+        this.calibrationStartTime = 0;
         this.angleVotes = { front: 0, side: 0 };
       }
 
-      if (this.calibrationHeights.length >= CALIBRATION_FRAMES) {
-        const sorted = [...this.calibrationHeights].sort((a, b) => a - b);
-        this.standingHeight = sorted[Math.floor(sorted.length * 0.5)];
+      const calibrationElapsed = this.calibrationStartTime > 0 ? now - this.calibrationStartTime : 0;
+      const hasEnoughFrames = this.calibrationHeights.length >= CALIBRATION_FRAMES;
+      const hasEnoughTime = calibrationElapsed >= CALIBRATION_MIN_DURATION_MS;
 
-        // Determine camera angle by majority vote
+      if (hasEnoughFrames && hasEnoughTime) {
+        const sorted = [...this.calibrationHeights].sort((a, b) => a - b);
+        const candidateHeight = sorted[Math.floor(sorted.length * 0.5)];
+
+        // Validate: standing height must be a reasonable fraction of the frame
+        if (candidateHeight < MIN_STANDING_HEIGHT || candidateHeight > MAX_STANDING_HEIGHT) {
+          this.calibrationHeights = [];
+          this.calibrationStartTime = 0;
+          this.angleVotes = { front: 0, side: 0 };
+          return emptyFrame({
+            calibrationCount: 0,
+            alignmentStatus: candidateHeight < MIN_STANDING_HEIGHT ? "too-far" : "too-close",
+            stabilityStatus: "stable",
+            stabilityProgress: 1.0,
+          });
+        }
+
+        // Check consistency — if heights vary too much, the person was moving
+        const heightStd = stddev(this.calibrationHeights);
+        if (heightStd > candidateHeight * 0.08) {
+          this.calibrationHeights = [];
+          this.calibrationStartTime = 0;
+          this.angleVotes = { front: 0, side: 0 };
+          return emptyFrame({
+            calibrationCount: 0,
+            alignmentStatus: "aligned",
+            stabilityStatus: "stable",
+            stabilityProgress: 1.0,
+          });
+        }
+
+        this.standingHeight = candidateHeight;
+
         const totalVotes = this.angleVotes.front + this.angleVotes.side;
         const frontRatio = this.angleVotes.front / totalVotes;
         if (frontRatio >= ANGLE_VOTE_THRESHOLD) {
@@ -416,8 +469,13 @@ export class DetectionEngineV2 {
         this.ratioBuffer = [];
       }
 
+      // Show progress based on both frame count and time requirements
+      const frameProgress = Math.min(this.calibrationHeights.length / CALIBRATION_FRAMES, 1);
+      const timeProgress = Math.min(calibrationElapsed / CALIBRATION_MIN_DURATION_MS, 1);
+      const combinedProgress = Math.min(frameProgress, timeProgress);
+
       return emptyFrame({
-        calibrationCount: this.calibrationHeights.length,
+        calibrationCount: Math.floor(combinedProgress * CALIBRATION_FRAMES),
         alignmentStatus,
         stabilityStatus: "stable",
         stabilityProgress: 1.0,

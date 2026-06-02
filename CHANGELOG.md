@@ -1,13 +1,13 @@
 # Changelog
 
-## Install prompt: inline card instead of blocking overlay (2026-06-02)
+## Disable install prompt, harden calibration (2026-06-02)
 
 ### Changed
-- **Add to Home Screen** — replaced the full-screen modal overlay (`fixed inset-0 z-50`) with a slim inline card on the Home page, positioned between the milestone progress bar and the team card.
-- **Home-only** — prompt no longer renders globally via Layout on every page. Only appears on the Home screen.
-
-### Fixed
-- **Feedback page blocked** — the overlay covered the entire screen with `bg-black/40 backdrop-blur-sm` and `z-50`, preventing interaction with the feedback widget and other UI. Now it's an inline element that doesn't interfere with anything.
+- **Add to Home Screen** — redesigned as a fixed card above the nav bar (no longer a blocking overlay), then disabled until the app is more polished. Component stays in codebase, commented out in Layout.
+- **Calibration stability guard** — V1 engine now has the same stability check as V2 (phone must be stationary before calibration begins). Both engines require 2–2.5s minimum wall-clock calibration time, not just frame count.
+- **Calibration validation** — both V1 and V2 reject standing heights outside 35–85% of frame and reset if height variance exceeds 8%, preventing bad baselines from partial detections.
+- **Calibration reset** — if body disappears or alignment is lost mid-calibration, both engines now reset calibration frames and stability state to prevent locking in a stale baseline.
+- **Stabilizing message** — V1 now shows "Place your phone down" during stability check (previously V2-only).
 
 ## Feedback conversations + My Feedback (2026-06-02)
 
