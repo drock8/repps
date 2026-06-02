@@ -5,15 +5,15 @@ import { supabase } from "../lib/supabase";
 type FeedbackType = "feature" | "bug" | "comment";
 
 const TYPE_CONFIG: { id: FeedbackType; label: string; icon: string; placeholder: string; hasTitle: boolean }[] = [
+  { id: "comment", label: "Comment", icon: "M20 2H4a2 2 0 00-2 2v12a2 2 0 002 2h14l4 4V4a2 2 0 00-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z", placeholder: "Share your thoughts, feedback, or experience...", hasTitle: false },
   { id: "feature", label: "Feature", icon: "M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z", placeholder: "Describe the feature you'd like to see...", hasTitle: true },
   { id: "bug", label: "Bug", icon: "M14 12h-4v-2h4m0 6h-4v-2h4m2-8V4h-2l-1 2h-2L10 4H8v2a4 4 0 00-4 4v1a2 2 0 00-2 2v1a2 2 0 002 2v1a4 4 0 004 4h4a4 4 0 004-4v-1a2 2 0 002-2v-1a2 2 0 00-2-2v-1a4 4 0 00-4-4z", placeholder: "What went wrong? Steps to reproduce...", hasTitle: true },
-  { id: "comment", label: "Comment", icon: "M20 2H4a2 2 0 00-2 2v12a2 2 0 002 2h14l4 4V4a2 2 0 00-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z", placeholder: "Share your thoughts, feedback, or experience...", hasTitle: false },
 ];
 
 export default function FeedbackFAB() {
   const { user, profile } = useAuth();
   const [open, setOpen] = useState(false);
-  const [activeType, setActiveType] = useState<FeedbackType>("feature");
+  const [activeType, setActiveType] = useState<FeedbackType>("comment");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -96,10 +96,10 @@ export default function FeedbackFAB() {
       {/* FAB Button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full repps-gradient flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-        style={{ boxShadow: "0 4px 16px rgba(var(--color-accent-glow), 0.4)" }}
+        className="fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+        style={{ background: "var(--color-accent)", boxShadow: "0 4px 16px rgba(var(--color-accent-glow), 0.4)" }}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
           <line x1="12" y1="8" x2="12" y2="14" />
           <line x1="9" y1="11" x2="15" y2="11" />
@@ -136,7 +136,7 @@ export default function FeedbackFAB() {
                   onClick={() => { setActiveType(t.id); setError(""); }}
                   className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
                     activeType === t.id
-                      ? "repps-gradient text-white"
+                      ? "repps-gradient text-black"
                       : "bg-bg-surface text-ink-secondary border border-divider"
                   }`}
                 >
@@ -206,7 +206,7 @@ export default function FeedbackFAB() {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="w-full repps-gradient text-white font-semibold py-3 rounded-xl text-sm disabled:opacity-50 transition-opacity"
+                  className="w-full repps-gradient text-black font-semibold py-3 rounded-xl text-sm disabled:opacity-50 transition-opacity"
                 >
                   {submitting ? "Sending..." : "Submit"}
                 </button>
