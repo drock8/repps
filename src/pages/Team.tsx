@@ -812,11 +812,50 @@ export default function Team() {
         ))}
       </div>
 
-      {/* Team score totals */}
+      {/* Today's team score */}
+      {(() => {
+        const todayBase = members.reduce((s, m) => s + m.today_base, 0);
+        const todayStreak = members.reduce((s, m) => s + m.today_streak_bonus + m.today_team_streak_bonus, 0);
+        const todayTotal = members.reduce((s, m) => s + m.today_total, 0);
+        const todayMultiplier = todayTotal - todayBase - todayStreak;
+        return todayTotal > 0 ? (
+          <div className="bg-bg-surface rounded-lg p-4 mb-3">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Today</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <p className="text-display-lg repps-gradient-text tabular-nums">
+                {todayTotal.toLocaleString()}
+              </p>
+              <p className="text-caption text-ink-muted">pts</p>
+            </div>
+            <div className="flex gap-3 mt-3">
+              <div className="flex-1 bg-bg-elevated rounded-md p-3">
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Base</p>
+                <p className="text-body font-semibold text-ink-primary tabular-nums mt-0.5">
+                  {todayBase.toLocaleString()}
+                </p>
+              </div>
+              <div className="flex-1 bg-bg-elevated rounded-md p-3">
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Streak Bonus</p>
+                <p className="text-body font-semibold text-blue-400 tabular-nums mt-0.5">
+                  {todayStreak > 0 ? `+${todayStreak.toLocaleString()}` : "0"}
+                </p>
+              </div>
+              <div className="flex-1 bg-bg-elevated rounded-md p-3">
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Team Mult</p>
+                <p className="text-body font-semibold text-emerald-400 tabular-nums mt-0.5">
+                  {todayMultiplier > 0 ? `+${todayMultiplier.toLocaleString()}` : "0"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null;
+      })()}
+
+      {/* All-time team score */}
       {teamScore && teamScore.total > 0 && (
         <div className="bg-bg-surface rounded-lg p-4 mb-4">
           <p className="text-micro text-ink-muted uppercase tracking-wide">
-            Team Repp Score
+            All Time
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <p className="text-display-lg repps-gradient-text tabular-nums">
@@ -832,15 +871,15 @@ export default function Team() {
               </p>
             </div>
             <div className="flex-1 bg-bg-elevated rounded-md p-3">
-              <p className="text-micro text-ink-muted uppercase tracking-wide">Multiplied</p>
-              <p className="text-body font-semibold text-emerald-400 tabular-nums mt-0.5">
-                {teamScore.multiplied > 0 ? `+${teamScore.multiplied.toLocaleString()}` : "0"}
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Streak Bonus</p>
+              <p className="text-body font-semibold text-blue-400 tabular-nums mt-0.5">
+                {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 ? `+${(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()}` : "0"}
               </p>
             </div>
             <div className="flex-1 bg-bg-elevated rounded-md p-3">
-              <p className="text-micro text-ink-muted uppercase tracking-wide">Bonus</p>
-              <p className="text-body font-semibold text-blue-400 tabular-nums mt-0.5">
-                {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 ? `+${(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()}` : "0"}
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Team Mult</p>
+              <p className="text-body font-semibold text-emerald-400 tabular-nums mt-0.5">
+                {teamScore.multiplied > 0 ? `+${teamScore.multiplied.toLocaleString()}` : "0"}
               </p>
             </div>
           </div>
