@@ -456,9 +456,8 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarError("");
-    setAvatarError(`DEBUG: name=${file.name} type=${file.type || "(empty)"} size=${file.size}`);
     if (file.type && !ALLOWED_AVATAR_TYPES.includes(file.type)) {
-      setAvatarError(`Rejected type: "${file.type}" — name: ${file.name}`);
+      setAvatarError("Only JPEG, PNG, WebP, and GIF images are allowed.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -475,7 +474,7 @@ export default function Profile() {
       .from("avatars")
       .upload(path, file, { upsert: true, contentType });
     if (uploadError) {
-      setAvatarError(`Storage error: ${uploadError.message} (${(uploadError as any).statusCode || "no code"})`);
+      setAvatarError("Upload failed — try again");
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -489,12 +488,11 @@ export default function Profile() {
       .update({ avatar_url: publicUrl })
       .eq("id", profile.id);
     if (updateError) {
-      setAvatarError(`DB error: ${updateError.message}`);
+      setAvatarError("Upload failed — try again");
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    setAvatarError(`OK! URL: ${publicUrl}`);
     await refreshProfile();
     setUploadingAvatar(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
