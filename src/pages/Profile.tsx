@@ -449,14 +449,14 @@ export default function Profile() {
     setEditingGender(false);
   };
 
-  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
   const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarError("");
-    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+    if (file.type && !ALLOWED_AVATAR_TYPES.includes(file.type)) {
       setAvatarError("Only JPEG, PNG, WebP, and GIF images are allowed.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -467,24 +467,34 @@ export default function Profile() {
       return;
     }
     setUploadingAvatar(true);
-    const ext = file.name.split(".").pop();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const contentType = file.type || "image/jpeg";
     const path = `${profile.id}/avatar.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, contentType });
     if (uploadError) {
-      console.error("Avatar upload failed:", uploadError);
+      console.error("Avatar upload failed:", JSON.stringify(uploadError));
+      setAvatarError(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`);
       setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     const { data: urlData } = supabase.storage
       .from("avatars")
       .getPublicUrl(path);
-    const publicUrl = urlData.publicUrl + "?t=" + Date.now();
-    await supabase
+    const publicUrl = urlData.publicUrl;
+    const { error: updateError } = await supabase
       .from("profiles")
       .update({ avatar_url: publicUrl })
       .eq("id", profile.id);
+    if (updateError) {
+      console.error("Avatar DB update failed:", JSON.stringify(updateError));
+      setAvatarError("Upload failed — try again");
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     await refreshProfile();
     setUploadingAvatar(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -547,7 +557,7 @@ export default function Profile() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/*"
           onChange={handleAvatarUpload}
           className="hidden"
         />

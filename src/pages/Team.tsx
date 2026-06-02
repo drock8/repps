@@ -14,7 +14,7 @@ interface TeamData {
   pending_logo_uploaded_by: string | null;
 }
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
 interface MemberWithReps extends Profile {
@@ -225,7 +225,7 @@ export default function Team() {
     if (!file || !profile?.team_id) return;
     setLogoError("");
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (file.type && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setLogoError("Only JPEG, PNG, WebP, and GIF allowed");
       if (logoInputRef.current) logoInputRef.current.value = "";
       return;
@@ -237,14 +237,15 @@ export default function Team() {
     }
 
     setUploadingLogo(true);
-    const ext = file.name.split(".").pop();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const contentType = file.type || "image/jpeg";
     const path = `${profile.team_id}/logo-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("team-logos")
-      .upload(path, file, { upsert: true });
+      .upload(path, file, { upsert: true, contentType });
     if (uploadError) {
-      console.error("Logo upload failed:", uploadError);
-      setLogoError("Upload failed — try again");
+      console.error("Logo upload failed:", JSON.stringify(uploadError));
+      setLogoError(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`);
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
       return;
@@ -253,7 +254,7 @@ export default function Team() {
     const { data: urlData } = supabase.storage
       .from("team-logos")
       .getPublicUrl(path);
-    const publicUrl = urlData.publicUrl + "?t=" + Date.now();
+    const publicUrl = urlData.publicUrl;
 
     const isCaptainUpload = team?.captain_id === profile.id;
 
@@ -267,7 +268,7 @@ export default function Team() {
       .eq("id", profile.team_id);
 
     if (updateError) {
-      console.error("Logo DB update failed:", updateError);
+      console.error("Logo DB update failed:", JSON.stringify(updateError));
       setLogoError("Upload failed — try again");
     }
 
@@ -471,7 +472,7 @@ export default function Team() {
           <input
             ref={logoInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/*"
             className="hidden"
             onChange={handleLogoUpload}
           />
