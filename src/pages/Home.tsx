@@ -203,10 +203,10 @@ export default function Home() {
     setDailyTarget(target);
 
     if (streakRes.data) {
-      setTeamStreak({
-        current: (streakRes.data as { current_streak: number }).current_streak ?? 0,
-        longest: (streakRes.data as { longest_streak: number }).longest_streak ?? 0,
-      });
+      const row = Array.isArray(streakRes.data) ? streakRes.data[0] : streakRes.data;
+      if (row) {
+        setTeamStreak({ current: Number(row.current_streak), longest: Number(row.longest_streak) });
+      }
     }
 
     if (leaderboardRes.data && teamRes.data) {
