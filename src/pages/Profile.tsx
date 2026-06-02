@@ -489,12 +489,12 @@ export default function Profile() {
       .update({ avatar_url: publicUrl })
       .eq("id", profile.id);
     if (updateError) {
-      console.error("Avatar DB update failed:", JSON.stringify(updateError));
-      setAvatarError("Upload failed — try again");
+      setAvatarError(`DB error: ${updateError.message}`);
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+    setAvatarError(`OK! URL: ${publicUrl}`);
     await refreshProfile();
     setUploadingAvatar(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
