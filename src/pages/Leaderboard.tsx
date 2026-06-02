@@ -9,7 +9,9 @@ import { useRepsChannel } from "../hooks/useRepsChannel";
 import { useResetCooldown } from "../hooks/useResetCooldown";
 import PasswordInput from "../components/PasswordInput";
 import Avatar from "../components/Avatar";
+import OGBadge from "../components/OGBadge";
 import GoogleIcon from "../components/GoogleIcon";
+import { useOG100 } from "../hooks/useOG100";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
@@ -401,6 +403,7 @@ function SignupOverlay({
 export default function Leaderboard() {
   const { profile, signInWithGoogle } = useAuth();
   const theme = useTheme();
+  const ogIds = useOG100();
   const [searchParams, setSearchParams] = useSearchParams();
   const signupFlow = searchParams.get("signup") === "1";
   const signupGender = searchParams.get("gender") as GenderFilter | null;
@@ -803,8 +806,9 @@ export default function Leaderboard() {
                   <div className="ml-2">
                     <Avatar url={entry.avatarUrl} name={entry.name} />
                   </div>
-                  <span className="ml-3 text-body text-ink-primary truncate flex-1">
+                  <span className="ml-3 text-body text-ink-primary truncate flex-1 flex items-center gap-1">
                     {entry.name}
+                    {ogIds.has(entry.userId) && <OGBadge />}
                   </span>
                   <span className="text-body text-accent font-bold tabular-nums ml-2">
                     {entry.count}
@@ -850,8 +854,9 @@ export default function Leaderboard() {
                     name={userEntry.entry.name}
                   />
                 </div>
-                <span className="ml-3 text-body text-ink-primary truncate flex-1">
+                <span className="ml-3 text-body text-ink-primary truncate flex-1 flex items-center gap-1">
                   {userEntry.entry.name}
+                  {ogIds.has(userEntry.entry.userId) && <OGBadge />}
                 </span>
                 <span className="text-body text-accent font-bold tabular-nums ml-2">
                   {userEntry.entry.count}
@@ -875,8 +880,9 @@ export default function Leaderboard() {
                 <Avatar url={entry.avatarUrl} name={entry.name} />
               </div>
               <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate block">
+                <span className="text-body text-ink-primary truncate flex items-center gap-1">
                   {entry.name}
+                  {ogIds.has(entry.userId) && <OGBadge />}
                 </span>
                 {entry.durationSeconds > 0 && (
                   <span className="text-micro text-ink-muted">
@@ -908,8 +914,9 @@ export default function Leaderboard() {
                 <Avatar url={entry.avatarUrl} name={entry.name} />
               </div>
               <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate block">
+                <span className="text-body text-ink-primary truncate flex items-center gap-1">
                   {entry.name}
+                  {ogIds.has(entry.userId) && <OGBadge />}
                 </span>
                 {entry.currentStreak > 0 && (
                   <span className="text-micro text-accent">
@@ -943,8 +950,9 @@ export default function Leaderboard() {
                 <Avatar url={entry.avatarUrl} name={entry.name} />
               </div>
               <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate block">
+                <span className="text-body text-ink-primary truncate flex items-center gap-1">
                   {entry.name}
+                  {ogIds.has(entry.userId) && <OGBadge />}
                 </span>
                 <span className="text-micro text-ink-muted">
                   {formatNumber(entry.baseReps)} base
@@ -1037,8 +1045,9 @@ export default function Leaderboard() {
                     .map((m) => (
                     <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
                       <Avatar url={m.avatar_url} name={m.name} />
-                      <span className="ml-2 text-caption text-ink-primary truncate flex-1">
+                      <span className="ml-2 text-caption text-ink-primary truncate flex-1 flex items-center gap-1">
                         {m.name}
+                        {ogIds.has(m.user_id) && <OGBadge size={14} />}
                       </span>
                       <span className="text-micro text-ink-secondary tabular-nums ml-2">
                         {formatNumber(m.base_reps)}
