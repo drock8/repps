@@ -40,6 +40,7 @@ export default function Team() {
   // Team metrics
   const [teamStreak, setTeamStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
   const [teamDailyCounts, setTeamDailyCounts] = useState<{ day: string; count: number }[]>([]);
+  const [teamScore, setTeamScore] = useState<{ total: number; baseReps: number; streakBonus: number; teamStreakBonus: number; multiplied: number } | null>(null);
 
   // Create team state
   const [teamName, setTeamName] = useState("");
@@ -148,6 +149,25 @@ export default function Team() {
         setTeamStreak({ current: Number(row.current_streak), longest: Number(row.longest_streak) });
       }
     }
+
+    // Fetch team combined rep score
+    const scoreResults = await Promise.all(
+      (memberProfiles || []).map(m =>
+        supabase.rpc("calculate_user_rep_score", { p_user_id: m.id, p_period: "all" })
+      )
+    );
+    let totalScore = 0, totalBase = 0, totalStreak = 0, totalTeamStreak = 0;
+    for (const res of scoreResults) {
+      if (res.data) {
+        const s = res.data as { score: number; base_reps: number; individual_streak: number; team_streak: number };
+        totalScore += Number(s.score);
+        totalBase += Number(s.base_reps);
+        totalStreak += Number(s.individual_streak);
+        totalTeamStreak += Number(s.team_streak);
+      }
+    }
+    const totalMultiplied = totalScore - totalBase - totalStreak - totalTeamStreak;
+    setTeamScore({ total: totalScore, baseReps: totalBase, streakBonus: totalStreak, teamStreakBonus: totalTeamStreak, multiplied: Math.max(0, totalMultiplied) });
 
     // Fetch team aggregate daily counts (sum all members' reps per day)
     const memberIds = (memberProfiles || []).map(m => m.id);
@@ -791,6 +811,41 @@ export default function Team() {
           </div>
         ))}
       </div>
+
+      {/* Team score totals */}
+      {teamScore && teamScore.total > 0 && (
+        <div className="bg-bg-surface rounded-lg p-4 mb-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">
+            Team Repp Score
+          </p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <p className="text-display-lg repps-gradient-text tabular-nums">
+              {teamScore.total.toLocaleString()}
+            </p>
+            <p className="text-caption text-ink-muted">pts</p>
+          </div>
+          <div className="flex gap-3 mt-3">
+            <div className="flex-1 bg-bg-elevated rounded-md p-3">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Base</p>
+              <p className="text-body font-semibold text-ink-primary tabular-nums mt-0.5">
+                {teamScore.baseReps.toLocaleString()}
+              </p>
+            </div>
+            <div className="flex-1 bg-bg-elevated rounded-md p-3">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Multiplied</p>
+              <p className="text-body font-semibold text-emerald-400 tabular-nums mt-0.5">
+                {teamScore.multiplied > 0 ? `+${teamScore.multiplied.toLocaleString()}` : "0"}
+              </p>
+            </div>
+            <div className="flex-1 bg-bg-elevated rounded-md p-3">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Bonus</p>
+              <p className="text-body font-semibold text-blue-400 tabular-nums mt-0.5">
+                {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 ? `+${(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()}` : "0"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Team streak */}
       <div className="flex gap-2 mb-4">
