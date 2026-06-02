@@ -475,7 +475,7 @@ export default function Home() {
                         <img src="/Repps-Pumped-Yellow.png" alt="" className="w-4 h-4 object-contain" />
                       )}
                       <span className="text-micro text-ink-muted">
-                        <span className="text-blue-400 font-bold tabular-nums">{streak}</span>d
+                        <span className="text-blue-400 font-bold tabular-nums">{streak}<span className="font-semibold">d</span> streak</span>
                         {bonusPerRep > 0 && <span className="text-blue-400 font-semibold"> +{bonusPerRep}/rep</span>}
                       </span>
                     </div>
