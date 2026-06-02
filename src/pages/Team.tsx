@@ -20,8 +20,9 @@ const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
 interface MemberWithReps extends Profile {
   today_count: number;
-  base_score: number;
-  total_score: number;
+  today_base: number;
+  today_streak_bonus: number;
+  today_total: number;
 }
 
 type View = "no-team" | "invite" | "detail";
@@ -111,20 +112,22 @@ export default function Team() {
 
     const membersWithReps: MemberWithReps[] = await Promise.all(
       (memberProfiles || []).map(async (m) => {
-        const [todayRes, scoreRes] = await Promise.all([
+        const [todayRes, histRes] = await Promise.all([
           supabase
             .from("reps")
             .select("*", { count: "exact", head: true })
             .eq("user_id", m.id)
             .gte("validated_at", todayStart.toISOString()),
-          supabase.rpc("calculate_user_rep_score", { p_user_id: m.id, p_period: "all" }),
+          supabase.rpc("get_user_score_history", { p_user_id: m.id, p_limit: 1 }),
         ]);
-        const s = scoreRes.data as { score: number; base_reps: number } | null;
+        const todayRow = (histRes.data as { day: string; reps: number; daily_multiplied: number; streak_bonus: number; team_streak_bonus: number; day_total: number }[] | null)?.[0];
+        const isToday = todayRow && todayRow.day === todayStart.toISOString().slice(0, 10);
         return {
           ...m,
           today_count: todayRes.count || 0,
-          base_score: s ? Number(s.base_reps) : 0,
-          total_score: s ? Number(s.score) : 0,
+          today_base: isToday ? Number(todayRow.reps) : 0,
+          today_streak_bonus: isToday ? Number(todayRow.streak_bonus) : 0,
+          today_total: isToday ? Number(todayRow.day_total) : 0,
         };
       })
     );
@@ -700,10 +703,13 @@ export default function Team() {
                 <p className="text-caption text-ink-muted">
                   {m.today_count}/{dailyTarget} today
                 </p>
-                {m.total_score > 0 && (
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-micro text-ink-secondary tabular-nums">{m.base_score.toLocaleString()} base</span>
-                    <span className="text-micro text-success font-semibold tabular-nums">{m.total_score.toLocaleString()} pts</span>
+                {m.today_total > 0 && (
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="text-micro text-ink-secondary tabular-nums">{m.today_base} base</span>
+                    {m.today_streak_bonus > 0 && (
+                      <span className="text-micro text-accent tabular-nums">+{m.today_streak_bonus} streak</span>
+                    )}
+                    <span className="text-micro text-success font-semibold tabular-nums">→ {m.today_total} pts</span>
                   </div>
                 )}
               </div>

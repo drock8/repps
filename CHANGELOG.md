@@ -1,5 +1,17 @@
 # Changelog
 
+## Team metrics: score breakdown, streak, activity heatmap (2026-06-03)
+
+### Added
+- **Member score breakdown on team cards** — each member shows today's base reps, streak bonus (accent), and total points after multipliers (green) below the daily count.
+- **Team streak cards** — current and longest team streak displayed side-by-side below the member list, with a progressive bar graphic for the current streak.
+- **Team activity heatmap** — 3-month GitHub-style contribution grid aggregating all members' reps per day, scaled to 300 (full yellow = 300+ combined reps).
+- **Score history table on Profile** — collapsible 90-day breakdown table below Repp Score showing per-day columns: Reps, 3x, Streak, Team Streak, Weekly 2x, Total Pts.
+- **Migration 033** — `get_user_score_history` RPC returning per-day score breakdown with all multiplier components.
+
+### Changed
+- **ActivityHeatmap** — now accepts `maxScale`, `label`, and `scaleLabel` props for reuse with custom scales.
+
 ## Voice-guided calibration via ElevenLabs (2026-06-02)
 
 ### Added

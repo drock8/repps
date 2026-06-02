@@ -62,6 +62,8 @@ export default function Profile() {
   } | null>(null);
   const [dailyCounts, setDailyCounts] = useState<{ day: string; count: number }[]>([]);
   const [repScore, setRepScore] = useState<{ score: number; baseReps: number; individualStreak: number; teamStreak: number } | null>(null);
+  const [scoreHistory, setScoreHistory] = useState<{ day: string; reps: number; dailyMultiplied: number; streakBonus: number; teamStreakBonus: number; weeklyApplied: boolean; dayTotal: number }[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Guest auth form state
   const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent">("choose");
@@ -77,7 +79,7 @@ export default function Profile() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [statsRes, dailyRes, scoreRes, todayRes] = await Promise.all([
+    const [statsRes, dailyRes, scoreRes, todayRes, histRes] = await Promise.all([
       supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
       supabase.rpc("get_user_daily_counts", { p_user_id: profile.id }),
       supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: "all" }),
@@ -86,6 +88,7 @@ export default function Profile() {
         .select("*", { count: "exact", head: true })
         .eq("user_id", profile.id)
         .gte("validated_at", todayStart.toISOString()),
+      supabase.rpc("get_user_score_history", { p_user_id: profile.id, p_limit: 90 }),
     ]);
 
     if (statsRes.data) {
@@ -120,6 +123,20 @@ export default function Profile() {
         individualStreak: Number(s.individual_streak),
         teamStreak: Number(s.team_streak),
       });
+    }
+
+    if (histRes.data) {
+      setScoreHistory(
+        (histRes.data as { day: string; reps: number; daily_multiplied: number; streak_bonus: number; team_streak_bonus: number; weekly_multiplier_applied: boolean; day_total: number }[]).map(r => ({
+          day: r.day,
+          reps: Number(r.reps),
+          dailyMultiplied: Number(r.daily_multiplied),
+          streakBonus: Number(r.streak_bonus),
+          teamStreakBonus: Number(r.team_streak_bonus),
+          weeklyApplied: r.weekly_multiplier_applied,
+          dayTotal: Number(r.day_total),
+        }))
+      );
     }
   }, [profile]);
 
@@ -684,6 +701,62 @@ export default function Profile() {
             </div>
           )}
         </div>
+
+        {/* Score breakdown history */}
+        {scoreHistory.length > 0 && (
+          <div className="bg-bg-surface rounded-lg overflow-hidden">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="w-full p-4 flex items-center justify-between"
+            >
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Score Breakdown</p>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`text-ink-muted transition-transform duration-200 ${showHistory ? "rotate-180" : ""}`}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {showHistory && (
+              <div className="px-3 pb-3 overflow-x-auto">
+                <table className="w-full text-[10px] tabular-nums">
+                  <thead>
+                    <tr className="border-b border-bg-elevated">
+                      <th className="px-1.5 py-1.5 text-left text-ink-muted font-bold">Day</th>
+                      <th className="px-1.5 py-1.5 text-right text-ink-secondary font-bold">Reps</th>
+                      <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">3x</th>
+                      <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Str</th>
+                      <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">TStr</th>
+                      <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">Wk</th>
+                      <th className="px-1.5 py-1.5 text-right text-ink-primary font-bold">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scoreHistory.map((r) => {
+                      const hasTeamMultiplier = r.dailyMultiplied > r.reps;
+                      return (
+                        <tr key={r.day} className="border-b border-bg-elevated/50">
+                          <td className="px-1.5 py-1.5 text-ink-secondary">
+                            {new Date(r.day + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </td>
+                          <td className="px-1.5 py-1.5 text-right text-ink-secondary">{r.reps}</td>
+                          <td className="px-1.5 py-1.5 text-right text-emerald-400">{hasTeamMultiplier ? r.dailyMultiplied : "—"}</td>
+                          <td className="px-1.5 py-1.5 text-right text-blue-400">{r.streakBonus > 0 ? `+${r.streakBonus}` : "—"}</td>
+                          <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.teamStreakBonus > 0 ? `+${r.teamStreakBonus}` : "—"}</td>
+                          <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.weeklyApplied ? "×2" : "—"}</td>
+                          <td className="px-1.5 py-1.5 text-right text-success font-bold">{r.dayTotal}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div className="mt-2 flex flex-col gap-0.5 text-[10px] text-ink-muted">
+                  <p><span className="text-emerald-400 font-semibold">3x</span> = daily team bonus. <span className="text-blue-400 font-semibold">Str</span> = individual streak. <span className="text-emerald-400 font-semibold">TStr</span> = team streak. <span className="text-emerald-400 font-semibold">Wk</span> = weekly 2x.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Activity heatmap */}
         <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
