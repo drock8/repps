@@ -25,9 +25,7 @@ import {
 import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep, setGuestGender } from "../lib/guestSession";
-// TODO: wire up in V3 coaching work
-// import { speakGuide, stopGuide } from "../lib/voiceGuide";
-// import { unlockAudio } from "../lib/repAudio";
+import { speakGuide, speakReady, stopGuide, preloadGuideClips } from "../lib/voiceGuide";
 import type { Gender } from "../contexts/AuthContext";
 
 type Screen = "detecting" | "summary" | "gender-picker";
@@ -238,6 +236,27 @@ export default function Dab() {
     },
     [profile]
   );
+
+  // Preload voice guide clips on mount
+  useEffect(() => {
+    preloadGuideClips();
+  }, []);
+
+  // Voice guide: speak alignment cues during calibration
+  useEffect(() => {
+    if (screen !== "detecting" || loading || calibrated) return;
+    speakGuide(alignmentStatus);
+  }, [alignmentStatus, screen, loading, calibrated]);
+
+  // Voice guide: announce "Ready. Go!" when calibration completes
+  useEffect(() => {
+    if (calibrated) speakReady();
+  }, [calibrated]);
+
+  // Stop voice guide on unmount or screen change
+  useEffect(() => {
+    return () => stopGuide();
+  }, [screen]);
 
   useEffect(() => {
     if (authLoading || screen !== "detecting") return;
@@ -963,6 +982,9 @@ export default function Dab() {
         alignmentStatus === "too-close" ? "Step back a bit" :
         alignmentStatus === "too-far" ? "Move closer" :
         alignmentStatus === "off-center" ? "Move to center" :
+        alignmentStatus === "off-left" ? "Move a little left" :
+        alignmentStatus === "off-right" ? "Move a little right" :
+        alignmentStatus === "head-cut" ? "Tilt phone up a bit" :
         "Hold still…",
       subtitle: alignmentStatus === "aligned" ? "Calibrating your position…" : "Line up with the outline",
       progress: calibrationCount / CALIBRATION_FRAMES,

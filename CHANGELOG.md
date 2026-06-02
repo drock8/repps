@@ -1,5 +1,22 @@
 # Changelog
 
+## Voice-guided calibration via ElevenLabs (2026-06-02)
+
+### Added
+- **ElevenLabs voice guide** — Rachel voice speaks alignment cues during DAB calibration ("Step into the frame", "Move closer", "Step back", etc.) so users don't need to read the screen while positioning.
+- **10 pre-generated MP3 clips** in `public/audio/guide/` — cached on mount, rate-limited playback (3s between different cues, 5s before repeating).
+- **"Ready. Go!" announcement** when calibration completes.
+- **Generation script** — `scripts/generate-guide-audio.mjs` for regenerating clips.
+
+### Fixed
+- **Directional alignment messages** — `off-left`, `off-right`, `head-cut` now show proper on-screen text instead of falling through to "Hold still…".
+
+## Bugfix: DAB page stuck on "Powering up" (2026-06-02)
+
+### Fixed
+- **DAB camera init never fired** — screen state defaulted to `"setup"` when localStorage key was missing, but the setup screen render path had been removed. Camera/model init was gated on `screen === "detecting"`, so it never ran. Now always starts in detecting mode.
+- **ModeIcon crash** — `mode` prop was undefined in some event card contexts, causing `startsWith` TypeError. Added default empty string.
+
 ## Phase 17: Home integration + event management (2026-06-02)
 
 ### Added
