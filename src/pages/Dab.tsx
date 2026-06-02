@@ -10,8 +10,10 @@ import {
 } from "@mediapipe/tasks-vision";
 import { DetectionEngineV1, DEFAULT_THRESHOLDS as V1_DEFAULTS } from "../lib/detectionV1";
 import { DetectionEngineV2 } from "../lib/detectionV2";
+import { DetectionEngineV3 } from "../lib/detectionV3";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
+import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "../lib/detectionV3";
 import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
 import {
   generateQRDataUrl,
@@ -23,12 +25,35 @@ import {
 import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep, setGuestGender } from "../lib/guestSession";
+// TODO: wire up in V3 coaching work
+// import { speakGuide, stopGuide } from "../lib/voiceGuide";
+// import { unlockAudio } from "../lib/repAudio";
 import type { Gender } from "../contexts/AuthContext";
 
-type Screen = "detecting" | "summary" | "gender-picker";
-type EngineVersion = "v1" | "v2";
+type Screen = "setup" | "detecting" | "summary" | "gender-picker";
+type EngineVersion = "v1" | "v2" | "v3";
 
 const CALIBRATION_FRAMES = 30;
+const SETUP_DISMISSED_KEY = "repps_setup_dismissed";
+const DIFFICULTY_KEY = "repps_difficulty_level";
+
+const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> = {
+  shallow_descent: { first: "Get lower — chest to the ground!", escalated: "Try kicking your feet back to a plank first." },
+  no_plank: { first: "Kick your feet back to a plank!", escalated: "From the squat, jump your feet back before going down." },
+  no_floor_contact: { first: "Lower your chest to the floor!", escalated: "From plank, bend your arms and lay flat." },
+  incomplete_rise: { first: "Stand up all the way!", escalated: "Push up, jump feet forward, then stand tall." },
+  no_jump: { first: "Add a jump at the top!", escalated: "After standing, push off both feet and reach your hands up." },
+  no_tuck: { first: "Drive your knees to your chest!", escalated: "At the top of your jump, pull both knees up high." },
+  too_slow: { first: "Too slow — keep moving!", escalated: "Too slow — keep moving!" },
+  lost_tracking: { first: "Stay in the frame!", escalated: "Stay in the frame!" },
+};
+
+const COACHING_MESSAGES: Record<string, string> = {
+  keep_going_down: "Keep going down!",
+  lower_your_chest: "Lower your chest!",
+  push_up_and_stand: "Push up and stand!",
+  stay_in_frame: "Stay in the frame!",
+};
 
 export default function Dab() {
   const { profile, loading: authLoading } = useAuth();
@@ -45,10 +70,10 @@ export default function Dab() {
       .eq("key", "detection_engine")
       .single()
       .then(({ data }) => {
-        if (data?.value === "v1" || data?.value === "v2") setSettingsEngine(data.value);
+        if (data?.value === "v1" || data?.value === "v2" || data?.value === "v3") setSettingsEngine(data.value);
       });
   }, []);
-  const engineVersion: EngineVersion = queryEngine === "1" ? "v1" : queryEngine === "2" ? "v2" : settingsEngine;
+  const engineVersion: EngineVersion = queryEngine === "1" ? "v1" : queryEngine === "2" ? "v2" : queryEngine === "3" ? "v3" : settingsEngine;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,6 +84,7 @@ export default function Dab() {
 
   const engineV1Ref = useRef<DetectionEngineV1 | null>(null);
   const engineV2Ref = useRef<DetectionEngineV2 | null>(null);
+  const engineV3Ref = useRef<DetectionEngineV3 | null>(null);
 
   const repCountRef = useRef(0);
   const calibratedRef = useRef(false);
@@ -78,7 +104,9 @@ export default function Dab() {
 
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [screen, setScreen] = useState<Screen>("detecting");
+  const [screen, setScreen] = useState<Screen>(() =>
+    localStorage.getItem(SETUP_DISMISSED_KEY) ? "detecting" : "setup"
+  );
   const [celebrating, setCelebrating] = useState(false);
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<string>("UNKNOWN");
@@ -111,6 +139,54 @@ export default function Dab() {
   const [hipAngle, setHipAngle] = useState(180);
   const [kneeAngle, setKneeAngle] = useState(180);
   const [torsoAngle, setTorsoAngle] = useState(0);
+
+  // V3-specific state
+  const [rejectionToast, setRejectionToast] = useState<string | null>(null);
+  const [coachingCueText, setCoachingCueText] = useState<string | null>(null);
+  const rejectionToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coachingCueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRejectionTimeRef = useRef(0);
+  const consecutiveRejectionRef = useRef<{ reason: string; count: number }>({ reason: "", count: 0 });
+  const [v3DeepestPhase, setV3DeepestPhase] = useState<CyclePhase | null>(null);
+  const [v3CycleDuration, setV3CycleDuration] = useState(0);
+  const [elbowAngle, setElbowAngle] = useState<number | null>(null);
+  const [v3Difficulty, setV3Difficulty] = useState<DifficultyLevel>("standard");
+
+  const showRejection = useCallback((reason: RejectionReason) => {
+    if (reason === "jitter") return;
+    const now = Date.now();
+    if (now - lastRejectionTimeRef.current < 3000) return;
+    lastRejectionTimeRef.current = now;
+
+    navigator.vibrate?.([50, 50, 50]);
+
+    const msgs = REJECTION_MESSAGES[reason];
+    if (!msgs) return;
+
+    const tracker = consecutiveRejectionRef.current;
+    if (tracker.reason === reason) {
+      tracker.count++;
+    } else {
+      tracker.reason = reason;
+      tracker.count = 1;
+    }
+
+    const useEscalated = tracker.count >= 3 && tracker.count < 5;
+    const message = useEscalated ? msgs.escalated : msgs.first;
+    if (tracker.count >= 5) tracker.count = 0;
+
+    setRejectionToast(message);
+    if (rejectionToastTimeoutRef.current) clearTimeout(rejectionToastTimeoutRef.current);
+    rejectionToastTimeoutRef.current = setTimeout(() => setRejectionToast(null), 2500);
+  }, []);
+
+  const showCoachingCue = useCallback((cue: CoachingCue) => {
+    const text = COACHING_MESSAGES[cue];
+    if (!text) return;
+    setCoachingCueText(text);
+    if (coachingCueTimeoutRef.current) clearTimeout(coachingCueTimeoutRef.current);
+    coachingCueTimeoutRef.current = setTimeout(() => setCoachingCueText(null), 1500);
+  }, []);
 
   // Preload rep audio clips and brand assets
   useEffect(() => {
@@ -175,9 +251,18 @@ export default function Dab() {
     if (engineVersion === "v1") {
       engineV1Ref.current = new DetectionEngineV1();
       engineV2Ref.current = null;
-    } else {
+      engineV3Ref.current = null;
+    } else if (engineVersion === "v2") {
       engineV2Ref.current = new DetectionEngineV2();
       engineV1Ref.current = null;
+      engineV3Ref.current = null;
+    } else {
+      const diff = (localStorage.getItem(DIFFICULTY_KEY) || "standard") as DifficultyLevel;
+      const queryDiff = searchParams.get("difficulty") as DifficultyLevel | null;
+      engineV3Ref.current = new DetectionEngineV3(queryDiff || diff);
+      setV3Difficulty(queryDiff || diff);
+      engineV1Ref.current = null;
+      engineV2Ref.current = null;
     }
 
     const init = async () => {
@@ -470,6 +555,89 @@ export default function Dab() {
                   return next.length > 20 ? next.slice(0, 20) : next;
                 });
               }
+            } else if (engineVersion === "v3" && engineV3Ref.current) {
+              const frame = engineV3Ref.current.processFrame(lm, now);
+
+              if (now - lastSignalUpdateRef.current > 100) {
+                lastSignalUpdateRef.current = now;
+                setRatio(frame.heightRatio);
+                setCurrentState(frame.state);
+                setAlignmentStatus(frame.alignmentStatus);
+                setCalibrationCount(Math.floor(frame.calibrationProgress * CALIBRATION_FRAMES));
+                setCameraAngle(frame.cameraAngle);
+                setStabilityStatus(frame.stabilityStatus);
+                setStabilityProgress(frame.calibrationProgress);
+                setHipAngle(frame.hipAngle ?? 180);
+                setKneeAngle(frame.kneeAngle ?? 180);
+                setTorsoAngle(frame.torsoAngle ?? 0);
+                setElbowAngle(frame.elbowAngle);
+                setV3DeepestPhase(frame.deepestPhase);
+                setV3CycleDuration(frame.cycleDuration);
+              }
+
+              if (frame.calibrated && !calibratedRef.current) {
+                calibratedRef.current = true;
+                setCalibrated(true);
+                setShowReady(true);
+                playGoAudio();
+                setTimeout(() => setShowReady(false), 1500);
+                accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+                accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
+                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                  recordCanvasRef.current.width = videoRef.current.videoWidth;
+                  recordCanvasRef.current.height = videoRef.current.videoHeight;
+                  const audioTracks = streamRef.current?.getAudioTracks() ?? [];
+                  recorderRef.current = createVideoRecorder(recordCanvasRef.current, audioTracks);
+                  recorderRef.current.start();
+                }
+              }
+
+              if (frame.rejection) {
+                showRejection(frame.rejection);
+              }
+
+              if (frame.coachingCue) {
+                showCoachingCue(frame.coachingCue);
+              }
+
+              if (frame.repCount > lastRepCount) {
+                lastRepCount = frame.repCount;
+                repCountRef.current = frame.repCount;
+                setReps(frame.repCount);
+                playRepAudio(frame.repCount);
+                navigator.vibrate?.(100);
+                consecutiveRejectionRef.current = { reason: "", count: 0 };
+                if (!tuneMode) insertRep();
+                if (frame.repCount === 1) {
+                  try {
+                    if (videoRef.current && videoRef.current.videoWidth > 0) {
+                      const pc = document.createElement("canvas");
+                      pc.width = videoRef.current.videoWidth;
+                      pc.height = videoRef.current.videoHeight;
+                      const pctx = pc.getContext("2d");
+                      if (pctx) {
+                        pctx.translate(pc.width, 0);
+                        pctx.scale(-1, 1);
+                        pctx.drawImage(videoRef.current, 0, 0);
+                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                      }
+                    }
+                  } catch { /* ignore */ }
+                }
+              }
+
+              if (frame.stateChanged) {
+                const angleInfo = frame.cameraAngle === "side"
+                  ? ` hip=${(frame.hipAngle ?? 0).toFixed(0)}° torso=${(frame.torsoAngle ?? 0).toFixed(0)}°`
+                  : "";
+                const rejInfo = frame.rejection ? ` REJ:${frame.rejection}` : "";
+                const cueInfo = frame.coachingCue ? ` CUE:${frame.coachingCue}` : "";
+                setStateLog((prev) => {
+                  const entry = `${frame.state} r=${frame.heightRatio.toFixed(2)} raw=${frame.rawHeightRatio.toFixed(2)}${angleInfo}${rejInfo}${cueInfo}`;
+                  const next = [entry, ...prev];
+                  return next.length > 30 ? next.slice(0, 30) : next;
+                });
+              }
             }
           }
 
@@ -500,7 +668,7 @@ export default function Dab() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [authLoading, screen, insertRep, tuneMode, engineVersion, retryCount]);
+  }, [authLoading, screen, insertRep, tuneMode, engineVersion, retryCount, showRejection, showCoachingCue, searchParams]);
 
   const finishSession = useCallback(async () => {
     // Capture video blob BEFORE changing screen state
@@ -814,7 +982,8 @@ export default function Dab() {
         {tuneMode && (
           <p className="text-micro text-accent uppercase mb-1">
             Tune Mode — {engineVersion.toUpperCase()}
-            {engineVersion === "v2" && cameraAngle !== "unknown" && ` — ${cameraAngle.toUpperCase()}`}
+            {(engineVersion === "v2" || engineVersion === "v3") && cameraAngle !== "unknown" && ` — ${cameraAngle.toUpperCase()}`}
+            {engineVersion === "v3" && ` — ${v3Difficulty.toUpperCase()}`}
           </p>
         )}
         <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
@@ -922,6 +1091,23 @@ export default function Dab() {
             <p className="text-display-lg text-accent font-bold animate-pulse">GO!</p>
           </div>
         )}
+        {rejectionToast && (
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <div
+              className="px-5 py-3 rounded-pill text-white font-bold text-[16px] text-center max-w-[80%] animate-[fadeInOut_2.5s_ease-apple_forwards]"
+              style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
+            >
+              {rejectionToast}
+            </div>
+          </div>
+        )}
+        {coachingCueText && !rejectionToast && (
+          <div className="absolute bottom-16 left-0 right-0 flex justify-center z-20 pointer-events-none">
+            <p className="text-caption text-ink-secondary bg-bg-base/70 px-4 py-1.5 rounded-pill animate-[fadeInOut_1.5s_ease-apple_forwards]">
+              {coachingCueText}
+            </p>
+          </div>
+        )}
         <video
           ref={videoRef}
           playsInline
@@ -972,7 +1158,7 @@ export default function Dab() {
           <div className="flex gap-4 px-3 py-1 bg-bg-surface rounded-pill text-micro text-ink-muted tabular-nums">
             <span>{calibrated ? currentState : (alignmentStatus === "stabilizing" ? "Stabilizing…" : "Stand still…")}</span>
             <span>{ratio.toFixed(2)}</span>
-            {engineVersion === "v2" && cameraAngle !== "unknown" && (
+            {(engineVersion === "v2" || engineVersion === "v3") && cameraAngle !== "unknown" && (
               <span>{cameraAngle}</span>
             )}
           </div>
@@ -989,7 +1175,8 @@ export default function Dab() {
             >
               <span>
                 {engineVersion.toUpperCase()} — {calibrated ? currentState : (alignmentStatus === "stabilizing" ? "Stabilizing" : "Stand still…")} — ratio {ratio.toFixed(2)}
-                {engineVersion === "v2" && cameraAngle !== "unknown" && ` — ${cameraAngle}`}
+                {(engineVersion === "v2" || engineVersion === "v3") && cameraAngle !== "unknown" && ` — ${cameraAngle}`}
+                {engineVersion === "v3" && ` — ${v3Difficulty}`}
               </span>
               <span>{tuneOpen ? "▼" : "▲"}</span>
             </button>
@@ -997,11 +1184,21 @@ export default function Dab() {
               <div className="px-3 pb-3 space-y-3">
                 <div className="bg-bg-elevated rounded-md p-2 text-micro text-ink-muted">
                   DB writes disabled. Engine: {engineVersion.toUpperCase()}.
-                  {engineVersion === "v2" && cameraAngle !== "unknown" && ` Angle: ${cameraAngle}.`}
-                  {engineVersion === "v2" && !calibrated && stabilityStatus !== "stable" && " Waiting for stability…"}
+                  {(engineVersion === "v2" || engineVersion === "v3") && cameraAngle !== "unknown" && ` Angle: ${cameraAngle}.`}
+                  {(engineVersion === "v2" || engineVersion === "v3") && !calibrated && stabilityStatus !== "stable" && " Waiting for stability…"}
                   {!calibrated && stabilityStatus === "stable" && " Stand still with full body visible…"}
-                  {engineVersion === "v2" && calibrated && cameraAngle === "side" && (
+                  {(engineVersion === "v2" || engineVersion === "v3") && calibrated && (
                     <> Hip: {hipAngle.toFixed(0)}° Knee: {kneeAngle.toFixed(0)}° Torso: {torsoAngle.toFixed(0)}°</>
+                  )}
+                  {engineVersion === "v3" && calibrated && elbowAngle !== null && (
+                    <> Elbow: {elbowAngle.toFixed(0)}°</>
+                  )}
+                  {engineVersion === "v3" && calibrated && (
+                    <>
+                      {v3DeepestPhase && <> Deepest: {v3DeepestPhase}</>}
+                      {v3CycleDuration > 0 && <> Cycle: {(v3CycleDuration / 1000).toFixed(1)}s</>}
+                      <> Level: {v3Difficulty}</>
+                    </>
                   )}
                 </div>
                 {engineVersion === "v1" && (
@@ -1042,6 +1239,7 @@ export default function Dab() {
                       repCountRef.current = 0;
                       engineV1Ref.current?.reset();
                       engineV2Ref.current?.reset();
+                      engineV3Ref.current?.reset();
                       setStateLog([]);
                     }}
                     className="flex-1 bg-bg-input text-ink-secondary text-micro rounded-md py-2"
@@ -1063,6 +1261,7 @@ export default function Dab() {
                     onClick={() => {
                       engineV1Ref.current?.recalibrate();
                       engineV2Ref.current?.recalibrate();
+                      engineV3Ref.current?.recalibrate();
                       calibratedRef.current = false;
                       setCalibrated(false);
                       setCalibrationCount(0);
