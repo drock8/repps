@@ -5,6 +5,12 @@ import { supabase } from "../lib/supabase";
 type FeedbackType = "feature" | "bug" | "comment";
 type FABView = "submit" | "history";
 
+interface UserReply {
+  text: string;
+  created_at: string;
+  from: "user" | "admin";
+}
+
 interface FeedbackItem {
   id: string;
   type: string;
@@ -13,6 +19,7 @@ interface FeedbackItem {
   status: string;
   admin_reply: string | null;
   replied_at: string | null;
+  user_replies: UserReply[];
   created_at: string;
 }
 
@@ -50,6 +57,8 @@ export default function FeedbackFAB() {
   const [history, setHistory] = useState<FeedbackItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [threadReply, setThreadReply] = useState("");
+  const [threadSending, setThreadSending] = useState(false);
 
   const config = TYPE_CONFIG.find((t) => t.id === activeType)!;
 
@@ -58,7 +67,7 @@ export default function FeedbackFAB() {
     setHistoryLoading(true);
     const { data } = await supabase
       .from("feedback")
-      .select("id, type, title, description, status, admin_reply, replied_at, created_at")
+      .select("id, type, title, description, status, admin_reply, replied_at, user_replies, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (data) setHistory(data);
@@ -68,6 +77,22 @@ export default function FeedbackFAB() {
   useEffect(() => {
     if (open && view === "history") loadHistory();
   }, [open, view, loadHistory]);
+
+  async function sendThreadReply(itemId: string) {
+    if (!threadReply.trim()) return;
+    setThreadSending(true);
+    const item = history.find((h) => h.id === itemId);
+    if (!item) { setThreadSending(false); return; }
+    const newReply: UserReply = { text: threadReply.trim(), created_at: new Date().toISOString(), from: "user" };
+    const updated = [...(item.user_replies ?? []), newReply];
+    await supabase.from("feedback").update({
+      user_replies: updated,
+      updated_at: new Date().toISOString(),
+    }).eq("id", itemId);
+    setHistory((prev) => prev.map((h) => h.id === itemId ? { ...h, user_replies: updated } : h));
+    setThreadReply("");
+    setThreadSending(false);
+  }
 
   function reset() {
     setTitle("");
@@ -340,61 +365,109 @@ export default function FeedbackFAB() {
                     {history.map((item) => {
                       const isExpanded = expandedId === item.id;
                       const statusInfo = STATUS_LABELS[item.status] ?? { label: item.status, color: "text-ink-muted" };
+                      const hasReply = item.admin_reply || (item.user_replies && item.user_replies.length > 0);
+                      const replyCount = (item.admin_reply ? 1 : 0) + (item.user_replies?.length ?? 0);
                       return (
-                        <button
+                        <div
                           key={item.id}
-                          onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                          className={`w-full text-left rounded-xl border p-3 transition-all ${
-                            item.admin_reply
+                          className={`w-full text-left rounded-xl border transition-all ${
+                            hasReply
                               ? "border-accent/30 bg-accent/5"
                               : "border-divider bg-bg-surface"
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            <span className="text-base flex-shrink-0">{typeIcon(item.type)}</span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium text-ink-primary truncate">
-                                  {item.title ?? item.description.slice(0, 50)}
-                                </p>
-                                <span className="text-[10px] text-ink-muted flex-shrink-0">
-                                  {formatDate(item.created_at)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-[10px] font-semibold ${statusInfo.color}`}>
-                                  {statusInfo.label}
-                                </span>
-                                {item.admin_reply && (
-                                  <span className="text-[10px] font-bold text-accent px-1.5 py-0.5 rounded bg-accent/10">
-                                    Reply
-                                  </span>
-                                )}
-                              </div>
-
-                              {isExpanded && (
-                                <div className="mt-3 space-y-2">
-                                  <p className="text-xs text-ink-secondary leading-relaxed whitespace-pre-line">
-                                    {item.description}
+                          {/* Collapsed header — always tappable */}
+                          <button
+                            onClick={() => { setExpandedId(isExpanded ? null : item.id); setThreadReply(""); }}
+                            className="w-full text-left p-3"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-base flex-shrink-0">{typeIcon(item.type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-ink-primary truncate">
+                                    {item.title ?? item.description.slice(0, 50)}
                                   </p>
-                                  {item.admin_reply && (
-                                    <div className="bg-accent/10 rounded-lg p-3 border border-accent/20">
-                                      <p className="text-[10px] font-bold text-accent mb-1">Admin Reply</p>
-                                      <p className="text-xs text-ink-primary leading-relaxed whitespace-pre-line">
-                                        {item.admin_reply}
-                                      </p>
-                                      {item.replied_at && (
-                                        <p className="text-[10px] text-ink-muted mt-1">
-                                          {formatDate(item.replied_at)}
-                                        </p>
-                                      )}
-                                    </div>
+                                  <span className="text-[10px] text-ink-muted flex-shrink-0">
+                                    {formatDate(item.created_at)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className={`text-[10px] font-semibold ${statusInfo.color}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                  {replyCount > 0 && (
+                                    <span className="text-[10px] font-bold text-accent px-1.5 py-0.5 rounded bg-accent/10">
+                                      {replyCount} {replyCount === 1 ? "reply" : "replies"}
+                                    </span>
                                   )}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        </button>
+                          </button>
+
+                          {/* Expanded thread */}
+                          {isExpanded && (
+                            <div className="px-3 pb-3 space-y-2">
+                              {/* Original message */}
+                              <div className="bg-bg-elevated rounded-lg p-3 ml-6">
+                                <p className="text-[10px] font-semibold text-ink-muted mb-1">You · {formatDate(item.created_at)}</p>
+                                <p className="text-xs text-ink-primary leading-relaxed whitespace-pre-line">
+                                  {item.description}
+                                </p>
+                              </div>
+
+                              {/* Build conversation timeline from admin_reply + user_replies */}
+                              {(() => {
+                                const messages: { text: string; from: "user" | "admin"; created_at: string }[] = [];
+                                if (item.admin_reply && item.replied_at) {
+                                  messages.push({ text: item.admin_reply, from: "admin", created_at: item.replied_at });
+                                }
+                                if (item.user_replies) {
+                                  messages.push(...item.user_replies);
+                                }
+                                messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                                return messages.map((msg, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg p-3 ${
+                                      msg.from === "admin"
+                                        ? "bg-accent/10 border border-accent/20 ml-6"
+                                        : "bg-bg-elevated ml-6"
+                                    }`}
+                                  >
+                                    <p className={`text-[10px] font-semibold mb-1 ${msg.from === "admin" ? "text-accent" : "text-ink-muted"}`}>
+                                      {msg.from === "admin" ? "REPPs Team" : "You"} · {formatDate(msg.created_at)}
+                                    </p>
+                                    <p className="text-xs text-ink-primary leading-relaxed whitespace-pre-line">
+                                      {msg.text}
+                                    </p>
+                                  </div>
+                                ));
+                              })()}
+
+                              {/* Reply input */}
+                              <div className="flex gap-2 ml-6 pt-1">
+                                <input
+                                  type="text"
+                                  value={threadReply}
+                                  onChange={(e) => setThreadReply(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendThreadReply(item.id); } }}
+                                  placeholder="Write a reply..."
+                                  maxLength={2000}
+                                  className="flex-1 bg-bg-input border border-divider rounded-xl px-3 py-2 text-xs text-ink-primary placeholder:text-ink-muted/50 focus:outline-none focus:border-accent"
+                                />
+                                <button
+                                  onClick={() => sendThreadReply(item.id)}
+                                  disabled={threadSending || !threadReply.trim()}
+                                  className="repps-gradient text-black text-xs font-semibold px-3 py-2 rounded-xl disabled:opacity-30"
+                                >
+                                  {threadSending ? "..." : "Send"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

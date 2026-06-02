@@ -17,6 +17,7 @@ interface FeedbackItem {
   updated_at: string;
   admin_reply: string | null;
   replied_at: string | null;
+  user_replies: { text: string; created_at: string; from: "user" | "admin" }[];
   vote_count: number;
   user_voted: boolean;
 }
@@ -351,6 +352,21 @@ export default function AdminFeatures() {
               />
             </div>
           )}
+          {/* Conversation thread */}
+          {selected.source === "user" && selected.user_replies && selected.user_replies.length > 0 && (
+            <div className="mt-4 border-t border-divider pt-4 space-y-2">
+              <label className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Conversation</label>
+              {selected.user_replies.map((r, idx) => (
+                <div key={idx} className={`rounded-lg p-3 ${r.from === "admin" ? "bg-accent/10 border border-accent/20" : "bg-bg-elevated border border-divider"}`}>
+                  <p className={`text-[10px] font-semibold mb-1 ${r.from === "admin" ? "text-accent" : "text-ink-muted"}`}>
+                    {r.from === "admin" ? "You" : selected.user_name} · {new Date(r.created_at).toLocaleDateString()}
+                  </p>
+                  <p className="text-xs text-ink-primary leading-relaxed whitespace-pre-line">{r.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Reply section */}
           {selected.source === "user" && (
             <div className="mt-4 border-t border-divider pt-4">
