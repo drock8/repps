@@ -27,9 +27,9 @@ const HOME_ICONS: Record<string, string> = {
 function makeTabs(theme: string): Tab[] {
   return [
     { to: "/home", label: "Home", icon: { type: "img", src: HOME_ICONS[theme] || HOME_ICONS.orange }, end: true },
-    { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
-    { to: "/leaderboard", label: "Board", icon: { type: "svg", d: BOARD_ICON_D }, end: false },
     { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false },
+    { to: "/leaderboard", label: "Board", icon: { type: "svg", d: BOARD_ICON_D }, end: false },
+    { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
     { to: "/profile", label: "Profile", icon: { type: "svg", d: PROFILE_ICON_D }, end: false },
   ];
 }

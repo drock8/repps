@@ -672,34 +672,63 @@ export default function Profile() {
           </button>
         )}
 
-        {/* Repp Score */}
+        {/* Repp Score — Today + All Time */}
         <div className="bg-bg-surface rounded-lg p-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">
-            Repp Score
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-display-lg repps-gradient-text tabular-nums">
-              {repScore ? repScore.score.toLocaleString() : "—"}
-            </p>
-            <p className="text-caption text-ink-muted">pts</p>
-          </div>
-          {repScore && repScore.score > 0 && (
-            <div className="flex gap-3 mt-2">
-              <span className="text-micro text-ink-secondary">
-                {repScore.baseReps.toLocaleString()} base
-              </span>
-              {repScore.individualStreak > 0 && (
-                <span className="text-micro text-accent">
-                  {repScore.individualStreak}d streak
-                </span>
-              )}
-              {repScore.teamStreak > 0 && (
-                <span className="text-micro text-accent">
-                  {repScore.teamStreak}d team
-                </span>
+          <div className="flex gap-4">
+            {/* Today */}
+            <div className="flex-1">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Today</p>
+              {(() => {
+                const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+                const todayRow = scoreHistory.find(r => r.day === todayStr);
+                const todayTotal = todayRow ? todayRow.dayTotal : (stats?.todayCount || 0);
+                return (
+                  <>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <p className="text-display-md repps-gradient-text tabular-nums">
+                        {todayTotal.toLocaleString()}
+                      </p>
+                      <p className="text-caption text-ink-muted">pts</p>
+                    </div>
+                    {todayRow && todayRow.dayTotal > 0 && (
+                      <div className="flex flex-col gap-0.5 mt-2">
+                        <span className="text-micro text-ink-secondary tabular-nums">{todayRow.reps} base</span>
+                        {todayRow.streakBonus + todayRow.teamStreakBonus > 0 && (
+                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus + todayRow.teamStreakBonus} bonus</span>
+                        )}
+                        {todayRow.dailyMultiplied > todayRow.reps && (
+                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} mult</span>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+            {/* Divider */}
+            <div className="w-px bg-divider" />
+            {/* All Time */}
+            <div className="flex-1">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">All Time</p>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <p className="text-display-md repps-gradient-text tabular-nums">
+                  {repScore ? repScore.score.toLocaleString() : "—"}
+                </p>
+                <p className="text-caption text-ink-muted">pts</p>
+              </div>
+              {repScore && repScore.score > 0 && (
+                <div className="flex flex-col gap-0.5 mt-2">
+                  <span className="text-micro text-ink-secondary tabular-nums">{repScore.baseReps.toLocaleString()} base</span>
+                  {(repScore.individualStreak + repScore.teamStreak) > 0 && (
+                    <span className="text-micro text-blue-400 tabular-nums">+{(repScore.individualStreak + repScore.teamStreak).toLocaleString()} bonus</span>
+                  )}
+                  {(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak) > 0 && (
+                    <span className="text-micro text-emerald-400 tabular-nums">+{(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak).toLocaleString()} mult</span>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Score breakdown history */}

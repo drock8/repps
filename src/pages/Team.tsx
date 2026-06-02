@@ -889,6 +889,26 @@ export default function Team() {
         </div>
       )}
 
+      {/* Team last 7 days */}
+      {teamDailyCounts.length > 0 && (
+        <div className="mb-4">
+          <WeeklyBarChart dailyCounts={teamDailyCounts} />
+        </div>
+      )}
+
+      {/* Team activity heatmap */}
+      {teamDailyCounts.length > 0 && (
+        <div className="mb-4">
+          <ActivityHeatmap
+            dailyCounts={teamDailyCounts}
+            months={3}
+            maxScale={300}
+            label="Team Activity"
+            scaleLabel="300"
+          />
+        </div>
+      )}
+
       {/* Team streak */}
       <div className="flex gap-2 mb-4">
         <div className="flex-1 bg-bg-surface rounded-lg p-4">
@@ -928,26 +948,6 @@ export default function Team() {
           </div>
         </div>
       </div>
-
-      {/* Team last 7 days */}
-      {teamDailyCounts.length > 0 && (
-        <div className="mb-4">
-          <WeeklyBarChart dailyCounts={teamDailyCounts} />
-        </div>
-      )}
-
-      {/* Team activity heatmap */}
-      {teamDailyCounts.length > 0 && (
-        <div className="mb-6">
-          <ActivityHeatmap
-            dailyCounts={teamDailyCounts}
-            months={3}
-            maxScale={300}
-            label="Team Activity"
-            scaleLabel="300"
-          />
-        </div>
-      )}
 
       {/* Invite button (captain only, when forming) */}
       {isCaptain && team.status === "forming" && (
