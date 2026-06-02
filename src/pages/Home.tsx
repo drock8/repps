@@ -147,6 +147,7 @@ export default function Home() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberProgress[]>([]);
   const [dailyTarget, setDailyTarget] = useState(5);
   const [teamRank, setTeamRank] = useState<TeamRankInfo | null>(null);
+  const [teamStreak, setTeamStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
   const [featuredEvent, setFeaturedEvent] = useState<FeaturedEvent | null>(null);
 
   useEffect(() => {
@@ -190,15 +191,23 @@ export default function Home() {
       return;
     }
 
-    const [membersRes, settingRes, teamRes, leaderboardRes] = await Promise.all([
+    const [membersRes, settingRes, teamRes, leaderboardRes, streakRes] = await Promise.all([
       supabase.from("profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
       supabase.from("settings").select("value").eq("key", "team_daily_target").single(),
       supabase.from("teams").select("name, logo_url").eq("id", profile.team_id).single(),
       supabase.rpc("get_team_score_leaderboard", { p_period: "all", p_limit: 50 }),
+      supabase.rpc("get_team_streak", { p_team_id: profile.team_id }),
     ]);
 
     const target = settingRes.data ? Number(settingRes.data.value) : 5;
     setDailyTarget(target);
+
+    if (streakRes.data) {
+      setTeamStreak({
+        current: (streakRes.data as { current_streak: number }).current_streak ?? 0,
+        longest: (streakRes.data as { longest_streak: number }).longest_streak ?? 0,
+      });
+    }
 
     if (leaderboardRes.data && teamRes.data) {
       const allTeams = (leaderboardRes.data as { team_id: string; team_name: string; combined_score: number }[]).map((r) => ({
@@ -376,73 +385,117 @@ export default function Home() {
 
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">
-          <div className="flex items-center justify-between bg-bg-surface rounded-lg px-3 py-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              {teamRank?.teamLogoUrl ? (
-                <img
-                  src={teamRank.teamLogoUrl}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-accent">
-                    <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
-                  </svg>
-                </div>
-              )}
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {teamRank && teamRank.rank > 0 && (
-                    <span className="text-body-lg leading-none flex-shrink-0">
-                      {teamRank.rank <= 3 ? MEDALS[teamRank.rank - 1] : (
-                        <span className="text-caption text-ink-muted font-bold">#{teamRank.rank}</span>
-                      )}
+          <div className="bg-bg-surface rounded-lg px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {teamRank?.teamLogoUrl ? (
+                  <img
+                    src={teamRank.teamLogoUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-accent">
+                      <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
+                    </svg>
+                  </div>
+                )}
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    {teamRank && teamRank.rank > 0 && (
+                      <span className="text-body-lg leading-none flex-shrink-0">
+                        {teamRank.rank <= 3 ? MEDALS[teamRank.rank - 1] : (
+                          <span className="text-caption text-ink-muted font-bold">#{teamRank.rank}</span>
+                        )}
+                      </span>
+                    )}
+                    <span className="text-caption text-ink-primary font-bold truncate">
+                      {teamRank?.teamName ?? "Team"}
                     </span>
-                  )}
-                  <span className="text-caption text-ink-primary font-bold truncate">
-                    {teamRank?.teamName ?? "Team"}
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-caption text-accent font-bold tabular-nums">
-                    {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} repps
-                  </span>
-                  <span className="text-micro text-ink-muted">today</span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-caption text-accent font-bold tabular-nums">
+                      {teamMembers.reduce((sum, m) => sum + m.todayCount, 0)} repps
+                    </span>
+                    <span className="text-micro text-ink-muted">today</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {teamMembers.map((m) => {
-                const hit = m.todayCount >= dailyTarget;
-                return (
-                  <div key={m.id} className="relative flex flex-col items-center" title={`${m.name}: ${m.todayCount}/${dailyTarget}`}>
-                    {m.avatarUrl ? (
-                      <img
-                        src={m.avatarUrl}
-                        alt=""
-                        referrerPolicy="no-referrer"
-                        className={`w-7 h-7 rounded-full object-cover ${hit ? "ring-2 ring-accent" : "opacity-40"}`}
-                      />
-                    ) : (
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        hit ? "bg-accent text-ink-inverse ring-2 ring-accent" : "bg-bg-elevated text-ink-muted opacity-40"
+              <div className="flex items-center gap-3">
+                {teamMembers.map((m) => {
+                  const hit = m.todayCount >= dailyTarget;
+                  return (
+                    <div key={m.id} className="relative flex flex-col items-center" title={`${m.name}: ${m.todayCount}/${dailyTarget}`}>
+                      {m.avatarUrl ? (
+                        <img
+                          src={m.avatarUrl}
+                          alt=""
+                          referrerPolicy="no-referrer"
+                          className={`w-7 h-7 rounded-full object-cover ${hit ? "ring-2 ring-accent" : "opacity-40"}`}
+                        />
+                      ) : (
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          hit ? "bg-accent text-ink-inverse ring-2 ring-accent" : "bg-bg-elevated text-ink-muted opacity-40"
+                        }`}>
+                          {m.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 min-w-[1rem] h-4 rounded-full flex items-center justify-center px-0.5 ${
+                        hit ? "bg-accent" : "bg-ink-muted/60"
                       }`}>
-                        {m.name.charAt(0).toUpperCase()}
+                        <span className={`text-[9px] font-bold tabular-nums leading-none ${hit ? "text-ink-inverse" : "text-white"}`}>
+                          {m.todayCount}
+                        </span>
                       </div>
-                    )}
-                    <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 min-w-[1rem] h-4 rounded-full flex items-center justify-center px-0.5 ${
-                      hit ? "bg-accent" : "bg-ink-muted/60"
-                    }`}>
-                      <span className={`text-[9px] font-bold tabular-nums leading-none ${hit ? "text-ink-inverse" : "text-white"}`}>
-                        {m.todayCount}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Team streak bar */}
+            {(() => {
+              const streak = teamStreak.current;
+              const maxLevel = 11;
+              const level = streak === 0 ? 0 : Math.min(maxLevel, Math.floor((streak - 1) / 10) + 1);
+              const memberCount = teamMembers.length;
+              const bonusPerRep = level * memberCount;
+              return (
+                <div className="mt-2.5 pt-2 border-t border-divider">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      {streak > 0 && (
+                        <img src="/Repps-Pumped-Yellow.png" alt="" className="w-4 h-4 object-contain" />
+                      )}
+                      <span className="text-micro text-ink-muted">
+                        <span className="text-blue-400 font-bold tabular-nums">{streak}</span> day streak
                       </span>
                     </div>
+                    <span className={`text-micro font-semibold ${bonusPerRep > 0 ? "text-blue-400" : "text-ink-muted"}`}>
+                      {bonusPerRep > 0 ? `+${bonusPerRep}/rep` : "+0/rep"}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: maxLevel }, (_, i) => {
+                      const lvl = i + 1;
+                      const filled = lvl <= level;
+                      return (
+                        <div key={lvl} className="flex-1">
+                          <div
+                            className={`w-full h-1.5 rounded-full transition-all duration-300 ${!filled ? "bg-bg-elevated" : ""}`}
+                            style={filled ? {
+                              background: `linear-gradient(90deg, #60A5FA, #3B82F6)`,
+                              opacity: 0.4 + 0.6 * (lvl / maxLevel),
+                            } : undefined}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           {teamRank?.insight && (
             <div className="mt-1.5 px-1">
