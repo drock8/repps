@@ -1,5 +1,30 @@
 # Changelog
 
+## Phase 17: Home integration + event management (2026-06-02)
+
+### Added
+- **Featured event on Home** — if an event is marked featured and active/announced, a card appears on the home screen with progress bar, countdown, and tap-to-open link.
+- **Auto-status transitions** — events auto-transition from announced→active (past start time) and active→completed (past end time) on Home, Events hub, and Event Detail pages.
+- **Realtime participant counts** — Events hub and Event Detail subscribe to Supabase Realtime on `event_participants` so join counts update live without refresh.
+- **Archive button** — organizers can archive completed events from the Event Detail page.
+- **Migration 031** — enable Realtime publication on `event_participants` table.
+
+### Changed
+- **Feature button** — only shown for announced/active official events (not completed/archived).
+
+## Alignment improvements (2026-06-02)
+
+### Changed
+- **Directional alignment feedback** — "off-center" split into "off-left" and "off-right" in both V1 and V2 engines for more helpful camera positioning guidance.
+- **Head-cut detection** — new "head-cut" alignment status when only the head is cropped out of frame, preventing misleading "too close" messages.
+
+## Infra: ngrok hosts, rep rate limit (2026-06-02)
+
+### Changed
+- **Vite allowed hosts** — added ngrok domains to `server.allowedHosts` for dev tunneling.
+- **Rep rate limit** — reduced from 3s to 1s cooldown. Detection engines already enforce 1.5s minimum rep duration, so 1s blocks scripted abuse without dropping legitimate fast reps.
+- **fadeInOut keyframe** — new CSS animation for ephemeral UI hints.
+
 ## Disable install prompt, harden calibration (2026-06-02)
 
 ### Changed
