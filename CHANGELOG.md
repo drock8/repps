@@ -1,5 +1,19 @@
 # Changelog
 
+## Feedback conversations + My Feedback (2026-06-02)
+
+### Added
+- **My Feedback view** — users tap the feedback button and toggle to "My Feedback" to see all their past submissions with current status and admin replies.
+- **Threaded conversations** — expanded feedback items show a chat-like thread. Users can send follow-up replies; admins see the full conversation in the detail panel.
+- **Admin reply** — Features, Bugs, and Comments admin boards now have a "Reply to User" section for user-submitted items. Replies are visible to the user in their feedback history.
+- **Unread indicator** — red dot on the feedback button when there's an unseen admin reply. Clears when the user expands the item. Persists across sessions via localStorage.
+- **Migration 029** — `admin_reply` and `replied_at` columns on `feedback` table, updated `get_feedback_with_votes` RPC.
+- **Migration 030** — `user_replies` jsonb column on `feedback` table for threaded conversation.
+
+### Changed
+- **Feedback button** — uses solid accent color with black icon/text instead of gradient with white (better contrast on yellow theme).
+- **Tab order** — feedback type tabs reordered to Comment / Feature / Bug (Comment is now the default).
+
 ## Feedback system: user-facing widget + admin boards (2026-06-02)
 
 ### Added
