@@ -1,10 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import AdminFeatures from "../components/admin/AdminFeatures";
+import AdminBugs from "../components/admin/AdminBugs";
+import AdminComments from "../components/admin/AdminComments";
 
 type Theme = "orange" | "blue" | "yellow";
 type EngineVersion = "v1" | "v2";
+type AdminTab = "dashboard" | "features" | "bugs" | "comments";
 
 interface Stats {
   totalReps: number;
@@ -25,6 +29,13 @@ interface ModelInfo {
 }
 
 const SUPER_ADMINS = ["superflyasia@gmail.com"];
+
+const TABS: { id: AdminTab; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "features", label: "Features" },
+  { id: "bugs", label: "Bugs" },
+  { id: "comments", label: "Comments" },
+];
 
 const MODELS: ModelInfo[] = [
   {
@@ -76,6 +87,12 @@ const THEMES: { id: Theme; label: string; primary: string; secondary: string }[]
 export default function Admin() {
   const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = searchParams.get("tab") as AdminTab | null;
+  const [activeTab, setActiveTab] = useState<AdminTab>(
+    tabParam && TABS.some((t) => t.id === tabParam) ? tabParam : "dashboard"
+  );
 
   const [authorized, setAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -83,6 +100,11 @@ export default function Admin() {
   const [activeEngine, setActiveEngine] = useState<EngineVersion>("v2");
   const [selectedTheme, setSelectedTheme] = useState<Theme>("orange");
   const [saving, setSaving] = useState<string | null>(null);
+
+  function switchTab(tab: AdminTab) {
+    setActiveTab(tab);
+    setSearchParams(tab === "dashboard" ? {} : { tab });
+  }
 
   useEffect(() => {
     if (authLoading) return;
@@ -200,7 +222,7 @@ export default function Admin() {
     <div className="min-h-screen bg-bg-base">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-bg-elevated/80 backdrop-blur-xl border-b border-divider">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-ink-primary">REPPs Admin</h1>
             <p className="text-xs text-ink-muted mt-0.5">
@@ -214,161 +236,187 @@ export default function Admin() {
             Back to App
           </button>
         </div>
+        {/* Tab navigation */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex gap-1 overflow-x-auto pb-0 -mb-px">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => switchTab(tab.id)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "border-accent text-accent"
+                    : "border-transparent text-ink-muted hover:text-ink-secondary"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-8 pb-20">
-        {/* Stats Overview */}
-        <section>
-          <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-4">
-            Platform Overview
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Total Repps" value={stats.totalReps.toLocaleString()} />
-            <StatCard label="Users" value={stats.totalUsers.toLocaleString()} />
-            <StatCard label="Teams" value={stats.totalTeams.toLocaleString()} />
-            <StatCard label="Active Events" value={stats.activeEvents.toLocaleString()} />
-          </div>
-        </section>
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-20">
+        {activeTab === "dashboard" && (
+          <div className="space-y-8">
+            {/* Stats Overview */}
+            <section>
+              <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider mb-4">
+                Platform Overview
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <StatCard label="Total Repps" value={stats.totalReps.toLocaleString()} />
+                <StatCard label="Users" value={stats.totalUsers.toLocaleString()} />
+                <StatCard label="Teams" value={stats.totalTeams.toLocaleString()} />
+                <StatCard label="Active Events" value={stats.activeEvents.toLocaleString()} />
+              </div>
+            </section>
 
-        {/* Detection Engine Selector */}
-        <section>
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
-              Verification Model
-            </h2>
-            <p className="text-xs text-ink-muted mt-1">
-              Select which detection engine is used app-wide for burpee verification.
-              Changes take effect immediately for new sessions.
-            </p>
-          </div>
-          <div className="space-y-3">
-            {MODELS.map((model) => {
-              const isActive = activeEngine === model.id;
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => handleEngineSelect(model.id)}
-                  disabled={saving === "detection_engine"}
-                  className={`w-full text-left rounded-2xl border-2 p-5 transition-all ${
-                    isActive
-                      ? "border-accent bg-accent/5"
-                      : "border-divider bg-bg-surface hover:border-ink-muted/30"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-ink-primary">
-                          {model.name}
-                        </h3>
-                        {isActive && (
-                          <span className="repps-gradient text-ink-inverse text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-ink-muted mt-0.5">{model.subtitle}</p>
-                    </div>
-                    <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                        isActive ? "border-accent bg-accent" : "border-ink-muted/40"
+            {/* Detection Engine Selector */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
+                  Verification Model
+                </h2>
+                <p className="text-xs text-ink-muted mt-1">
+                  Select which detection engine is used app-wide for burpee verification.
+                  Changes take effect immediately for new sessions.
+                </p>
+              </div>
+              <div className="space-y-3">
+                {MODELS.map((model) => {
+                  const isActive = activeEngine === model.id;
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => handleEngineSelect(model.id)}
+                      disabled={saving === "detection_engine"}
+                      className={`w-full text-left rounded-2xl border-2 p-5 transition-all ${
+                        isActive
+                          ? "border-accent bg-accent/5"
+                          : "border-divider bg-bg-surface hover:border-ink-muted/30"
                       }`}
                     >
-                      {isActive && (
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                          <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-sm text-ink-secondary mt-3 leading-relaxed">
-                    {model.description}
-                  </p>
-
-                  <div className="mt-4 grid sm:grid-cols-2 gap-x-6 gap-y-1">
-                    {model.features.map((f, i) => (
-                      <div key={i} className="flex items-start gap-2 py-1">
-                        <span className="text-accent text-xs mt-0.5 flex-shrink-0">
-                          {isActive ? "●" : "○"}
-                        </span>
-                        <span className="text-xs text-ink-secondary">{f}</span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-base font-bold text-ink-primary">
+                              {model.name}
+                            </h3>
+                            {isActive && (
+                              <span className="repps-gradient text-ink-inverse text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-ink-muted mt-0.5">{model.subtitle}</p>
+                        </div>
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                            isActive ? "border-accent bg-accent" : "border-ink-muted/40"
+                          }`}
+                        >
+                          {isActive && (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
-                    <div>
-                      <span className="text-ink-muted">Accuracy: </span>
-                      <span className="text-ink-primary font-medium">{model.accuracy}</span>
-                    </div>
-                    <div>
-                      <span className="text-ink-muted">Camera: </span>
-                      <span className="text-ink-primary font-medium">{model.cameraSupport}</span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+                      <p className="text-sm text-ink-secondary mt-3 leading-relaxed">
+                        {model.description}
+                      </p>
 
-        {/* Theme Switcher */}
-        <section>
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
-              App Theme
-            </h2>
-            <p className="text-xs text-ink-muted mt-1">
-              Change the global accent color. All users see this change in real-time.
-            </p>
+                      <div className="mt-4 grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                        {model.features.map((f, i) => (
+                          <div key={i} className="flex items-start gap-2 py-1">
+                            <span className="text-accent text-xs mt-0.5 flex-shrink-0">
+                              {isActive ? "●" : "○"}
+                            </span>
+                            <span className="text-xs text-ink-secondary">{f}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                        <div>
+                          <span className="text-ink-muted">Accuracy: </span>
+                          <span className="text-ink-primary font-medium">{model.accuracy}</span>
+                        </div>
+                        <div>
+                          <span className="text-ink-muted">Camera: </span>
+                          <span className="text-ink-primary font-medium">{model.cameraSupport}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Theme Switcher */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
+                  App Theme
+                </h2>
+                <p className="text-xs text-ink-muted mt-1">
+                  Change the global accent color. All users see this change in real-time.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {THEMES.map((t) => {
+                  const isActive = selectedTheme === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => handleThemeSelect(t.id)}
+                      disabled={saving === "theme"}
+                      className={`rounded-2xl border-2 p-4 transition-all ${
+                        isActive
+                          ? "border-accent bg-accent/5"
+                          : "border-divider bg-bg-surface hover:border-ink-muted/30"
+                      }`}
+                    >
+                      <div className="flex justify-center mb-3">
+                        <div
+                          className="w-12 h-12 rounded-full"
+                          style={{
+                            background: `linear-gradient(135deg, ${t.primary} 0%, ${t.secondary} 100%)`,
+                            boxShadow: isActive
+                              ? `0 0 20px 4px ${t.primary}40`
+                              : "none",
+                          }}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-ink-primary">{t.label}</p>
+                        <p className="text-[10px] text-ink-muted mt-0.5 font-mono">
+                          {t.primary}
+                        </p>
+                      </div>
+                      {isActive && (
+                        <div className="mt-2 flex justify-center">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+                            style={{ background: t.primary }}
+                          >
+                            Active
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            {THEMES.map((t) => {
-              const isActive = selectedTheme === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => handleThemeSelect(t.id)}
-                  disabled={saving === "theme"}
-                  className={`rounded-2xl border-2 p-4 transition-all ${
-                    isActive
-                      ? "border-accent bg-accent/5"
-                      : "border-divider bg-bg-surface hover:border-ink-muted/30"
-                  }`}
-                >
-                  <div className="flex justify-center mb-3">
-                    <div
-                      className="w-12 h-12 rounded-full"
-                      style={{
-                        background: `linear-gradient(135deg, ${t.primary} 0%, ${t.secondary} 100%)`,
-                        boxShadow: isActive
-                          ? `0 0 20px 4px ${t.primary}40`
-                          : "none",
-                      }}
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-ink-primary">{t.label}</p>
-                    <p className="text-[10px] text-ink-muted mt-0.5 font-mono">
-                      {t.primary}
-                    </p>
-                  </div>
-                  {isActive && (
-                    <div className="mt-2 flex justify-center">
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
-                        style={{ background: t.primary }}
-                      >
-                        Active
-                      </span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        )}
+
+        {activeTab === "features" && <AdminFeatures />}
+        {activeTab === "bugs" && <AdminBugs />}
+        {activeTab === "comments" && <AdminComments />}
       </main>
     </div>
   );

@@ -1,5 +1,19 @@
 # Changelog
 
+## Feedback system: user-facing widget + admin boards (2026-06-02)
+
+### Added
+- **Floating feedback button** — accent-colored FAB fixed in bottom-right corner of all app pages (above bottom nav). Tap opens a bottom sheet with three tabs: Feature / Bug / Comment. Features and bugs accept title + description + optional screenshot upload. Comments are text-only. Submissions go to `feedback` table in Supabase.
+- **Admin Features board** (`/admin?tab=features`) — 3-column drag-and-drop layout: Prioritized (left, reorderable build queue), My Ideas (center, admin's own features), User Requests (right, with upvote counts). Click any item for full detail panel with status management, screenshot preview, and queue controls. "+ Add" button for admin to log new ideas.
+- **Admin Bugs board** (`/admin?tab=bugs`) — same 3-column layout adapted for bug reports with screenshot thumbnails, bug-specific statuses (New → Investigating → Fixing → Fixed / Won't Fix), and Fix Queue.
+- **Admin Comments page** (`/admin?tab=comments`) — feed of user comments with All/Testimonials filter. Star button flags comments as testimonials for future display in the app. Delete button for moderation.
+- **Admin tab navigation** — Dashboard, Features, Bugs, Comments tabs in admin header. URL-synced via `?tab=` query param.
+- **Voting system** — users can upvote feature requests via `toggle_feedback_vote` RPC. Vote counts shown on admin boards.
+- **Migration 027** — `feedback` table (type, title, description, screenshot_url, user_id, source, status, priority_order, is_testimonial), `feedback_votes` table (unique per user per item), `feedback-screenshots` storage bucket, RLS policies, `get_feedback_with_votes` RPC, `toggle_feedback_vote` RPC, `update_feedback_priority` RPC.
+
+### Changed
+- **Admin dashboard** — max-width widened from `max-w-4xl` to `max-w-6xl` to accommodate 3-column boards.
+
 ## Super admin dashboard (2026-06-02)
 
 ### Added

@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import GenderPrompt from "./GenderPrompt";
 import AddToHomeScreen from "./AddToHomeScreen";
+import FeedbackFAB from "./FeedbackFAB";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -50,6 +51,7 @@ export default function Layout() {
       {!showGenderPrompt && <BottomNav />}
       {showGenderPrompt && <GenderPrompt />}
       {profile && !showGenderPrompt && <AddToHomeScreen />}
+      {!showGenderPrompt && <FeedbackFAB />}
     </div>
   );
 }
