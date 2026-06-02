@@ -762,7 +762,7 @@ export default function Team() {
                 <img src="/Repps-Pumped-Yellow.png" alt="streak" className="w-8 h-8 object-contain" />
               )}
               <div className="flex items-baseline gap-1.5">
-                <p className="text-display-md tabular-nums" style={{ color: "#F5C518" }}>
+                <p className="text-display-md text-blue-400 tabular-nums">
                   {teamStreak.current}
                 </p>
                 <p className="text-caption text-ink-muted">
