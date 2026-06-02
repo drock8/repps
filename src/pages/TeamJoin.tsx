@@ -68,7 +68,7 @@ export default function TeamJoin() {
     if (data && !data.success) {
       const msgs: Record<string, string> = {
         team_not_found: "Team not found",
-        team_full: "This team is already full (3/3)",
+        team_full: "This team is already full",
         already_on_team: "You're already on a team. Leave your current team first.",
         team_disbanded: "This team has been disbanded",
       };
@@ -117,7 +117,7 @@ export default function TeamJoin() {
       {/* Members preview */}
       <div className="w-full max-w-sm bg-bg-surface rounded-lg p-4 mb-6">
         <p className="text-micro text-ink-muted uppercase tracking-wide mb-3">
-          {team.members.length}/3 Members
+          {team.members.length}/3 members
         </p>
         <div className="flex flex-col gap-3">
           {team.members.map((m) => (
@@ -206,7 +206,7 @@ export default function TeamJoin() {
         </div>
       ) : isFull ? (
         <div className="w-full max-w-sm flex flex-col gap-3">
-          <p className="text-body text-ink-secondary text-center">This team is already full (3/3)</p>
+          <p className="text-body text-ink-secondary text-center">This team is already full</p>
           <button
             onClick={() => navigate("/team", { replace: true })}
             className="w-full py-4 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg transition-all duration-200 ease-apple active:scale-95"

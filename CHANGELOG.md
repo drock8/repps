@@ -1,5 +1,19 @@
 # Changelog
 
+## Allow 2-member teams with scaled multipliers (2026-06-03)
+
+### Changed
+- **Teams activate at 2 members** — no longer need 3 to unlock multipliers. Lowers barrier to entry.
+- **Daily multiplier scales with team size** — 2x for duos, 3x for trios (was hardcoded 3x).
+- **Team streak bonus scales with team size** — 2 members: +2 → +22/day, 3 members: +3 → +33/day (formula: base = N, cap = N×11).
+- **Leave team logic** — 3→2 member team stays `active`; only reverts to `forming` below 2.
+- **When a 3rd member joins** — team streak bonus immediately scales up for everyone; streak doesn't reset. New member's individual streak is their own.
+- **Profile score history** — column header changed from "3x" to "Mult" since multiplier is now dynamic.
+- **Migration 035** — rewrites `join_team`, `leave_team`, `get_team_streak`, `calculate_user_rep_score`, `get_user_score_history` with dynamic member-count-based multipliers.
+
+### Updated docs
+- APP_SPEC.md, CLAUDE.md, SOCIAL_SPEC.md, EVENTS_SPEC.md — all team size references updated.
+
 ## Team metrics: score breakdown, streak, activity heatmap (2026-06-03)
 
 ### Added

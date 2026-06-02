@@ -116,7 +116,7 @@ Six modes covering all individual/team + open/target combinations:
 
 - For team modes (`team_most`, `team_target`, `team_vs_team`): participants join with their existing REPPs team.
 - All active team members are automatically enrolled when any member joins.
-- A team must be in `active` status (3 members) to participate in team events.
+- A team must be in `active` status (2+ members) to participate in team events.
 - If a team member leaves their REPPs team during an event, their reps up to the leave date still count. The team continues with remaining members.
 
 ---
@@ -573,7 +573,7 @@ When `retroactive_reps` is false: only reps from `joined_at` onward count for th
 | User joins event late with retroactive off | Only reps from `joined_at` through `ends_at` count |
 | User withdraws from event | Status set to 'withdrawn'. Reps stop counting from withdrawal. Previous reps still visible in frozen results. |
 | Team member leaves REPPs team during team event | Their reps up to leave date still count for the team total. Remaining members continue. |
-| Team drops below 3 members during team event | Team stays enrolled but flagged. Reps still count. The team competes at a disadvantage. |
+| Team drops below 2 members during team event | Team stays enrolled but flagged. Reps still count. The team competes at a disadvantage. |
 | Event starts with 0 participants | Valid — participants can join after start (if `allow_late_join`). |
 | User is in 5 events simultaneously | All fine — each rep counts toward all 5 event leaderboards. |
 | Target reached before `ends_at` | For `global_target`: event can auto-complete or continue (organizer choice). For `individual_target`/`team_target`: first to hit wins, event continues for remaining positions. |

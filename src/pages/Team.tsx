@@ -224,7 +224,7 @@ export default function Team() {
     if (data && !data.success) {
       const msgs: Record<string, string> = {
         team_not_found: "No team found with that code",
-        team_full: "This team is already full (3/3)",
+        team_full: "This team is already full",
         already_on_team: "You're already on a team",
         team_disbanded: "This team has been disbanded",
       };
@@ -407,7 +407,7 @@ export default function Team() {
         </div>
         <p className="text-headline text-ink-primary mb-1">Team Created</p>
         <p className="text-body text-ink-secondary text-center mb-6">
-          Invite 2 teammates to unlock multipliers
+          Invite a teammate to unlock multipliers
         </p>
 
         <div className="w-full max-w-sm bg-bg-surface rounded-lg p-6 flex flex-col items-center gap-4">
@@ -447,7 +447,7 @@ export default function Team() {
       <div className="flex flex-col items-center pt-8 px-4">
         <p className="text-headline text-ink-primary mb-1">Create a Team</p>
         <p className="text-body text-ink-secondary text-center mb-6">
-          Teams of 3 unlock multipliers on your Repp Score
+          Teams of 2+ unlock multipliers on your Repp Score
         </p>
 
         <div className="w-full max-w-sm flex flex-col gap-3">
@@ -625,7 +625,7 @@ export default function Team() {
               </div>
             )}
             <p className="text-caption text-ink-muted mt-0.5">
-              {members.length}/3 members
+              {members.length}/3 members · {members.length >= 2 ? `${members.length}x` : "no"} multiplier
             </p>
           </div>
         </div>
@@ -872,15 +872,15 @@ export default function Team() {
       <div className="bg-bg-surface rounded-lg p-4 mb-4">
         <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Daily Team Target</p>
         <p className="text-body text-ink-secondary">
-          All 3 members hit <span className="text-accent font-bold">{dailyTarget} repps</span> to unlock the <span className="text-accent font-bold">3x multiplier</span>
+          All {members.length} members hit <span className="text-accent font-bold">{dailyTarget} repps</span> to unlock the <span className="text-accent font-bold">{members.length}x multiplier</span>
         </p>
         {team.status === "active" && (
           <div className="mt-3">
             {members.every(m => m.today_count >= dailyTarget) ? (
-              <p className="text-caption text-success font-semibold">3x multiplier active today</p>
+              <p className="text-caption text-success font-semibold">{members.length}x multiplier active today</p>
             ) : (
               <p className="text-caption text-ink-muted">
-                {members.filter(m => m.today_count >= dailyTarget).length}/3 members hit target today
+                {members.filter(m => m.today_count >= dailyTarget).length}/{members.length} members hit target today
               </p>
             )}
           </div>
@@ -916,16 +916,16 @@ export default function Team() {
                 <p className="text-caption text-ink-secondary">Every validated burpee = <span className="text-accent font-bold">1 point</span></p>
               </div>
 
-              {/* Daily 3x */}
+              {/* Daily Nx */}
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-accent flex-shrink-0">
                     <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
                   </svg>
-                  <p className="text-caption text-ink-primary font-bold">Daily Team Bonus (3x)</p>
+                  <p className="text-caption text-ink-primary font-bold">Daily Team Bonus ({members.length}x)</p>
                 </div>
                 <p className="text-caption text-ink-secondary">
-                  When all 3 team members hit <span className="font-semibold">{dailyTarget}+ repps</span> in a day, everyone's base points for that day are <span className="text-accent font-bold">tripled</span>.
+                  When all team members hit <span className="font-semibold">{dailyTarget}+ repps</span> in a day, everyone's base points are multiplied by the team size (<span className="text-accent font-bold">{members.length}x</span>). Add a 3rd member to go from 2x to 3x.
                 </p>
               </div>
 
@@ -938,7 +938,7 @@ export default function Team() {
                   <p className="text-caption text-ink-primary font-bold">Weekly Team Bonus (2x)</p>
                 </div>
                 <p className="text-caption text-ink-secondary">
-                  If all 3 members hit the daily target on at least <span className="font-semibold">5 of 7 days</span> in a week, the whole week's points are <span className="text-accent font-bold">doubled</span>. Stacks with the daily 3x — a perfect week = <span className="text-accent font-bold">6x</span>.
+                  If all members hit the daily target on at least <span className="font-semibold">5 of 7 days</span> in a week, the whole week's points are <span className="text-accent font-bold">doubled</span>. Stacks with the daily bonus — a perfect week with 3 members = <span className="text-accent font-bold">6x</span>.
                 </p>
               </div>
 
@@ -961,10 +961,10 @@ export default function Team() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-accent flex-shrink-0">
                     <path d="M12 12.75c1.63 0 3.07.39 4.24.9 1.08.48 1.76 1.56 1.76 2.73V18H6v-1.61c0-1.18.68-2.26 1.76-2.73 1.17-.52 2.61-.91 4.24-.91zM4 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm1.13 1.1c-.37-.06-.74-.1-1.13-.1-.99 0-1.93.21-2.78.58C.48 14.9 0 15.62 0 16.43V18h4.5v-1.61c0-.83.23-1.61.63-2.29zM20 13c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm4 3.43c0-.81-.48-1.53-1.22-1.85-.85-.37-1.79-.58-2.78-.58-.39 0-.76.04-1.13.1.4.68.63 1.46.63 2.29V18H24v-1.57zM12 6c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3z"/>
                   </svg>
-                  <p className="text-caption text-ink-primary font-bold">Team Streak (+3 → +33)</p>
+                  <p className="text-caption text-ink-primary font-bold">Team Streak (+{members.length} → +{members.length * 11})</p>
                 </div>
                 <p className="text-caption text-ink-secondary">
-                  When <span className="font-semibold">all 3 members</span> hit the target on consecutive days, the team streak grows. Starts at <span className="font-semibold">+3/day per member</span>, escalating by +3 every 10 days, capping at <span className="text-accent font-bold">+33/day</span>. If anyone misses, the whole team streak resets.
+                  When <span className="font-semibold">all members</span> hit the target on consecutive days, the team streak grows. Starts at <span className="font-semibold">+{members.length}/day per member</span>, escalating by +{members.length} every 10 days, capping at <span className="text-accent font-bold">+{members.length * 11}/day</span>. If anyone misses, the whole team streak resets.
                 </p>
               </div>
 
@@ -984,15 +984,15 @@ export default function Team() {
                     <p className="text-micro text-ink-secondary mt-1">1.4x return</p>
                   </div>
                   <div className="bg-accent/10 rounded-lg p-3 flex flex-col items-center ring-1 ring-accent/30">
-                    <p className="text-micro text-accent uppercase tracking-wide mb-1">With Team</p>
-                    <p className="text-display-sm text-accent font-bold">1,854</p>
+                    <p className="text-micro text-accent uppercase tracking-wide mb-1">With Team ({members.length})</p>
+                    <p className="text-display-sm text-accent font-bold">{members.length === 3 ? "1,854" : "1,236"}</p>
                     <p className="text-micro text-ink-muted">pts</p>
-                    <p className="text-micro text-accent font-semibold mt-1">12.4x return</p>
+                    <p className="text-micro text-accent font-semibold mt-1">{members.length === 3 ? "12.4x" : "8.2x"} return</p>
                   </div>
                 </div>
 
                 <p className="text-micro text-ink-secondary mt-3 text-center">
-                  Same 150 burpees — a team that shows up together scores <span className="text-accent font-bold">~9x more</span>
+                  Same 150 burpees — a team that shows up together scores <span className="text-accent font-bold">{members.length === 3 ? "~9x" : "~6x"} more</span>
                 </p>
               </div>
 
@@ -1015,7 +1015,7 @@ export default function Team() {
                       <tr className="border-b border-bg-elevated">
                         <th className="px-1.5 py-1.5 text-left text-ink-muted font-bold">Day</th>
                         <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Reps</th>
-                        <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">3x</th>
+                        <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">{members.length}x</th>
                         <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Str</th>
                         <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">TStr</th>
                         <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">Wk2x</th>
@@ -1024,23 +1024,26 @@ export default function Team() {
                     </thead>
                     <tbody>
                       {[
-                        { day: 1,  reps: 5, daily3x: 15, indStr: 0, teamStr: 0, wk: false },
-                        { day: 2,  reps: 5, daily3x: 15, indStr: 1, teamStr: 3, wk: false },
-                        { day: 7,  reps: 5, daily3x: 15, indStr: 1, teamStr: 3, wk: true },
-                        { day: 11, reps: 5, daily3x: 15, indStr: 2, teamStr: 6, wk: false },
-                        { day: 14, reps: 5, daily3x: 15, indStr: 2, teamStr: 6, wk: true },
-                        { day: 21, reps: 5, daily3x: 15, indStr: 3, teamStr: 9, wk: true },
-                        { day: 30, reps: 5, daily3x: 15, indStr: 3, teamStr: 9, wk: false },
+                        { day: 1,  reps: 5, indStr: 0, teamStrTier: 0, wk: false },
+                        { day: 2,  reps: 5, indStr: 1, teamStrTier: 1, wk: false },
+                        { day: 7,  reps: 5, indStr: 1, teamStrTier: 1, wk: true },
+                        { day: 11, reps: 5, indStr: 2, teamStrTier: 2, wk: false },
+                        { day: 14, reps: 5, indStr: 2, teamStrTier: 2, wk: true },
+                        { day: 21, reps: 5, indStr: 3, teamStrTier: 3, wk: true },
+                        { day: 30, reps: 5, indStr: 3, teamStrTier: 3, wk: false },
                       ].map((r) => {
-                        const preMult = r.daily3x + r.indStr + r.teamStr;
+                        const n = members.length;
+                        const teamStr = r.teamStrTier * n;
+                        const dailyMult = r.reps * n;
+                        const preMult = dailyMult + r.indStr + teamStr;
                         const total = r.wk ? preMult * 2 : preMult;
                         return (
                           <tr key={r.day} className="border-b border-bg-elevated/50">
                             <td className="px-1.5 py-1.5 text-ink-secondary">{r.day}</td>
                             <td className="px-1.5 py-1.5 text-right text-blue-400">{r.reps}</td>
-                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.daily3x}</td>
+                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{dailyMult}</td>
                             <td className="px-1.5 py-1.5 text-right text-blue-400">{r.indStr > 0 ? `+${r.indStr}` : "—"}</td>
-                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.teamStr > 0 ? `+${r.teamStr}` : "—"}</td>
+                            <td className="px-1.5 py-1.5 text-right text-emerald-400">{teamStr > 0 ? `+${teamStr}` : "—"}</td>
                             <td className="px-1.5 py-1.5 text-right text-emerald-400">{r.wk ? "×2" : "—"}</td>
                             <td className="px-1.5 py-1.5 text-right text-ink-primary font-bold">{total}</td>
                           </tr>
@@ -1050,7 +1053,7 @@ export default function Team() {
                   </table>
                 </div>
                 <div className="mt-2 flex flex-col gap-0.5 text-[10px] text-ink-muted">
-                  <p><span className="text-emerald-400 font-semibold">3x</span> = daily team bonus (all 3 hit {dailyTarget}). <span className="text-blue-400 font-semibold">Str</span> = your streak bonus. <span className="text-emerald-400 font-semibold">TStr</span> = team streak bonus.</p>
+                  <p><span className="text-emerald-400 font-semibold">{members.length}x</span> = daily team bonus (all {members.length} hit {dailyTarget}). <span className="text-blue-400 font-semibold">Str</span> = your streak bonus. <span className="text-emerald-400 font-semibold">TStr</span> = team streak bonus.</p>
                   <p><span className="text-emerald-400 font-semibold">Wk2x</span> = weekly bonus (5/7 days hit). Streaks escalate every 10 days.</p>
                 </div>
               </div>

@@ -67,8 +67,8 @@ v0.1 shipped in 6 phases (all complete). Now building v0.2 — the team system.
 
 **Phase 8 — Team CRUD RPCs**
 - `create_team(p_name)` — validate name 3–24 chars, generate 6-char join code, create team, set captain, update profile team_id, log history
-- `join_team(p_join_code)` — validate team exists + has space + user has no team, add member, log history, auto-set status to 'active' when 3rd member joins
-- `leave_team()` — remove user from team, log history, handle captain succession (longest-tenured member), revert to 'forming' or 'disbanded'
+- `join_team(p_join_code)` — validate team exists + has space + user has no team, add member, log history, auto-set status to 'active' when 2nd member joins
+- `leave_team()` — remove user from team, log history, handle captain succession (longest-tenured member), revert to 'forming' if <2 members remain, or 'disbanded' if 0
 - Replacement grace logic: team streak preserved if new member joins + hits target same calendar day
 - **Verify:** create/join/leave cycle works via Supabase Studio, history logged, captain succession works
 
@@ -84,13 +84,14 @@ v0.1 shipped in 6 phases (all complete). Now building v0.2 — the team system.
 **Phase 10 — Scoring engine**
 - `calculate_user_rep_score(p_user_id, p_period)` RPC implementing full formula:
   - Base: 1 point per burpee
-  - Daily 3x: when all 3 team members hit target
-  - Weekly 2x: when all 3 hit target 5/7 days (stacks on daily 3x)
+  - Daily Nx: when all team members hit target (N = member count: 2x for duos, 3x for trios)
+  - Weekly 2x: when all members hit target 5/7 days (stacks on daily Nx)
   - Individual streak: `min(11, floor((streak_day - 1) / 10) + 1)`
-  - Team streak: `min(33, (floor((team_streak_day - 1) / 10) + 1) × 3)`
-- `get_team_streak(p_team_id)` — current and longest team streak
+  - Team streak: `min(N×11, (floor((team_streak_day - 1) / 10) + 1) × N)` where N = team size (+2→+22 for duos, +3→+33 for trios)
+- `get_team_streak(p_team_id)` — current and longest team streak (works with 2+ members)
 - Read all multiplier values from `settings` table (admin-adjustable)
-- **Verify:** manual test with known data against the worked example in APP_SPEC.md (150 burpees over 30 days with perfect team = 1,854 points per member)
+- Teams activate at 2 members (max 3). Daily multiplier = member count.
+- **Verify:** manual test with known data
 
 **Phase 11 — Leaderboard expansion**
 - Add "Rep Score" board type (individual, filtered by gender × time period)

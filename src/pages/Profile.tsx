@@ -724,7 +724,7 @@ export default function Profile() {
                     <tr className="border-b border-bg-elevated">
                       <th className="px-1.5 py-1.5 text-left text-ink-muted font-bold">Day</th>
                       <th className="px-1.5 py-1.5 text-right text-ink-secondary font-bold">Reps</th>
-                      <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">3x</th>
+                      <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">Mult</th>
                       <th className="px-1.5 py-1.5 text-right text-blue-400 font-bold">Str</th>
                       <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">TStr</th>
                       <th className="px-1.5 py-1.5 text-right text-emerald-400 font-bold">Wk</th>
@@ -751,7 +751,7 @@ export default function Profile() {
                   </tbody>
                 </table>
                 <div className="mt-2 flex flex-col gap-0.5 text-[10px] text-ink-muted">
-                  <p><span className="text-emerald-400 font-semibold">3x</span> = daily team bonus. <span className="text-blue-400 font-semibold">Str</span> = individual streak. <span className="text-emerald-400 font-semibold">TStr</span> = team streak. <span className="text-emerald-400 font-semibold">Wk</span> = weekly 2x.</p>
+                  <p><span className="text-emerald-400 font-semibold">Mult</span> = daily team bonus (Nx). <span className="text-blue-400 font-semibold">Str</span> = individual streak. <span className="text-emerald-400 font-semibold">TStr</span> = team streak. <span className="text-emerald-400 font-semibold">Wk</span> = weekly 2x.</p>
                 </div>
               </div>
             )}
