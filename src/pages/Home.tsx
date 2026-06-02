@@ -12,6 +12,7 @@ import YouTubeEmbed from "../components/YouTubeEmbed";
 import { unlockAudio } from "../lib/repAudio";
 import { useTheme } from "../contexts/ThemeContext";
 import { getMascot } from "../lib/mascots";
+import AddToHomeScreen from "../components/AddToHomeScreen";
 
 function formatCountdown(targetDate: string): string {
   const now = new Date();
@@ -280,6 +281,8 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      <AddToHomeScreen />
 
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">

@@ -1,5 +1,14 @@
 # Changelog
 
+## Install prompt: inline card instead of blocking overlay (2026-06-02)
+
+### Changed
+- **Add to Home Screen** — replaced the full-screen modal overlay (`fixed inset-0 z-50`) with a slim inline card on the Home page, positioned between the milestone progress bar and the team card.
+- **Home-only** — prompt no longer renders globally via Layout on every page. Only appears on the Home screen.
+
+### Fixed
+- **Feedback page blocked** — the overlay covered the entire screen with `bg-black/40 backdrop-blur-sm` and `z-50`, preventing interaction with the feedback widget and other UI. Now it's an inline element that doesn't interfere with anything.
+
 ## Feedback conversations + My Feedback (2026-06-02)
 
 ### Added
