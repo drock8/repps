@@ -15,6 +15,8 @@ interface FeedbackItem {
   is_testimonial: boolean;
   created_at: string;
   updated_at: string;
+  admin_reply: string | null;
+  replied_at: string | null;
   vote_count: number;
   user_voted: boolean;
 }
@@ -35,6 +37,8 @@ export default function AdminFeatures() {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [editingStatus, setEditingStatus] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyingSaving, setReplyingSaving] = useState(false);
   const dragItemRef = useRef<FeedbackItem | null>(null);
 
   const load = useCallback(async () => {
@@ -84,6 +88,24 @@ export default function AdminFeatures() {
     setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, status } : i));
     if (selected?.id === itemId) setSelected((prev) => prev ? { ...prev, status } : null);
     setEditingStatus(null);
+  }
+
+  function selectItem(item: FeedbackItem | null) {
+    setSelected(item);
+    setReplyText(item?.admin_reply ?? "");
+  }
+
+  async function saveReply(itemId: string) {
+    setReplyingSaving(true);
+    const reply = replyText.trim() || null;
+    await supabase.from("feedback").update({
+      admin_reply: reply,
+      replied_at: reply ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", itemId);
+    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, admin_reply: reply, replied_at: reply ? new Date().toISOString() : null } : i));
+    if (selected?.id === itemId) setSelected((prev) => prev ? { ...prev, admin_reply: reply, replied_at: reply ? new Date().toISOString() : null } : null);
+    setReplyingSaving(false);
   }
 
   async function addAdminIdea() {
@@ -169,7 +191,7 @@ export default function AdminFeatures() {
                 onDragOver={(e) => handleDragOver(e, item.id)}
                 onDrop={(e) => handleDropOnPriority(e, item.id)}
                 onDragEnd={handleDragEnd}
-                onClick={() => setSelected(item)}
+                onClick={() => selectItem(item)}
                 className={`group flex items-start gap-2 p-3 rounded-xl border cursor-grab active:cursor-grabbing transition-all ${
                   dragging === item.id ? "opacity-40" : ""
                 } ${dragOver === item.id ? "border-accent bg-accent/5" : "border-divider bg-bg-elevated hover:border-ink-muted/30"
@@ -227,7 +249,7 @@ export default function AdminFeatures() {
                 dragging={dragging === item.id}
                 onDragStart={() => handleDragStart(item)}
                 onDragEnd={handleDragEnd}
-                onClick={() => setSelected(item)}
+                onClick={() => selectItem(item)}
                 onAddToPriority={() => addToPriority(item)}
               />
             ))}
@@ -255,7 +277,7 @@ export default function AdminFeatures() {
                 dragging={dragging === item.id}
                 onDragStart={() => handleDragStart(item)}
                 onDragEnd={handleDragEnd}
-                onClick={() => setSelected(item)}
+                onClick={() => selectItem(item)}
                 onAddToPriority={() => addToPriority(item)}
                 showVotes
               />
@@ -312,7 +334,7 @@ export default function AdminFeatures() {
                   </svg>
                 </button>
               )}
-              <button onClick={() => setSelected(null)} className="text-ink-muted hover:text-ink-primary text-sm ml-2">
+              <button onClick={() => selectItem(null)} className="text-ink-muted hover:text-ink-primary text-sm ml-2">
                 ✕
               </button>
             </div>
@@ -329,17 +351,49 @@ export default function AdminFeatures() {
               />
             </div>
           )}
+          {/* Reply section */}
+          {selected.source === "user" && (
+            <div className="mt-4 border-t border-divider pt-4">
+              <label className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Reply to User</label>
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Write a reply the user will see in their feedback history..."
+                rows={2}
+                maxLength={2000}
+                className="w-full mt-2 bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary placeholder:text-ink-muted/50 focus:outline-none focus:border-accent resize-none"
+              />
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => saveReply(selected.id)}
+                  disabled={replyingSaving}
+                  className="repps-gradient text-black text-xs font-semibold px-4 py-2 rounded-xl disabled:opacity-50"
+                >
+                  {replyingSaving ? "Saving..." : selected.admin_reply ? "Update Reply" : "Send Reply"}
+                </button>
+                {selected.admin_reply && (
+                  <button
+                    onClick={() => { setReplyText(""); saveReply(selected.id); }}
+                    className="text-xs text-ink-muted hover:text-error transition-colors"
+                  >
+                    Remove Reply
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 flex gap-2">
             {selected.priority_order === null ? (
               <button
-                onClick={() => { addToPriority(selected); setSelected({ ...selected, priority_order: 999 }); }}
-                className="repps-gradient text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                onClick={() => { addToPriority(selected); selectItem({ ...selected, priority_order: 999 }); }}
+                className="repps-gradient text-black text-xs font-semibold px-4 py-2 rounded-xl"
               >
                 Add to Priority Queue
               </button>
             ) : (
               <button
-                onClick={() => { removeFromPriority(selected); setSelected({ ...selected, priority_order: null }); }}
+                onClick={() => { removeFromPriority(selected); selectItem({ ...selected, priority_order: null }); }}
                 className="bg-bg-elevated text-ink-secondary text-xs font-semibold px-4 py-2 rounded-xl border border-divider"
               >
                 Remove from Queue

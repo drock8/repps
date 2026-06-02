@@ -9,12 +9,17 @@ interface CommentItem {
   is_testimonial: boolean;
   created_at: string;
   vote_count: number;
+  admin_reply: string | null;
+  replied_at: string | null;
 }
 
 export default function AdminComments() {
   const [items, setItems] = useState<CommentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "testimonials">("all");
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyingSaving, setReplyingSaving] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc("get_feedback_with_votes", { p_type: "comment" });
@@ -28,6 +33,24 @@ export default function AdminComments() {
     const newVal = !item.is_testimonial;
     await supabase.from("feedback").update({ is_testimonial: newVal, updated_at: new Date().toISOString() }).eq("id", item.id);
     setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, is_testimonial: newVal } : i));
+  }
+
+  function startReply(item: CommentItem) {
+    setReplyingId(item.id);
+    setReplyText(item.admin_reply ?? "");
+  }
+
+  async function saveReply(itemId: string) {
+    setReplyingSaving(true);
+    const reply = replyText.trim() || null;
+    await supabase.from("feedback").update({
+      admin_reply: reply,
+      replied_at: reply ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", itemId);
+    setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, admin_reply: reply, replied_at: reply ? new Date().toISOString() : null } : i));
+    setReplyingSaving(false);
+    setReplyingId(null);
   }
 
   async function deleteComment(id: string) {
@@ -103,6 +126,19 @@ export default function AdminComments() {
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button
+                  onClick={() => startReply(item)}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    item.admin_reply
+                      ? "text-blue-400 bg-blue-400/10 hover:bg-blue-400/20"
+                      : "text-ink-muted hover:text-blue-400 hover:bg-blue-400/10"
+                  }`}
+                  title={item.admin_reply ? "Edit reply" : "Reply"}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                </button>
+                <button
                   onClick={() => toggleTestimonial(item)}
                   className={`p-1.5 rounded-lg transition-colors ${
                     item.is_testimonial
@@ -126,6 +162,52 @@ export default function AdminComments() {
                 </button>
               </div>
             </div>
+
+            {/* Existing reply display */}
+            {item.admin_reply && replyingId !== item.id && (
+              <div className="mt-3 bg-accent/5 rounded-lg p-3 border border-accent/20">
+                <p className="text-[10px] font-bold text-accent mb-1">Your Reply</p>
+                <p className="text-xs text-ink-primary leading-relaxed whitespace-pre-line">{item.admin_reply}</p>
+              </div>
+            )}
+
+            {/* Reply editor */}
+            {replyingId === item.id && (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Write a reply..."
+                  rows={2}
+                  maxLength={2000}
+                  autoFocus
+                  className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary placeholder:text-ink-muted/50 focus:outline-none focus:border-accent resize-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => saveReply(item.id)}
+                    disabled={replyingSaving}
+                    className="repps-gradient text-black text-xs font-semibold px-4 py-2 rounded-xl disabled:opacity-50"
+                  >
+                    {replyingSaving ? "Saving..." : item.admin_reply ? "Update" : "Send Reply"}
+                  </button>
+                  <button
+                    onClick={() => setReplyingId(null)}
+                    className="text-xs text-ink-muted hover:text-ink-secondary"
+                  >
+                    Cancel
+                  </button>
+                  {item.admin_reply && (
+                    <button
+                      onClick={() => { setReplyText(""); saveReply(item.id); }}
+                      className="text-xs text-ink-muted hover:text-error transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
