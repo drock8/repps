@@ -60,7 +60,7 @@ export default function ActivityHeatmap({ dailyCounts, months = 3, maxScale, lab
         lastMonth = month;
       }
 
-      const dateStr = cursor.toISOString().slice(0, 10);
+      const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
       const count = countMap.get(dateStr) || 0;
 
       // Monday-based day index: Mon=0 .. Sun=6

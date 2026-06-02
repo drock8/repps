@@ -25,7 +25,7 @@ export default function WeeklyBarChart({ dailyCounts }: Props) {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       result.push({
         label: DAY_LABELS[d.getDay()],
         count: countMap.get(dateStr) || 0,

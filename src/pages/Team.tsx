@@ -21,7 +21,9 @@ const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 interface MemberWithReps extends Profile {
   today_count: number;
   today_base: number;
+  today_daily_multiplied: number;
   today_streak_bonus: number;
+  today_team_streak_bonus: number;
   today_total: number;
 }
 
@@ -121,12 +123,15 @@ export default function Team() {
           supabase.rpc("get_user_score_history", { p_user_id: m.id, p_limit: 1 }),
         ]);
         const todayRow = (histRes.data as { day: string; reps: number; daily_multiplied: number; streak_bonus: number; team_streak_bonus: number; day_total: number }[] | null)?.[0];
-        const isToday = todayRow && todayRow.day === todayStart.toISOString().slice(0, 10);
+        const todayStr = `${todayStart.getFullYear()}-${String(todayStart.getMonth() + 1).padStart(2, "0")}-${String(todayStart.getDate()).padStart(2, "0")}`;
+        const isToday = todayRow && todayRow.day === todayStr;
         return {
           ...m,
           today_count: todayRes.count || 0,
           today_base: isToday ? Number(todayRow.reps) : 0,
+          today_daily_multiplied: isToday ? Number(todayRow.daily_multiplied) : 0,
           today_streak_bonus: isToday ? Number(todayRow.streak_bonus) : 0,
+          today_team_streak_bonus: isToday ? Number(todayRow.team_streak_bonus) : 0,
           today_total: isToday ? Number(todayRow.day_total) : 0,
         };
       })
@@ -157,7 +162,8 @@ export default function Team() {
       if (teamReps) {
         const dayMap = new Map<string, number>();
         for (const r of teamReps) {
-          const day = r.validated_at.slice(0, 10);
+          const d = new Date(r.validated_at);
+          const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
           dayMap.set(day, (dayMap.get(day) || 0) + 1);
         }
         const counts = Array.from(dayMap.entries())
@@ -706,8 +712,14 @@ export default function Team() {
                 {m.today_total > 0 && (
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className="text-micro text-ink-secondary tabular-nums">{m.today_base} base</span>
+                    {m.today_daily_multiplied > m.today_base && (
+                      <span className="text-micro text-emerald-400 tabular-nums">×3</span>
+                    )}
                     {m.today_streak_bonus > 0 && (
-                      <span className="text-micro text-accent tabular-nums">+{m.today_streak_bonus} streak</span>
+                      <span className="text-micro text-blue-400 tabular-nums">+{m.today_streak_bonus} streak</span>
+                    )}
+                    {m.today_team_streak_bonus > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{m.today_team_streak_bonus} team</span>
                     )}
                     <span className="text-micro text-success font-semibold tabular-nums">→ {m.today_total} pts</span>
                   </div>

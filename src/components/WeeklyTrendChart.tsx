@@ -31,13 +31,13 @@ export default function WeeklyTrendChart({ dailyCounts, weeks = 8 }: Props) {
       let total = 0;
       const cursor = new Date(weekStart);
       while (cursor <= weekEnd) {
-        const dateStr = cursor.toISOString().slice(0, 10);
+        const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
         total += countMap.get(dateStr) || 0;
         cursor.setDate(cursor.getDate() + 1);
       }
 
       const label = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      result.push({ label, total, weekStart: weekStart.toISOString().slice(0, 10) });
+      result.push({ label, total, weekStart: `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}` });
     }
 
     return result;

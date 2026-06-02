@@ -14,6 +14,7 @@ export interface Profile {
   created_at: string;
   team_id: string | null;
   team_joined_at: string | null;
+  timezone: string;
 }
 
 interface AuthContextValue {
@@ -138,6 +139,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq("id", p.id);
         p = { ...p, avatar_url: googleAvatar };
       }
+    }
+
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (browserTz && p.timezone !== browserTz) {
+      await supabase
+        .from("profiles")
+        .update({ timezone: browserTz })
+        .eq("id", p.id);
+      p = { ...p, timezone: browserTz };
     }
 
     await claimGuestReps(user.id);
