@@ -878,16 +878,18 @@ export default function Team() {
         <div className="flex gap-4">
           <div className="flex-1">
             <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
-            <div className="flex items-baseline gap-1.5 mt-1">
+            <div className="flex items-center gap-2 mt-1">
               {teamStreak.current > 0 && (
-                <span className="text-display-md leading-none" role="img" aria-label="streak">&#x1F525;</span>
+                <img src="/Repps-Pumped-Yellow.png" alt="streak" className="w-8 h-8 object-contain" />
               )}
-              <p className="text-display-md text-accent tabular-nums">
-                {teamStreak.current}
-              </p>
-              <p className="text-caption text-ink-muted">
-                {teamStreak.current === 1 ? "day" : "days"}
-              </p>
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-display-md tabular-nums" style={{ color: "#F5C518" }}>
+                  {teamStreak.current}
+                </p>
+                <p className="text-caption text-ink-muted">
+                  {teamStreak.current === 1 ? "day" : "days"}
+                </p>
+              </div>
             </div>
           </div>
           <div className="w-px bg-divider" />
@@ -912,7 +914,7 @@ export default function Team() {
                 style={{
                   width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
                   opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
-                  background: `linear-gradient(90deg, #FF6B35, #FF9F1C)`,
+                  background: `linear-gradient(90deg, #F5C518, #FFD700)`,
                 }}
               />
             ))}
@@ -925,7 +927,7 @@ export default function Team() {
           const nextMilestone = Math.ceil((teamStreak.current + 1) / 10) * 10;
           const daysToNext = nextMilestone - teamStreak.current;
           if (daysToNext <= 3) {
-            return <p className="text-caption text-accent mt-3">{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
+            return <p className="text-caption mt-3" style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
           }
           return <p className="text-caption text-ink-muted mt-3">Keep it going! All members need to hit target today.</p>;
         })()}
