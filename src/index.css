@@ -112,3 +112,10 @@ body {
   box-shadow: 0 0 20px 4px rgba(var(--color-accent-glow), 0.3);
   animation: cta-pulse 2.5s ease-in-out infinite;
 }
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: scale(0.95); }
+  10% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.95); }
+}
