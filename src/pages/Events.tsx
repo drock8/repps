@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
@@ -123,12 +123,45 @@ function EventCard({ event, onClick }: { event: EventWithCounts; onClick: () => 
   );
 }
 
+async function transitionStaleStatuses(events: EventRow[]): Promise<EventRow[]> {
+  const now = Date.now();
+  const updated: EventRow[] = [];
+  for (const e of events) {
+    let status = e.status;
+    if (status === "announced" && new Date(e.starts_at).getTime() <= now) {
+      await supabase.from("events").update({ status: "active" }).eq("id", e.id);
+      status = "active";
+    }
+    if (status === "active" && new Date(e.ends_at).getTime() <= now) {
+      await supabase.rpc("complete_event", { p_event_id: e.id });
+      status = "completed";
+    }
+    updated.push({ ...e, status });
+  }
+  return updated;
+}
+
 export default function Events() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<CategoryTab>("featured");
   const [events, setEvents] = useState<EventWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Realtime subscription for participant joins
+  useEffect(() => {
+    const channel = supabase
+      .channel("event-participants-hub")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "event_participants" },
+        () => { fetchEventsRef.current?.(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const fetchEventsRef = useRef<(() => void) | null>(null);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -200,7 +233,8 @@ export default function Events() {
 
       allEvents.sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime());
 
-      const withCounts = await enrichEvents(allEvents);
+      const transitioned = await transitionStaleStatuses(allEvents);
+      const withCounts = await enrichEvents(transitioned);
       setEvents(withCounts);
       setLoading(false);
       return;
@@ -214,10 +248,15 @@ export default function Events() {
       return;
     }
 
-    const withCounts = await enrichEvents(data || []);
+    const transitioned = await transitionStaleStatuses(data || []);
+    const withCounts = await enrichEvents(transitioned);
     setEvents(withCounts);
     setLoading(false);
   }, [tab, profile]);
+
+  useEffect(() => {
+    fetchEventsRef.current = fetchEvents;
+  }, [fetchEvents]);
 
   useEffect(() => {
     fetchEvents();

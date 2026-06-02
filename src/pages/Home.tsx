@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 import { supabase } from "../lib/supabase";
 import { formatNumber, MEDALS } from "../lib/format";
@@ -40,6 +40,17 @@ interface TeamRankInfo {
   teamScore: number;
   teamLogoUrl: string | null;
   insight: string | null;
+}
+
+interface FeaturedEvent {
+  id: string;
+  name: string;
+  target_reps: number | null;
+  total_reps: number;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  competition_mode: string;
 }
 
 
@@ -136,6 +147,41 @@ export default function Home() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberProgress[]>([]);
   const [dailyTarget, setDailyTarget] = useState(5);
   const [teamRank, setTeamRank] = useState<TeamRankInfo | null>(null);
+  const [featuredEvent, setFeaturedEvent] = useState<FeaturedEvent | null>(null);
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      const { data } = await supabase
+        .from("events")
+        .select("id, name, target_reps, starts_at, ends_at, status, competition_mode")
+        .eq("is_featured", true)
+        .in("status", ["announced", "active"])
+        .limit(1)
+        .maybeSingle();
+
+      if (!data) { setFeaturedEvent(null); return; }
+
+      const now = Date.now();
+      let status = data.status;
+      if (status === "announced" && new Date(data.starts_at).getTime() <= now) {
+        await supabase.from("events").update({ status: "active" }).eq("id", data.id);
+        status = "active";
+      }
+      if (status === "active" && new Date(data.ends_at).getTime() <= now) {
+        await supabase.rpc("complete_event", { p_event_id: data.id });
+        setFeaturedEvent(null);
+        return;
+      }
+
+      const { data: progress } = await supabase.rpc("get_event_progress", { p_event_id: data.id });
+      setFeaturedEvent({
+        ...data,
+        status,
+        total_reps: progress?.total_reps ?? 0,
+      });
+    }
+    fetchFeatured();
+  }, []);
 
   const fetchTeamProgress = useCallback(async () => {
     if (!profile?.team_id) {
@@ -281,6 +327,51 @@ export default function Home() {
         </div>
       </div>
 
+
+      {featuredEvent && (
+        <Link
+          to={`/events/${featuredEvent.id}`}
+          className="w-full px-4 mt-3 block"
+        >
+          <div className="bg-bg-surface rounded-lg px-4 py-3 transition-all duration-200 ease-apple active:scale-[0.98]">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-micro text-accent font-bold uppercase tracking-wide flex items-center gap-1">
+                  <span>🔥</span> Featured Event
+                </p>
+                <p className="text-body text-ink-primary font-semibold mt-1 truncate">{featuredEvent.name}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  {featuredEvent.target_reps ? (
+                    <>
+                      <div className="flex-1 h-1.5 bg-bg-input rounded-pill overflow-hidden">
+                        <div
+                          className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
+                          style={{ width: `${Math.min(100, (featuredEvent.total_reps / featuredEvent.target_reps) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-micro text-ink-muted tabular-nums whitespace-nowrap">
+                        {Math.round(Math.min(100, (featuredEvent.total_reps / featuredEvent.target_reps) * 100))}%
+                      </span>
+                    </>
+                  ) : null}
+                  <span className="text-micro text-ink-muted whitespace-nowrap">
+                    {(() => {
+                      const diff = new Date(featuredEvent.ends_at).getTime() - Date.now();
+                      if (diff <= 0) return "Ending";
+                      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      return d > 0 ? `${d}d remaining` : `${h}h remaining`;
+                    })()}
+                  </span>
+                </div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-muted flex-shrink-0 ml-3">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {teamMembers.length > 0 && (
         <div className="w-full px-4 mt-3">

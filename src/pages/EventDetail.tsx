@@ -159,14 +159,33 @@ export default function EventDetail() {
     });
     if (lbData?.success) setLeaderboard(lbData);
 
-    // Auto-complete if past end time
-    if (eventData.status === "active" && new Date(eventData.ends_at).getTime() < Date.now()) {
+    // Auto-status transitions
+    const now = Date.now();
+    if (eventData.status === "announced" && new Date(eventData.starts_at).getTime() <= now) {
+      await supabase.from("events").update({ status: "active" }).eq("id", id);
+      setEvent((prev) => prev ? { ...prev, status: "active" } : prev);
+    }
+    if ((eventData.status === "active" || (eventData.status === "announced" && new Date(eventData.starts_at).getTime() <= now)) && new Date(eventData.ends_at).getTime() < now) {
       await supabase.rpc("complete_event", { p_event_id: id });
       setEvent((prev) => prev ? { ...prev, status: "completed" } : prev);
     }
 
     setLoading(false);
   }, [id, profile]);
+
+  // Realtime subscription for participant changes
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`event-participants-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "event_participants", filter: `event_id=eq.${id}` },
+        () => { fetchEvent(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id, fetchEvent]);
 
   useEffect(() => {
     fetchEvent();
@@ -257,6 +276,14 @@ export default function EventDetail() {
     if (!event) return;
     setActionLoading(true);
     await supabase.rpc("feature_event", { p_event_id: event.id });
+    await fetchEvent();
+    setActionLoading(false);
+  };
+
+  const handleArchive = async () => {
+    if (!event) return;
+    setActionLoading(true);
+    await supabase.from("events").update({ status: "archived", is_featured: false }).eq("id", event.id);
     await fetchEvent();
     setActionLoading(false);
   };
@@ -453,13 +480,22 @@ export default function EventDetail() {
               Complete
             </button>
           )}
-          {event.category === "official" && !event.is_featured && (
+          {event.category === "official" && !event.is_featured && ["announced", "active"].includes(event.status) && (
             <button
               onClick={handleFeature}
               disabled={actionLoading}
               className="py-2 px-4 rounded-pill bg-accent-gold/20 text-accent-gold text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
             >
               Feature
+            </button>
+          )}
+          {event.status === "completed" && (
+            <button
+              onClick={handleArchive}
+              disabled={actionLoading}
+              className="py-2 px-4 rounded-pill bg-ink-muted/20 text-ink-muted text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              Archive
             </button>
           )}
         </div>
