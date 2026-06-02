@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { supabase } from "../lib/supabase";
+import { formatNumber, MEDALS } from "../lib/format";
+import { formatTimeStatus } from "../lib/eventTime";
 import { useAuth } from "../contexts/AuthContext";
+import Avatar from "../components/Avatar";
+import ModeIcon from "../components/ModeIcon";
 
 type DetailTab = "leaderboard" | "details" | "qr";
 
@@ -82,102 +86,6 @@ const MODE_LABELS: Record<string, string> = {
   live_sprint: "Live Sprint",
 };
 
-const MEDALS = ["🥇", "🥈", "🥉"];
-
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
-function Avatar({ url, name }: { url: string | null; name: string }) {
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt=""
-        referrerPolicy="no-referrer"
-        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-      />
-    );
-  }
-  return (
-    <div className="w-8 h-8 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-caption font-bold flex-shrink-0">
-      {name.charAt(0).toUpperCase()}
-    </div>
-  );
-}
-
-function formatTimeStatus(event: EventData): { text: string; isLive: boolean; isCompleted: boolean } {
-  const now = Date.now();
-  const start = new Date(event.starts_at).getTime();
-  const end = new Date(event.ends_at).getTime();
-
-  if (event.status === "completed" || event.status === "archived") {
-    return { text: "Completed", isLive: false, isCompleted: true };
-  }
-
-  if (now < start) {
-    const diff = start - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    if (days > 0) return { text: `Starts in ${days}d ${hours}h`, isLive: false, isCompleted: false };
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return { text: `Starts in ${hours}h ${mins}m`, isLive: false, isCompleted: false };
-  }
-
-  if (now <= end) {
-    const diff = end - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    if (days > 0) return { text: `LIVE · ${days}d ${hours}h remaining`, isLive: true, isCompleted: false };
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return { text: `LIVE · ${hours}h ${mins}m remaining`, isLive: true, isCompleted: false };
-  }
-
-  return { text: "Completed", isLive: false, isCompleted: true };
-}
-
-function ModeIcon({ mode }: { mode: string }) {
-  const isTeam = mode.startsWith("team");
-  const isGlobal = mode === "global_target";
-  const isSprint = mode === "live_sprint";
-
-  if (isSprint) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
-        <circle cx="12" cy="13" r="8" />
-        <path d="M12 9v4l2 2" />
-        <path d="M5 3L2 6" />
-        <path d="M22 6l-3-3" />
-        <line x1="12" y1="1" x2="12" y2="3" />
-        <line x1="10" y1="1" x2="14" y2="1" />
-      </svg>
-    );
-  }
-  if (isGlobal) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="2" y1="12" x2="22" y2="12" />
-        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-      </svg>
-    );
-  }
-  if (isTeam) {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent flex-shrink-0">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
 }
 
 export default function EventDetail() {

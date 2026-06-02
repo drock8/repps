@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { formatNumber } from "../lib/format";
+import { formatTimeStatus } from "../lib/eventTime";
 import { useAuth } from "../contexts/AuthContext";
+import ModeIcon from "../components/ModeIcon";
 
 type CategoryTab = "featured" | "official" | "community" | "my_events";
 
@@ -53,79 +56,6 @@ const MODE_CONFIG: Record<string, { label: string; icon: string }> = {
   live_sprint: { label: "Live Sprint", icon: "timer" },
 };
 
-function ModeIcon({ type, className }: { type: string; className?: string }) {
-  if (type === "timer") {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <circle cx="12" cy="13" r="8" />
-        <path d="M12 9v4l2 2" />
-        <path d="M5 3L2 6" />
-        <path d="M22 6l-3-3" />
-        <line x1="12" y1="1" x2="12" y2="3" />
-        <line x1="10" y1="1" x2="14" y2="1" />
-      </svg>
-    );
-  }
-  if (type === "globe") {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <circle cx="12" cy="12" r="10" />
-        <line x1="2" y1="12" x2="22" y2="12" />
-        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-      </svg>
-    );
-  }
-  if (type === "person") {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function formatTimeStatus(event: EventRow): { text: string; isLive: boolean; isCompleted: boolean } {
-  const now = Date.now();
-  const start = new Date(event.starts_at).getTime();
-  const end = new Date(event.ends_at).getTime();
-
-  if (event.status === "completed" || event.status === "archived") {
-    return { text: "Completed", isLive: false, isCompleted: true };
-  }
-
-  if (now < start) {
-    const diff = start - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    if (days > 0) return { text: `Starts in ${days}d ${hours}h`, isLive: false, isCompleted: false };
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return { text: `Starts in ${hours}h ${mins}m`, isLive: false, isCompleted: false };
-  }
-
-  if (now <= end) {
-    const diff = end - now;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    if (days > 0) return { text: `LIVE · ${days}d ${hours}h remaining`, isLive: true, isCompleted: false };
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    return { text: `LIVE · ${hours}h ${mins}m remaining`, isLive: true, isCompleted: false };
-  }
-
-  return { text: "Completed", isLive: false, isCompleted: true };
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString("en-US");
-}
 
 function EventCard({ event, onClick }: { event: EventWithCounts; onClick: () => void }) {
   const mode = MODE_CONFIG[event.competition_mode] || { label: event.competition_mode, icon: "person" };
@@ -148,7 +78,7 @@ function EventCard({ event, onClick }: { event: EventWithCounts; onClick: () => 
 
         <div className="flex items-center gap-1.5 mt-2">
           <span className="flex items-center gap-1 text-micro text-accent font-bold">
-            <ModeIcon type={mode.icon} className="text-accent" />
+            <ModeIcon mode={mode.icon} size={14} className="text-accent" />
             {mode.label}
           </span>
           {isTargetMode && event.target_reps && (

@@ -1,5 +1,18 @@
 # Changelog
 
+## Code hygiene: deduplicate shared utilities and components (2026-06-02)
+
+### Added
+- `src/lib/format.ts` — shared `formatNumber` + `MEDALS` constant (was copy-pasted in 5 and 3 files respectively)
+- `src/lib/eventTime.ts` — shared `formatTimeStatus` (was duplicated in Events + EventDetail)
+- `src/hooks/useAnimatedCounter.ts` — shared hook (was duplicated in Home + Landing)
+- `src/components/Avatar.tsx` — shared Avatar component (was duplicated in Leaderboard + EventDetail)
+- `src/components/ModeIcon.tsx` — unified ModeIcon with `mode`/`size`/`className` props (was duplicated across 4 event pages with inconsistent APIs)
+- `src/components/GoogleIcon.tsx` — shared Google OAuth SVG icon (was duplicated in 4 files)
+
+### Removed
+- ~450 lines of duplicated code across Home, Landing, Leaderboard, Events, EventDetail, EventJoin, CreateEvent, TeamJoin, Profile
+
 ## Medium severity: reliability + UX fixes (2026-06-02)
 
 ### Fixed
