@@ -289,7 +289,7 @@ export default function Home() {
           <p className="text-display-md repps-gradient-text tabular-nums leading-tight mt-0.5">
             {formatNumber(animatedCount)}
           </p>
-          <p className="text-micro text-ink-secondary mt-0.5">burpees</p>
+          <p className="text-micro text-ink-secondary mt-0.5"><span className="text-accent font-semibold">verified</span> burpees</p>
         </div>
         <div className="text-center">
           <p className="text-micro text-ink-muted uppercase tracking-wide">TARGET</p>

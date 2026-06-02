@@ -23,12 +23,14 @@ function createChannel(): RealtimeChannel {
       }
     )
     .subscribe((status) => {
+      console.log("[realtime] reps-global:", status);
       if (status === "SUBSCRIBED") {
         subscribed = true;
         for (const cb of onSubscribeCallbacks) cb();
         onSubscribeCallbacks.length = 0;
       }
       if (status === "TIMED_OUT" || status === "CLOSED" || status === "CHANNEL_ERROR") {
+        console.warn("[realtime] reps-global lost, reconnecting in 3s…");
         subscribed = false;
         channel?.unsubscribe();
         channel = null;
