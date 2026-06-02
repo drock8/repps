@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
+import ActivityHeatmap from "../components/ActivityHeatmap";
 
 interface TeamData {
   id: string;
@@ -19,6 +20,8 @@ const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
 interface MemberWithReps extends Profile {
   today_count: number;
+  base_score: number;
+  total_score: number;
 }
 
 type View = "no-team" | "invite" | "detail";
@@ -29,6 +32,10 @@ export default function Team() {
   const [team, setTeam] = useState<TeamData | null>(null);
   const [members, setMembers] = useState<MemberWithReps[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Team metrics
+  const [teamStreak, setTeamStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
+  const [teamDailyCounts, setTeamDailyCounts] = useState<{ day: string; count: number }[]>([]);
 
   // Create team state
   const [teamName, setTeamName] = useState("");
@@ -104,16 +111,59 @@ export default function Team() {
 
     const membersWithReps: MemberWithReps[] = await Promise.all(
       (memberProfiles || []).map(async (m) => {
-        const { count } = await supabase
-          .from("reps")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", m.id)
-          .gte("validated_at", todayStart.toISOString());
-        return { ...m, today_count: count || 0 };
+        const [todayRes, scoreRes] = await Promise.all([
+          supabase
+            .from("reps")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", m.id)
+            .gte("validated_at", todayStart.toISOString()),
+          supabase.rpc("calculate_user_rep_score", { p_user_id: m.id, p_period: "all" }),
+        ]);
+        const s = scoreRes.data as { score: number; base_reps: number } | null;
+        return {
+          ...m,
+          today_count: todayRes.count || 0,
+          base_score: s ? Number(s.base_reps) : 0,
+          total_score: s ? Number(s.score) : 0,
+        };
       })
     );
 
     setMembers(membersWithReps);
+
+    // Fetch team streak
+    const { data: streakData } = await supabase.rpc("get_team_streak", { p_team_id: profile.team_id });
+    if (streakData) {
+      const row = Array.isArray(streakData) ? streakData[0] : streakData;
+      if (row) {
+        setTeamStreak({ current: Number(row.current_streak), longest: Number(row.longest_streak) });
+      }
+    }
+
+    // Fetch team aggregate daily counts (sum all members' reps per day)
+    const memberIds = (memberProfiles || []).map(m => m.id);
+    if (memberIds.length > 0) {
+      const since = new Date();
+      since.setMonth(since.getMonth() - 3);
+      const { data: teamReps } = await supabase
+        .from("reps")
+        .select("validated_at")
+        .in("user_id", memberIds)
+        .gte("validated_at", since.toISOString());
+
+      if (teamReps) {
+        const dayMap = new Map<string, number>();
+        for (const r of teamReps) {
+          const day = r.validated_at.slice(0, 10);
+          dayMap.set(day, (dayMap.get(day) || 0) + 1);
+        }
+        const counts = Array.from(dayMap.entries())
+          .map(([day, count]) => ({ day, count }))
+          .sort((a, b) => a.day.localeCompare(b.day));
+        setTeamDailyCounts(counts);
+      }
+    }
+
     setView("detail");
     setLoading(false);
   }, [profile?.team_id]);
@@ -650,6 +700,12 @@ export default function Team() {
                 <p className="text-caption text-ink-muted">
                   {m.today_count}/{dailyTarget} today
                 </p>
+                {m.total_score > 0 && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-micro text-ink-secondary tabular-nums">{m.base_score.toLocaleString()} base</span>
+                    <span className="text-micro text-success font-semibold tabular-nums">{m.total_score.toLocaleString()} pts</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center flex-shrink-0 w-[4.5rem] justify-end gap-2">
                 {m.today_count >= dailyTarget ? (
@@ -716,6 +772,59 @@ export default function Team() {
           </div>
         ))}
       </div>
+
+      {/* Team streak */}
+      <div className="flex gap-2 mb-4">
+        <div className="flex-1 bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <p className="text-display-md text-accent tabular-nums">
+              {teamStreak.current}
+            </p>
+            <p className="text-caption text-ink-muted">
+              {teamStreak.current === 1 ? "day" : "days"}
+            </p>
+          </div>
+          {teamStreak.current > 0 && (
+            <div className="flex items-center gap-1 mt-2">
+              {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
+                <div
+                  key={i}
+                  className="h-2 rounded-full bg-accent"
+                  style={{
+                    width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
+                    opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 bg-bg-surface rounded-lg p-4">
+          <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <p className="text-display-md text-ink-primary tabular-nums">
+              {teamStreak.longest}
+            </p>
+            <p className="text-caption text-ink-muted">
+              {teamStreak.longest === 1 ? "day" : "days"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Team activity heatmap */}
+      {teamDailyCounts.length > 0 && (
+        <div className="mb-6">
+          <ActivityHeatmap
+            dailyCounts={teamDailyCounts}
+            months={3}
+            maxScale={300}
+            label="Team Activity"
+            scaleLabel="300"
+          />
+        </div>
+      )}
 
       {/* Invite button (captain only, when forming) */}
       {isCaptain && team.status === "forming" && (

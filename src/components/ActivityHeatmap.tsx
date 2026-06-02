@@ -8,6 +8,9 @@ interface DayData {
 interface Props {
   dailyCounts: DayData[];
   months?: number;
+  maxScale?: number;
+  label?: string;
+  scaleLabel?: string;
 }
 
 function getMonthLabel(date: Date): string {
@@ -23,7 +26,7 @@ function getISOWeekNumber(date: Date): number {
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
-export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
+export default function ActivityHeatmap({ dailyCounts, months = 3, maxScale, label, scaleLabel }: Props) {
   const [tooltip, setTooltip] = useState<{ day: string; count: number; x: number; y: number } | null>(null);
 
   const { weeks, monthLabels, weekNumbers } = useMemo(() => {
@@ -92,6 +95,14 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
 
   function getIntensity(count: number): string {
     if (count === 0) return "bg-bg-elevated border border-divider";
+    if (maxScale) {
+      const ratio = count / maxScale;
+      if (ratio <= 0.1) return "bg-accent/20";
+      if (ratio <= 0.25) return "bg-accent/35";
+      if (ratio <= 0.5) return "bg-accent/55";
+      if (ratio <= 0.75) return "bg-accent/75";
+      return "bg-accent";
+    }
     if (count <= 10) return "bg-accent/20";
     if (count <= 25) return "bg-accent/35";
     if (count <= 50) return "bg-accent/55";
@@ -106,7 +117,7 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
     <div className="bg-bg-surface rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <p className="text-micro text-ink-muted uppercase tracking-wide">
-          Activity
+          {label || "Activity"}
         </p>
         <div className="flex items-center gap-1">
           <span className="text-micro text-ink-muted mr-1">0</span>
@@ -116,7 +127,7 @@ export default function ActivityHeatmap({ dailyCounts, months = 3 }: Props) {
           <div className="w-2.5 h-2.5 rounded-sm bg-accent/55" />
           <div className="w-2.5 h-2.5 rounded-sm bg-accent/75" />
           <div className="w-2.5 h-2.5 rounded-sm bg-accent" />
-          <span className="text-micro text-ink-muted ml-1">100+</span>
+          <span className="text-micro text-ink-muted ml-1">{scaleLabel || "100+"}</span>
         </div>
       </div>
 
