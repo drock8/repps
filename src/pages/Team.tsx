@@ -224,9 +224,10 @@ export default function Team() {
     const file = e.target.files?.[0];
     if (!file || !profile?.team_id) return;
     setLogoError("");
+    setLogoError(`DEBUG: name=${file.name} type=${file.type || "(empty)"} size=${file.size}`);
 
     if (file.type && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setLogoError("Only JPEG, PNG, WebP, and GIF allowed");
+      setLogoError(`Rejected type: "${file.type}" — name: ${file.name}`);
       if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
@@ -244,8 +245,7 @@ export default function Team() {
       .from("team-logos")
       .upload(path, file, { upsert: true, contentType });
     if (uploadError) {
-      console.error("Logo upload failed:", JSON.stringify(uploadError));
-      setLogoError(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`);
+      setLogoError(`Storage error: ${uploadError.message} (${(uploadError as any).statusCode || "no code"})`);
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
       return;

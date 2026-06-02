@@ -456,8 +456,9 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     setAvatarError("");
+    setAvatarError(`DEBUG: name=${file.name} type=${file.type || "(empty)"} size=${file.size}`);
     if (file.type && !ALLOWED_AVATAR_TYPES.includes(file.type)) {
-      setAvatarError("Only JPEG, PNG, WebP, and GIF images are allowed.");
+      setAvatarError(`Rejected type: "${file.type}" — name: ${file.name}`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -474,8 +475,7 @@ export default function Profile() {
       .from("avatars")
       .upload(path, file, { upsert: true, contentType });
     if (uploadError) {
-      console.error("Avatar upload failed:", JSON.stringify(uploadError));
-      setAvatarError(`Upload failed: ${uploadError.message || JSON.stringify(uploadError)}`);
+      setAvatarError(`Storage error: ${uploadError.message} (${(uploadError as any).statusCode || "no code"})`);
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
