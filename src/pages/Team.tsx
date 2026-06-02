@@ -888,7 +888,7 @@ export default function Team() {
                 <div className="flex items-center gap-2">
                   <p className="text-body font-semibold text-ink-primary truncate">{m.name}</p>
                   {team.captain_id === m.id && (
-                    <span className="text-micro text-accent uppercase tracking-wide flex-shrink-0">Capt</span>
+                    <span className="text-micro text-accent uppercase tracking-wide flex-shrink-0">Captain</span>
                   )}
                 </div>
                 <p className="text-caption text-ink-muted">
