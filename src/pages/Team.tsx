@@ -873,6 +873,64 @@ export default function Team() {
         ))}
       </div>
 
+      {/* Team streak */}
+      <div className="bg-bg-surface rounded-lg p-4 mb-4">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              {teamStreak.current > 0 && (
+                <span className="text-display-md leading-none" role="img" aria-label="streak">&#x1F525;</span>
+              )}
+              <p className="text-display-md text-accent tabular-nums">
+                {teamStreak.current}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {teamStreak.current === 1 ? "day" : "days"}
+              </p>
+            </div>
+          </div>
+          <div className="w-px bg-divider" />
+          <div className="flex-1">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <p className="text-display-md text-ink-primary tabular-nums">
+                {teamStreak.longest}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {teamStreak.longest === 1 ? "day" : "days"}
+              </p>
+            </div>
+          </div>
+        </div>
+        {teamStreak.current > 0 && (
+          <div className="flex items-center gap-1 mt-3">
+            {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
+              <div
+                key={i}
+                className="h-2 rounded-full"
+                style={{
+                  width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
+                  opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
+                  background: `linear-gradient(90deg, #FF6B35, #FF9F1C)`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {(() => {
+          if (teamStreak.current === 0) {
+            return <p className="text-caption text-ink-muted mt-3">Do your reps today to start a team streak!</p>;
+          }
+          const nextMilestone = Math.ceil((teamStreak.current + 1) / 10) * 10;
+          const daysToNext = nextMilestone - teamStreak.current;
+          if (daysToNext <= 3) {
+            return <p className="text-caption text-accent mt-3">{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
+          }
+          return <p className="text-caption text-ink-muted mt-3">Keep it going! All members need to hit target today.</p>;
+        })()}
+      </div>
+
       {/* Team last 7 days */}
       {teamDailyCounts.length > 0 && (
         <div className="mb-4">
@@ -892,46 +950,6 @@ export default function Team() {
           />
         </div>
       )}
-
-      {/* Team streak */}
-      <div className="flex gap-2 mb-4">
-        <div className="flex-1 bg-bg-surface rounded-lg p-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <p className="text-display-md text-accent tabular-nums">
-              {teamStreak.current}
-            </p>
-            <p className="text-caption text-ink-muted">
-              {teamStreak.current === 1 ? "day" : "days"}
-            </p>
-          </div>
-          {teamStreak.current > 0 && (
-            <div className="flex items-center gap-1 mt-2">
-              {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
-                <div
-                  key={i}
-                  className="h-2 rounded-full bg-accent"
-                  style={{
-                    width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
-                    opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 bg-bg-surface rounded-lg p-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <p className="text-display-md text-ink-primary tabular-nums">
-              {teamStreak.longest}
-            </p>
-            <p className="text-caption text-ink-muted">
-              {teamStreak.longest === 1 ? "day" : "days"}
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Invite button (captain only, when forming) */}
       {isCaptain && team.status === "forming" && (
