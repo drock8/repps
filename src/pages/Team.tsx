@@ -700,7 +700,7 @@ export default function Team() {
         </button>
       </div>
 
-      {/* Today's team score */}
+      {/* Team Repp Score — Today + All Time */}
       {(() => {
         const todayBase = members.reduce((s, m) => s + m.today_base, 0);
         const todayReps = members.reduce((s, m) => s + m.today_count, 0);
@@ -711,31 +711,50 @@ export default function Team() {
         const displayTotal = todayTotal || todayReps;
         return (
           <div className="bg-bg-surface rounded-lg p-4 mb-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">Today</p>
-            <div className="flex items-baseline gap-2 mt-1">
-              <p className="text-display-lg repps-gradient-text tabular-nums">
-                {displayTotal.toLocaleString()}
-              </p>
-              <p className="text-caption text-ink-muted">pts</p>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-                <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Base<br />Repps</p>
-                <p className="text-body font-semibold text-ink-primary tabular-nums mt-1.5">
-                  {displayBase.toLocaleString()}
-                </p>
+            <div className="flex gap-4">
+              {/* Today */}
+              <div className="flex-1">
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Today</p>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <p className="text-display-md repps-gradient-text tabular-nums">
+                    {displayTotal.toLocaleString()}
+                  </p>
+                  <p className="text-caption text-ink-muted">pts</p>
+                </div>
+                {displayTotal > 0 && (
+                  <div className="flex flex-col gap-0.5 mt-2">
+                    <span className="text-micro text-ink-secondary tabular-nums">{displayBase.toLocaleString()} base</span>
+                    {todayStreak > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{todayStreak.toLocaleString()} streak bonus</span>
+                    )}
+                    {todayMultiplier > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{todayMultiplier.toLocaleString()} team multiplier</span>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-                <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Streak<br />Bonus</p>
-                <p className="text-body font-semibold text-blue-400 tabular-nums mt-1.5">
-                  {todayStreak > 0 ? `+${todayStreak.toLocaleString()}` : "0"}
-                </p>
-              </div>
-              <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-                <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Team<br />Multiplier</p>
-                <p className="text-body font-semibold text-emerald-400 tabular-nums mt-1.5">
-                  {todayMultiplier > 0 ? `+${todayMultiplier.toLocaleString()}` : "0"}
-                </p>
+              {/* Divider */}
+              <div className="w-px bg-divider" />
+              {/* All Time */}
+              <div className="flex-1">
+                <p className="text-micro text-ink-muted uppercase tracking-wide">All Time</p>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  <p className="text-display-md repps-gradient-text tabular-nums">
+                    {teamScore ? teamScore.total.toLocaleString() : "—"}
+                  </p>
+                  <p className="text-caption text-ink-muted">pts</p>
+                </div>
+                {teamScore && teamScore.total > 0 && (
+                  <div className="flex flex-col gap-0.5 mt-2">
+                    <span className="text-micro text-ink-secondary tabular-nums">{teamScore.baseReps.toLocaleString()} base</span>
+                    {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 && (
+                      <span className="text-micro text-blue-400 tabular-nums">+{(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()} streak bonus</span>
+                    )}
+                    {teamScore.multiplied > 0 && (
+                      <span className="text-micro text-emerald-400 tabular-nums">+{teamScore.multiplied.toLocaleString()} team multiplier</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -853,41 +872,6 @@ export default function Team() {
           </div>
         ))}
       </div>
-
-      {/* All-time team score */}
-      {teamScore && (
-        <div className="bg-bg-surface rounded-lg p-4 mb-4">
-          <p className="text-micro text-ink-muted uppercase tracking-wide">
-            All Time
-          </p>
-          <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-display-lg repps-gradient-text tabular-nums">
-              {teamScore.total.toLocaleString()}
-            </p>
-            <p className="text-caption text-ink-muted">pts</p>
-          </div>
-          <div className="flex gap-2 mt-3">
-            <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-              <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Base<br />Repps</p>
-              <p className="text-body font-semibold text-ink-primary tabular-nums mt-1.5">
-                {teamScore.baseReps.toLocaleString()}
-              </p>
-            </div>
-            <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-              <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Streak<br />Bonus</p>
-              <p className="text-body font-semibold text-blue-400 tabular-nums mt-1.5">
-                {(teamScore.streakBonus + teamScore.teamStreakBonus) > 0 ? `+${(teamScore.streakBonus + teamScore.teamStreakBonus).toLocaleString()}` : "0"}
-              </p>
-            </div>
-            <div className="flex-1 bg-bg-elevated rounded-md p-3 text-center">
-              <p className="text-micro text-ink-muted uppercase tracking-wide leading-tight">Team<br />Multiplier</p>
-              <p className="text-body font-semibold text-emerald-400 tabular-nums mt-1.5">
-                {teamScore.multiplied > 0 ? `+${teamScore.multiplied.toLocaleString()}` : "0"}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Team last 7 days */}
       {teamDailyCounts.length > 0 && (

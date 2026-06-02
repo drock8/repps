@@ -694,10 +694,10 @@ export default function Profile() {
                       <div className="flex flex-col gap-0.5 mt-2">
                         <span className="text-micro text-ink-secondary tabular-nums">{todayRow.reps} base</span>
                         {todayRow.streakBonus + todayRow.teamStreakBonus > 0 && (
-                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus + todayRow.teamStreakBonus} bonus</span>
+                          <span className="text-micro text-blue-400 tabular-nums">+{todayRow.streakBonus + todayRow.teamStreakBonus} streak bonus</span>
                         )}
                         {todayRow.dailyMultiplied > todayRow.reps && (
-                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} mult</span>
+                          <span className="text-micro text-emerald-400 tabular-nums">+{todayRow.dailyMultiplied - todayRow.reps} team multiplier</span>
                         )}
                       </div>
                     )}
@@ -720,10 +720,10 @@ export default function Profile() {
                 <div className="flex flex-col gap-0.5 mt-2">
                   <span className="text-micro text-ink-secondary tabular-nums">{repScore.baseReps.toLocaleString()} base</span>
                   {(repScore.individualStreak + repScore.teamStreak) > 0 && (
-                    <span className="text-micro text-blue-400 tabular-nums">+{(repScore.individualStreak + repScore.teamStreak).toLocaleString()} bonus</span>
+                    <span className="text-micro text-blue-400 tabular-nums">+{(repScore.individualStreak + repScore.teamStreak).toLocaleString()} streak bonus</span>
                   )}
                   {(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak) > 0 && (
-                    <span className="text-micro text-emerald-400 tabular-nums">+{(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak).toLocaleString()} mult</span>
+                    <span className="text-micro text-emerald-400 tabular-nums">+{(repScore.score - repScore.baseReps - repScore.individualStreak - repScore.teamStreak).toLocaleString()} team multiplier</span>
                   )}
                 </div>
               )}
