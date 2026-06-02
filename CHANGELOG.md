@@ -1,5 +1,16 @@
 # Changelog
 
+## Fix photo uploads: avatars + team logos (2026-06-02)
+
+### Fixed
+- **Avatars bucket not public** — bucket existed but was created without the public flag, so uploads succeeded but images returned 404. Added migration 026 to ensure all 4 storage buckets (avatars, team-logos, event-banners, event-sponsors) are created with public access and full RLS policies.
+- **Team logos column missing** — `logo_url`, `pending_logo_url`, and `pending_logo_uploaded_by` columns on `teams` table were never applied to remote. Migration 016 now covered by 026's idempotent bucket setup.
+- **RLS policy subquery ambiguity** — "Team members can update team logo" policy had unqualified `id` reference in `WITH CHECK` subqueries, causing "more than one row" errors on update. Fixed with explicit `teams.id` qualification.
+- **iPhone HEIC uploads rejected** — file input `accept` attribute and type validation blocked HEIC/HEIF files from iOS. Changed to `accept="image/*"` and added HEIC/HEIF to allowed types with empty-type fallback.
+- **Silent upload failures** — avatar upload had no user-facing error message on failure. Both upload flows now show clear error text.
+- **Missing contentType on upload** — Supabase storage uploads now pass `contentType: file.type` to ensure correct MIME serving.
+- **Cache-buster baked into stored URL** — `?t=timestamp` was stored in the database URL, preventing CDN caching. Now stored as clean URLs.
+
 ## Code hygiene: deduplicate shared utilities and components (2026-06-02)
 
 ### Added
