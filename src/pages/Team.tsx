@@ -268,8 +268,7 @@ export default function Team() {
       .eq("id", profile.team_id);
 
     if (updateError) {
-      console.error("Logo DB update failed:", JSON.stringify(updateError));
-      setLogoError("Upload failed — try again");
+      setLogoError(`DB error: ${updateError.message} (code: ${updateError.code})`);
     }
 
     await fetchTeamData();
