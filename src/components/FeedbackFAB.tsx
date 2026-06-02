@@ -59,6 +59,12 @@ export default function FeedbackFAB() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [threadReply, setThreadReply] = useState("");
   const [threadSending, setThreadSending] = useState(false);
+  const [seenReplies, setSeenReplies] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("repps_seen_replies");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
 
   const config = TYPE_CONFIG.find((t) => t.id === activeType)!;
 
@@ -77,6 +83,15 @@ export default function FeedbackFAB() {
   useEffect(() => {
     if (open && view === "history") loadHistory();
   }, [open, view, loadHistory]);
+
+  function markSeen(itemId: string) {
+    setSeenReplies((prev) => {
+      const next = new Set(prev);
+      next.add(itemId);
+      localStorage.setItem("repps_seen_replies", JSON.stringify([...next]));
+      return next;
+    });
+  }
 
   async function sendThreadReply(itemId: string) {
     if (!threadReply.trim()) return;
@@ -182,7 +197,7 @@ export default function FeedbackFAB() {
     return "💬";
   };
 
-  const hasUnread = history.some((h) => h.admin_reply && !expandedId);
+  const hasUnread = history.some((h) => h.admin_reply && !seenReplies.has(h.id));
 
   return (
     <>
@@ -248,7 +263,7 @@ export default function FeedbackFAB() {
                   }`}
                 >
                   My Feedback
-                  {history.filter((h) => h.admin_reply).length > 0 && view !== "history" && (
+                  {history.some((h) => h.admin_reply && !seenReplies.has(h.id)) && view !== "history" && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
                   )}
                 </button>
@@ -378,7 +393,7 @@ export default function FeedbackFAB() {
                         >
                           {/* Collapsed header — always tappable */}
                           <button
-                            onClick={() => { setExpandedId(isExpanded ? null : item.id); setThreadReply(""); }}
+                            onClick={() => { setExpandedId(isExpanded ? null : item.id); setThreadReply(""); if (!isExpanded && item.admin_reply) markSeen(item.id); }}
                             className="w-full text-left p-3"
                           >
                             <div className="flex items-start gap-2">
