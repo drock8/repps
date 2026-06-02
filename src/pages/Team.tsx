@@ -761,6 +761,66 @@ export default function Team() {
         );
       })()}
 
+      {/* Team streak */}
+      <div className="bg-bg-surface rounded-lg p-4 mb-4">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
+            <div className="flex items-center gap-2 mt-1">
+              {teamStreak.current > 0 && (
+                <img src="/Repps-Pumped-Yellow.png" alt="streak" className="w-8 h-8 object-contain" />
+              )}
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-display-md tabular-nums" style={{ color: "#F5C518" }}>
+                  {teamStreak.current}
+                </p>
+                <p className="text-caption text-ink-muted">
+                  {teamStreak.current === 1 ? "day" : "days"}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="w-px bg-divider" />
+          <div className="flex-1">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <p className="text-display-md text-ink-primary tabular-nums">
+                {teamStreak.longest}
+              </p>
+              <p className="text-caption text-ink-muted">
+                {teamStreak.longest === 1 ? "day" : "days"}
+              </p>
+            </div>
+          </div>
+        </div>
+        {teamStreak.current > 0 && (
+          <div className="flex items-center gap-1 mt-3">
+            {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
+              <div
+                key={i}
+                className="h-2 rounded-full"
+                style={{
+                  width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
+                  opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
+                  background: `linear-gradient(90deg, #F5C518, #FFD700)`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {(() => {
+          if (teamStreak.current === 0) {
+            return <p className="text-caption text-ink-muted mt-3">Do your reps today to start a team streak!</p>;
+          }
+          const nextMilestone = Math.ceil((teamStreak.current + 1) / 10) * 10;
+          const daysToNext = nextMilestone - teamStreak.current;
+          if (daysToNext <= 3) {
+            return <p className="text-caption mt-3" style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
+          }
+          return <p className="text-caption text-ink-muted mt-3">Keep it going! All members need to hit target today.</p>;
+        })()}
+      </div>
+
       {/* Members list */}
       <div className="flex flex-col gap-2 mb-6">
         <p className="text-micro text-ink-muted uppercase tracking-wide">Members</p>
@@ -871,66 +931,6 @@ export default function Team() {
             <p className="text-body text-ink-muted">Waiting for teammate...</p>
           </div>
         ))}
-      </div>
-
-      {/* Team streak */}
-      <div className="bg-bg-surface rounded-lg p-4 mb-4">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">Team Streak</p>
-            <div className="flex items-center gap-2 mt-1">
-              {teamStreak.current > 0 && (
-                <img src="/Repps-Pumped-Yellow.png" alt="streak" className="w-8 h-8 object-contain" />
-              )}
-              <div className="flex items-baseline gap-1.5">
-                <p className="text-display-md tabular-nums" style={{ color: "#F5C518" }}>
-                  {teamStreak.current}
-                </p>
-                <p className="text-caption text-ink-muted">
-                  {teamStreak.current === 1 ? "day" : "days"}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="w-px bg-divider" />
-          <div className="flex-1">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">Longest</p>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <p className="text-display-md text-ink-primary tabular-nums">
-                {teamStreak.longest}
-              </p>
-              <p className="text-caption text-ink-muted">
-                {teamStreak.longest === 1 ? "day" : "days"}
-              </p>
-            </div>
-          </div>
-        </div>
-        {teamStreak.current > 0 && (
-          <div className="flex items-center gap-1 mt-3">
-            {Array.from({ length: Math.min(teamStreak.current, 30) }, (_, i) => (
-              <div
-                key={i}
-                className="h-2 rounded-full"
-                style={{
-                  width: `${Math.max(100 / Math.min(teamStreak.current, 30) - 1, 2)}%`,
-                  opacity: 0.3 + 0.7 * ((i + 1) / Math.min(teamStreak.current, 30)),
-                  background: `linear-gradient(90deg, #F5C518, #FFD700)`,
-                }}
-              />
-            ))}
-          </div>
-        )}
-        {(() => {
-          if (teamStreak.current === 0) {
-            return <p className="text-caption text-ink-muted mt-3">Do your reps today to start a team streak!</p>;
-          }
-          const nextMilestone = Math.ceil((teamStreak.current + 1) / 10) * 10;
-          const daysToNext = nextMilestone - teamStreak.current;
-          if (daysToNext <= 3) {
-            return <p className="text-caption mt-3" style={{ color: "#F5C518" }}>{daysToNext === 1 ? "1 day" : `${daysToNext} days`} to next bonus level at {nextMilestone}d!</p>;
-          }
-          return <p className="text-caption text-ink-muted mt-3">Keep it going! All members need to hit target today.</p>;
-        })()}
       </div>
 
       {/* Team last 7 days */}
