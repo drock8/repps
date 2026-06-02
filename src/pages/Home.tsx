@@ -287,7 +287,7 @@ export default function Home() {
 
   const MILESTONE_TARGET = 1000;
   const MILESTONE_DATE = "2026-06-06";
-  const milestonePercent = Math.min((totalReps / MILESTONE_TARGET) * 100, 100);
+  const milestonePercent = (totalReps / MILESTONE_TARGET) * 100;
 
   return (
     <div className="flex flex-col items-center text-center h-full">
