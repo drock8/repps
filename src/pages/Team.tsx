@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
 import ActivityHeatmap from "../components/ActivityHeatmap";
+import WeeklyBarChart from "../components/WeeklyBarChart";
 
 interface TeamData {
   id: string;
@@ -830,6 +831,13 @@ export default function Team() {
           </div>
         </div>
       </div>
+
+      {/* Team last 7 days */}
+      {teamDailyCounts.length > 0 && (
+        <div className="mb-4">
+          <WeeklyBarChart dailyCounts={teamDailyCounts} />
+        </div>
+      )}
 
       {/* Team activity heatmap */}
       {teamDailyCounts.length > 0 && (
