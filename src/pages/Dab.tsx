@@ -30,11 +30,10 @@ import { addGuestRep, setGuestGender } from "../lib/guestSession";
 // import { unlockAudio } from "../lib/repAudio";
 import type { Gender } from "../contexts/AuthContext";
 
-type Screen = "setup" | "detecting" | "summary" | "gender-picker";
+type Screen = "detecting" | "summary" | "gender-picker";
 type EngineVersion = "v1" | "v2" | "v3";
 
 const CALIBRATION_FRAMES = 30;
-const SETUP_DISMISSED_KEY = "repps_setup_dismissed";
 const DIFFICULTY_KEY = "repps_difficulty_level";
 
 const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> = {
@@ -104,9 +103,7 @@ export default function Dab() {
 
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [screen, setScreen] = useState<Screen>(() =>
-    localStorage.getItem(SETUP_DISMISSED_KEY) ? "detecting" : "setup"
-  );
+  const [screen, setScreen] = useState<Screen>("detecting");
   const [celebrating, setCelebrating] = useState(false);
   const [reps, setReps] = useState(0);
   const [currentState, setCurrentState] = useState<string>("UNKNOWN");

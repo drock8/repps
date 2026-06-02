@@ -1,4 +1,4 @@
-export default function ModeIcon({ mode, size = 16, className }: { mode: string; size?: number; className?: string }) {
+export default function ModeIcon({ mode = "", size = 16, className }: { mode?: string; size?: number; className?: string }) {
   const isTeam = mode.startsWith("team") || mode === "group";
   const isGlobal = mode === "global_target" || mode === "globe";
   const isSprint = mode === "live_sprint" || mode === "timer";
