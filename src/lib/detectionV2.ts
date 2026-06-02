@@ -388,13 +388,15 @@ export class DetectionEngineV2 {
         alignmentStatus = "no-pose";
       } else {
         const centerX = (lm.lShoulder.x + lm.rShoulder.x + lm.lHip.x + lm.rHip.x) / 4;
-        const offCenter = Math.abs(centerX - 0.5) > 0.15;
-        const tooClose = lm.nose.y < 0.02 || Math.max(lm.lAnkle.y, lm.rAnkle.y) > 0.98;
+        const headCut = lm.nose.y < 0.02;
+        const tooClose = headCut || Math.max(lm.lAnkle.y, lm.rAnkle.y) > 0.98;
         const tooFar = currentHeight < 0.35;
 
-        if (tooClose) alignmentStatus = "too-close";
+        if (headCut && !tooFar) alignmentStatus = "head-cut";
+        else if (tooClose) alignmentStatus = "too-close";
         else if (tooFar) alignmentStatus = "too-far";
-        else if (offCenter) alignmentStatus = "off-center";
+        else if (centerX - 0.5 > 0.15) alignmentStatus = "off-right";
+        else if (centerX - 0.5 < -0.15) alignmentStatus = "off-left";
         else alignmentStatus = "aligned";
       }
 

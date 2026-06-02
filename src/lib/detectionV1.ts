@@ -5,7 +5,7 @@
 
 export type RepState = "HIGH" | "LOW" | "UNKNOWN";
 
-export type AlignmentStatus = "no-pose" | "too-close" | "too-far" | "off-center" | "aligned";
+export type AlignmentStatus = "no-pose" | "too-close" | "too-far" | "off-center" | "off-left" | "off-right" | "head-cut" | "aligned";
 
 export interface DetectionThresholds {
   highRatio: number;
@@ -243,13 +243,15 @@ export class DetectionEngineV1 {
         alignmentStatus = "no-pose";
       } else {
         const centerX = (lShoulder.x + rShoulder.x + lHip.x + rHip.x) / 4;
-        const offCenter = Math.abs(centerX - 0.5) > 0.15;
-        const tooClose = nose.y < 0.02 || Math.max(lAnkle.y, rAnkle.y) > 0.98;
+        const headCut = nose.y < 0.02;
+        const tooClose = headCut || Math.max(lAnkle.y, rAnkle.y) > 0.98;
         const tooFar = currentHeight < 0.35;
 
-        if (tooClose) alignmentStatus = "too-close";
+        if (headCut && !tooFar) alignmentStatus = "head-cut";
+        else if (tooClose) alignmentStatus = "too-close";
         else if (tooFar) alignmentStatus = "too-far";
-        else if (offCenter) alignmentStatus = "off-center";
+        else if (centerX - 0.5 > 0.15) alignmentStatus = "off-right";
+        else if (centerX - 0.5 < -0.15) alignmentStatus = "off-left";
         else alignmentStatus = "aligned";
       }
 
