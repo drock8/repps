@@ -1025,13 +1025,23 @@ export default function CreateEvent() {
       {/* Navigation buttons */}
       <div className="flex flex-col gap-3 mt-2">
         {step < 5 ? (
-          <button
-            onClick={handleNext}
-            disabled={!canAdvance(step)}
-            className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-30"
-          >
-            Next
-          </button>
+          <div className="flex gap-3">
+            {step > 1 && (
+              <button
+                onClick={handleBack}
+                className="flex-1 py-4 rounded-pill bg-bg-elevated text-ink-primary font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={handleNext}
+              disabled={!canAdvance(step)}
+              className="flex-1 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-30"
+            >
+              Next
+            </button>
+          </div>
         ) : isEditMode ? (
           <>
             <button

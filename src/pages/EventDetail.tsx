@@ -275,7 +275,8 @@ export default function EventDetail() {
   const handleFeature = async () => {
     if (!event) return;
     setActionLoading(true);
-    await supabase.rpc("feature_event", { p_event_id: event.id });
+    await supabase.from("events").update({ is_featured: false }).eq("is_featured", true);
+    await supabase.from("events").update({ is_featured: true }).eq("id", event.id);
     await fetchEvent();
     setActionLoading(false);
   };
@@ -507,7 +508,7 @@ export default function EventDetail() {
               Feature
             </button>
           )}
-          {event.category === "official" && event.is_featured && (
+          {event.is_featured && (
             <button
               onClick={handleUnfeature}
               disabled={actionLoading}
