@@ -1,8 +1,6 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import GenderPrompt from "./GenderPrompt";
-
-
 import FeedbackFAB from "./FeedbackFAB";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -20,12 +18,16 @@ function getPageTitle(pathname: string): string {
   if (pathname === "/events/create") return "Event";
   if (pathname.startsWith("/events/join/")) return "Events";
   if (pathname.startsWith("/events/")) return "Events";
+  if (pathname.startsWith("/user/")) return "Profile";
+  if (pathname === "/inbox") return "Messages";
+  if (pathname.startsWith("/inbox/")) return "Messages";
   return titles[pathname] || "";
 }
 
 export default function Layout() {
   const { profile } = useAuth();
   const theme = useTheme();
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const showGenderPrompt = profile && profile.gender_set === false && profile.gender === "unspecified";
   const title = getPageTitle(pathname);
@@ -43,6 +45,22 @@ export default function Layout() {
             <span className="text-caption font-semibold text-ink-secondary uppercase tracking-wide">
               {title}
             </span>
+            {profile && (
+              <button
+                onClick={() => navigate("/profile")}
+                className="absolute right-0 w-8 h-8 rounded-full overflow-hidden flex-shrink-0 transition-all duration-200 ease-apple active:scale-90"
+              >
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-avatar-bg flex items-center justify-center">
+                    <span className="text-caption font-bold text-avatar-text">
+                      {profile.name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </header>
