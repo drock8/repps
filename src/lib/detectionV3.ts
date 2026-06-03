@@ -588,19 +588,20 @@ export class DetectionEngineV3 {
       return "no_plank";
     }
 
-    // Nose-shoulder check: in a plank hold (arms straight), the head/nose stays
-    // above the shoulders. When chest is on the ground, nose drops to shoulder
-    // level or below. Check that nose Y is at or below average shoulder Y.
+    // Shoulder-below-elbow check: in a plank hold (arms straight), shoulders
+    // are above elbows. When chest is on the ground, shoulders drop to or below
+    // elbow level as elbows flare out to the sides.
     if (t.requireFloorContact) {
       const lm = this.extractLandmarks(landmarks);
-      const noseVis = (lm.nose.visibility ?? 0);
       const sVis = Math.min((lm.lShoulder.visibility ?? 0), (lm.rShoulder.visibility ?? 0));
-      if (noseVis > SOFT_VISIBILITY && sVis > SOFT_VISIBILITY) {
+      const eVis = Math.min((lm.lElbow.visibility ?? 0), (lm.rElbow.visibility ?? 0));
+      if (sVis > SOFT_VISIBILITY && eVis > SOFT_VISIBILITY) {
         const avgShoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
-        const noseShoulderGap = (avgShoulderY - lm.nose.y) / this.standingHeight;
-        // Positive = nose above shoulders (plank hold)
-        // Near zero or negative = nose at/below shoulders (chest on ground)
-        if (noseShoulderGap > 0.02) {
+        const avgElbowY = (lm.lElbow.y + lm.rElbow.y) / 2;
+        // In image coords, larger Y = lower in frame
+        // Plank hold: shoulder Y < elbow Y (shoulders above elbows)
+        // Chest on ground: shoulder Y >= elbow Y (shoulders at/below elbows)
+        if (avgShoulderY < avgElbowY - this.standingHeight * 0.02) {
           return "no_floor_contact";
         }
       }
