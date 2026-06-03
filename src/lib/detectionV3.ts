@@ -601,7 +601,7 @@ export class DetectionEngineV3 {
         // In image coords, larger Y = lower in frame
         // Plank hold: shoulder Y < elbow Y (shoulders above elbows)
         // Chest on ground: shoulder Y >= elbow Y (shoulders at/below elbows)
-        if (avgShoulderY < avgElbowY - this.standingHeight * 0.10) {
+        if (avgShoulderY < avgElbowY - this.standingHeight * 0.20) {
           return "no_floor_contact";
         }
       }
