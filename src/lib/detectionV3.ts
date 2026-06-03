@@ -588,6 +588,24 @@ export class DetectionEngineV3 {
       return "no_plank";
     }
 
+    // Nose-shoulder check: in a plank hold (arms straight), the head/nose stays
+    // above the shoulders. When chest is on the ground, nose drops to shoulder
+    // level or below. Check that nose Y is at or below average shoulder Y.
+    if (t.requireFloorContact) {
+      const lm = this.extractLandmarks(landmarks);
+      const noseVis = (lm.nose.visibility ?? 0);
+      const sVis = Math.min((lm.lShoulder.visibility ?? 0), (lm.rShoulder.visibility ?? 0));
+      if (noseVis > SOFT_VISIBILITY && sVis > SOFT_VISIBILITY) {
+        const avgShoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
+        const noseShoulderGap = (avgShoulderY - lm.nose.y) / this.standingHeight;
+        // Positive = nose above shoulders (plank hold)
+        // Near zero or negative = nose at/below shoulders (chest on ground)
+        if (noseShoulderGap > 0.05) {
+          return "no_floor_contact";
+        }
+      }
+    }
+
     return null;
   }
 
