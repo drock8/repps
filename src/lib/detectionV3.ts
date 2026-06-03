@@ -126,7 +126,7 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     minDuration: 800,
     maxDuration: 12000,
     minFloorDwell: 150,
-    noseAnkleRatio: 0.50,
+    noseAnkleRatio: 0.55,
     requirePlank: true,
     requireFloorContact: true,
     requireJump: false,

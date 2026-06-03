@@ -1172,7 +1172,7 @@ export default function Dab() {
         {flashColor && (
           <div
             className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-150 ease-apple ${
-              flashColor === "green" ? "bg-accent/15" : "bg-[#FF4444]/12"
+              flashColor === "green" ? "bg-accent/40" : "bg-[#FF4444]/35"
             }`}
             style={{ animation: flashColor === "green" ? "flashFade 300ms ease-out forwards" : "flashFade 400ms ease-out forwards" }}
           />
