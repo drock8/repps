@@ -571,6 +571,42 @@ export class DetectionEngineV3 {
       return false;
     }
 
+    // Bilateral symmetry check: both shoulders must be near the ground, not just one side
+    const lm = this.extractLandmarks(landmarks);
+    const lsVis = (lm.lShoulder.visibility ?? 0);
+    const rsVis = (lm.rShoulder.visibility ?? 0);
+    if (lsVis > SOFT_VISIBILITY && rsVis > SOFT_VISIBILITY) {
+      const shoulderYDiff = Math.abs(lm.lShoulder.y - lm.rShoulder.y);
+      // If one shoulder is much higher than the other (>20% of standing height),
+      // the user is leaning to one side, not in a proper plank/floor position
+      if (shoulderYDiff > this.standingHeight * 0.20) {
+        return false;
+      }
+    }
+
+    // Both hips must be low
+    const lhVis = (lm.lHip.visibility ?? 0);
+    const rhVis = (lm.rHip.visibility ?? 0);
+    const ankleY = Math.max(lm.lAnkle.y, lm.rAnkle.y);
+    if (lhVis > SOFT_VISIBILITY && rhVis > SOFT_VISIBILITY) {
+      const avgHipY = (lm.lHip.y + lm.rHip.y) / 2;
+      const hipAnkleRatio = Math.abs(avgHipY - ankleY) / this.standingHeight;
+      if (hipAnkleRatio > 0.30) {
+        return false;
+      }
+    }
+
+    // Wrists must be near ground level (planted beside shoulders in plank)
+    const lwVis = (lm.lWrist.visibility ?? 0);
+    const rwVis = (lm.rWrist.visibility ?? 0);
+    if (lwVis > SOFT_VISIBILITY && rwVis > SOFT_VISIBILITY) {
+      const avgWristY = (lm.lWrist.y + lm.rWrist.y) / 2;
+      const wristAnkleRatio = Math.abs(avgWristY - ankleY) / this.standingHeight;
+      if (wristAnkleRatio > 0.35) {
+        return false;
+      }
+    }
+
     return true;
   }
 
