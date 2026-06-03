@@ -600,7 +600,7 @@ export class DetectionEngineV3 {
         const noseShoulderGap = (avgShoulderY - lm.nose.y) / this.standingHeight;
         // Positive = nose above shoulders (plank hold)
         // Near zero or negative = nose at/below shoulders (chest on ground)
-        if (noseShoulderGap > 0.05) {
+        if (noseShoulderGap > 0.02) {
           return "no_floor_contact";
         }
       }
