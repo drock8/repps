@@ -4,9 +4,9 @@
 !.env.example
 
 # Project-internal docs
-APP_SPEC.md
-BRAND_SPEC.md
+docs/
 CLAUDE.md
+*.pdf
 
 # Logs
 logs

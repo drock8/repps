@@ -26,8 +26,8 @@ Solo founder Derrick (drock8). Lives in browser-first PWAs on Supabase + Vite + 
 
 ## Always reference these two companion docs before making decisions
 
-1. **`APP_SPEC.md`** — the canonical specification for v0.1 (what we're building this weekend). Read this when you need to know what to build or how something should behave.
-2. **`BRAND_SPEC.md`** — visual identity, design tokens, typography, motion. Read this when you need to know how something should look.
+1. **`docs/APP_SPEC.md`** — the canonical specification for v0.1 (what we're building this weekend). Read this when you need to know what to build or how something should behave.
+2. **`docs/BRAND_SPEC.md`** — visual identity, design tokens, typography, motion. Read this when you need to know how something should look.
 
 If anything in this file contradicts those two, those win — they're more detailed and canonical.
 
