@@ -397,6 +397,9 @@ export default function Dab() {
 
           // Skip frame if video hasn't produced data yet (Android slow camera start)
           if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
+            if (detectTimes.length === 0) {
+              console.log("[DAB] waiting for video frames, readyState:", videoRef.current.readyState, "dims:", videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
+            }
             animationIdRef.current = requestAnimationFrame(detect);
             return;
           }
@@ -408,6 +411,10 @@ export default function Dab() {
           }
           lastDetectTime = now;
 
+          if (detectTimes.length === 0) {
+            console.log("[DAB] first detect call, video dims:", videoRef.current.videoWidth, "x", videoRef.current.videoHeight);
+          }
+
           const detectStart = performance.now();
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
@@ -417,12 +424,13 @@ export default function Dab() {
 
           if (!benchmarkDone) {
             detectTimes.push(detectMs);
+            console.log(`[DAB] detect #${detectTimes.length}: ${detectMs.toFixed(0)}ms, landmarks: ${result.landmarks.length}`);
             if (detectTimes.length >= 10) {
               benchmarkDone = true;
               const sorted = [...detectTimes].sort((a, b) => a - b);
               const median = sorted[5];
-              // Give 50% headroom above median detection time
               frameInterval = Math.max(80, Math.ceil(median * 1.5));
+              console.log(`[DAB] benchmark done: median=${median.toFixed(0)}ms, interval=${frameInterval}ms`);
               if (median > 800) {
                 setSlowDeviceWarning(true);
               }
