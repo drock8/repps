@@ -598,7 +598,7 @@ export class DetectionEngineV3 {
 
     // Elbow bend check: arms must be bent (chest lowered), not extended (plank hold)
     // Straight arms ~160-180°, chest-on-ground ~60-120°
-    if (t.requireFloorContact && elbowAngle !== null && elbowAngle > 135) {
+    if (t.requireFloorContact && elbowAngle !== null && elbowAngle > 120) {
       return "no_floor_contact";
     }
 
