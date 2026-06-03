@@ -1,5 +1,21 @@
 # Changelog
 
+## Audio coaching + V3 default + distance feedback (2026-06-03)
+
+### Added
+- **Audio coaching system** — new `src/lib/coachAudio.ts` with priority queue (rejection > coaching > encouragement). Higher-priority clips interrupt lower; same-or-lower are dropped. 1.5s cooldown between rejection cues.
+- **24 ElevenLabs clips** — Rachel voice rejection cues ("All the way down!", "Touch the floor!"), escalated variants ("Chest to floor!", "Lay flat!"), mid-movement coaching ("Keep going!", "Push up!"), and encouragement at clean rep streaks ("Nice!" at 3, "Let's go!" at 5, "On fire!" at 10). Generated via `scripts/generate-coach-audio.mjs`.
+- **Full-screen color flash overlay** — green/gold flash on rep counted (300ms), amber flash on rejection (400ms). CSS-only animation, doesn't composite into recording canvas.
+- **V3 in admin panel** — engine selector now shows V3 as a third option with full feature description.
+
+### Changed
+- **V3 is now the default engine** — `settingsEngine` defaults to `"v3"` instead of `"v2"`.
+- **Rejection messages rewritten** — positive action framing ("All the way down!" instead of "Get lower — chest to the ground!"). Shorter, punchier text matches audio clips.
+- **HINGING → READY abort emits rejection** — standing back up from a partial descent now fires `shallow_descent` instead of resetting silently, so users get audio feedback.
+- **Standard thresholds loosened** — `floorRatio` front 0.40→0.45, side 0.38→0.42; `minFloorDwell` front 300→200ms, side 350→250ms; `standRatio` 0.85→0.82. More forgiving for phone-on-shelf conditions.
+- **Rejection throttle reduced** — 3000ms → 1500ms between rejection toasts, so consecutive failed reps each get feedback.
+- **Rep counter enlarged post-calibration** — 72px bold instead of display-xl. "Drop A Burpee" label hides after calibration to make room.
+
 ## Allow 2-member teams with scaled multipliers (2026-06-03)
 
 ### Changed

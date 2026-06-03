@@ -121,11 +121,11 @@ const CASUAL_THRESHOLDS: ThresholdSet = {
 
 const STANDARD_THRESHOLDS: ThresholdSet = {
   front: {
-    floorRatio: 0.40,
-    standRatio: 0.85,
+    floorRatio: 0.45,
+    standRatio: 0.82,
     minDuration: 800,
     maxDuration: 12000,
-    minFloorDwell: 300,
+    minFloorDwell: 200,
     noseAnkleRatio: 0.40,
     requirePlank: true,
     requireFloorContact: true,
@@ -137,11 +137,11 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     plankTorsoAngle: 50,
   },
   side: {
-    floorRatio: 0.38,
-    standRatio: 0.85,
+    floorRatio: 0.42,
+    standRatio: 0.82,
     minDuration: 800,
     maxDuration: 12000,
-    minFloorDwell: 350,
+    minFloorDwell: 250,
     noseAnkleRatio: 0.35,
     requirePlank: true,
     requireFloorContact: true,
@@ -868,7 +868,7 @@ export class DetectionEngineV3 {
           this.deepestPhase = "BOTTOM";
           stateChanged = true;
         } else if (r > t.standRatio) {
-          // Abort — user stood back up without completing
+          rejection = "shallow_descent";
           this.state = "READY";
           this.resetCycle();
           stateChanged = true;

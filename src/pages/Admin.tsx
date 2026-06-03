@@ -7,7 +7,7 @@ import AdminBugs from "../components/admin/AdminBugs";
 import AdminComments from "../components/admin/AdminComments";
 
 type Theme = "orange" | "blue" | "yellow";
-type EngineVersion = "v1" | "v2";
+type EngineVersion = "v1" | "v2" | "v3";
 type AdminTab = "dashboard" | "features" | "bugs" | "comments";
 
 interface Stats {
@@ -74,6 +74,26 @@ const MODELS: ModelInfo[] = [
     ],
     stateMachine: "STANDING → DESCENDING → DOWN → ASCENDING",
     accuracy: "Better — rejects false positives, handles side view",
+    cameraSupport: "Front + Side camera (auto-detected)",
+  },
+  {
+    id: "v3",
+    name: "V3 — Phase Verification + Audio Coaching",
+    subtitle: "Full burpee verification with audio feedback (default)",
+    description:
+      "5-phase state machine that verifies each stage of the burpee: hinge, bottom/floor contact, drive, rise, and stand. Includes per-phase rejection with audio coaching cues, difficulty levels, and escalating feedback for repeated mistakes.",
+    features: [
+      "5-phase machine (READY → HINGING → BOTTOM → DRIVING → RISING)",
+      "4 difficulty levels (Casual, Standard, Athlete, Elite)",
+      "Audio rejection cues with priority queue",
+      "Escalated feedback on consecutive failures",
+      "Encouragement at clean rep streaks (3, 5, 10)",
+      "Mid-movement coaching (keep going, push up, get up)",
+      "Plank, floor contact, jump, and tuck verification",
+      "Full-screen color flash feedback for distance viewing",
+    ],
+    stateMachine: "READY → HINGING → BOTTOM → DRIVING → RISING",
+    accuracy: "Best — per-phase verification, fewer false positives",
     cameraSupport: "Front + Side camera (auto-detected)",
   },
 ];

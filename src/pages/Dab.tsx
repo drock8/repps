@@ -15,6 +15,7 @@ import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
 import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "../lib/detectionV3";
 import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
+import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
   generateQRDataUrl,
   loadImage,
@@ -35,14 +36,14 @@ const CALIBRATION_FRAMES = 30;
 const DIFFICULTY_KEY = "repps_difficulty_level";
 
 const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> = {
-  shallow_descent: { first: "Get lower — chest to the ground!", escalated: "Try kicking your feet back to a plank first." },
-  no_plank: { first: "Kick your feet back to a plank!", escalated: "From the squat, jump your feet back before going down." },
-  no_floor_contact: { first: "Lower your chest to the floor!", escalated: "From plank, bend your arms and lay flat." },
-  incomplete_rise: { first: "Stand up all the way!", escalated: "Push up, jump feet forward, then stand tall." },
-  no_jump: { first: "Add a jump at the top!", escalated: "After standing, push off both feet and reach your hands up." },
-  no_tuck: { first: "Drive your knees to your chest!", escalated: "At the top of your jump, pull both knees up high." },
-  too_slow: { first: "Too slow — keep moving!", escalated: "Too slow — keep moving!" },
-  lost_tracking: { first: "Stay in the frame!", escalated: "Stay in the frame!" },
+  shallow_descent: { first: "All the way down!", escalated: "Chest to floor!" },
+  no_plank: { first: "Kick back!", escalated: "Kick back!" },
+  no_floor_contact: { first: "Touch the floor!", escalated: "Lay flat!" },
+  incomplete_rise: { first: "Stand tall!", escalated: "All the way up!" },
+  no_jump: { first: "Jump up!", escalated: "Feet off the ground!" },
+  no_tuck: { first: "Knees up!", escalated: "Drive those knees!" },
+  too_slow: { first: "Keep moving!", escalated: "Keep moving!" },
+  lost_tracking: { first: "Step back in!", escalated: "Step back in!" },
 };
 
 const COACHING_MESSAGES: Record<string, string> = {
@@ -59,7 +60,7 @@ export default function Dab() {
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
   const queryEngine = searchParams.get("v");
-  const [settingsEngine, setSettingsEngine] = useState<EngineVersion>("v2");
+  const [settingsEngine, setSettingsEngine] = useState<EngineVersion>("v3");
   useEffect(() => {
     supabase
       .from("settings")
@@ -146,13 +147,17 @@ export default function Dab() {
   const [v3CycleDuration, setV3CycleDuration] = useState(0);
   const [elbowAngle, setElbowAngle] = useState<number | null>(null);
   const [v3Difficulty, setV3Difficulty] = useState<DifficultyLevel>("standard");
+  const [flashColor, setFlashColor] = useState<"green" | "amber" | null>(null);
+  const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleanStreakRef = useRef(0);
 
   const showRejection = useCallback((reason: RejectionReason) => {
     if (reason === "jitter") return;
     const now = Date.now();
-    if (now - lastRejectionTimeRef.current < 3000) return;
+    if (now - lastRejectionTimeRef.current < 1500) return;
     lastRejectionTimeRef.current = now;
 
+    cleanStreakRef.current = 0;
     navigator.vibrate?.([50, 50, 50]);
 
     const msgs = REJECTION_MESSAGES[reason];
@@ -170,6 +175,12 @@ export default function Dab() {
     const message = useEscalated ? msgs.escalated : msgs.first;
     if (tracker.count >= 5) tracker.count = 0;
 
+    playRejectionCue(reason, tracker.count);
+
+    setFlashColor("amber");
+    if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+    flashTimeoutRef.current = setTimeout(() => setFlashColor(null), 400);
+
     setRejectionToast(message);
     if (rejectionToastTimeoutRef.current) clearTimeout(rejectionToastTimeoutRef.current);
     rejectionToastTimeoutRef.current = setTimeout(() => setRejectionToast(null), 2500);
@@ -178,14 +189,16 @@ export default function Dab() {
   const showCoachingCue = useCallback((cue: CoachingCue) => {
     const text = COACHING_MESSAGES[cue];
     if (!text) return;
+    playCoachingCue(cue);
     setCoachingCueText(text);
     if (coachingCueTimeoutRef.current) clearTimeout(coachingCueTimeoutRef.current);
     coachingCueTimeoutRef.current = setTimeout(() => setCoachingCueText(null), 1500);
   }, []);
 
-  // Preload rep audio clips and brand assets
+  // Preload rep audio clips, coach audio, and brand assets
   useEffect(() => {
     preloadRepAudio(10);
+    preloadCoachAudio();
 
     (async () => {
       try {
@@ -214,6 +227,7 @@ export default function Dab() {
     landmarkerRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    stopCoachAudio();
   }, []);
 
   const insertRep = useCallback(
@@ -623,6 +637,11 @@ export default function Dab() {
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 consecutiveRejectionRef.current = { reason: "", count: 0 };
+                cleanStreakRef.current++;
+                playEncouragement(cleanStreakRef.current);
+                setFlashColor("green");
+                if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+                flashTimeoutRef.current = setTimeout(() => setFlashColor(null), 300);
                 if (!tuneMode) insertRep();
                 if (frame.repCount === 1) {
                   try {
@@ -1005,8 +1024,8 @@ export default function Dab() {
             {engineVersion === "v3" && ` — ${v3Difficulty.toUpperCase()}`}
           </p>
         )}
-        <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>
-        <p className="text-display-xl text-accent tabular-nums">{reps}</p>
+        {!calibrated && <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>}
+        <p className={calibrated ? "text-[72px] leading-none text-accent tabular-nums font-bold" : "text-display-xl text-accent tabular-nums"}>{reps}</p>
         {calibrated && reps === 0 && (
           <p className="text-micro text-ink-muted mt-0.5">Each repp must be under 10 seconds</p>
         )}
@@ -1149,6 +1168,15 @@ export default function Dab() {
             transform: "scaleX(-1)",
           }}
         />
+        {/* Color flash overlay — green for rep, amber for rejection */}
+        {flashColor && (
+          <div
+            className={`absolute inset-0 z-10 pointer-events-none transition-opacity duration-150 ease-apple ${
+              flashColor === "green" ? "bg-accent/15" : "bg-[#FF4444]/12"
+            }`}
+            style={{ animation: flashColor === "green" ? "flashFade 300ms ease-out forwards" : "flashFade 400ms ease-out forwards" }}
+          />
+        )}
         {/* Hidden canvas for recording — composites video + skeleton + brand overlay */}
         <canvas ref={recordCanvasRef} style={{ display: "none" }} />
         {/* Confetti overlay canvas */}
