@@ -66,6 +66,25 @@ interface TeamScoreEntry {
   members: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[];
 }
 
+interface LatestRepEntry {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  count: number;
+  validatedAt: string;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d`;
+}
+
 const BOARD_TABS: { label: string; value: BoardType }[] = [
   { label: "Teams", value: "team_score" },
   { label: "Score", value: "rep_score" },
@@ -428,6 +447,9 @@ export default function Leaderboard() {
   const [repScoreEntries, setRepScoreEntries] = useState<RepScoreEntry[]>([]);
   const [teamScoreEntries, setTeamScoreEntries] = useState<TeamScoreEntry[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
+  const [latestReps, setLatestReps] = useState<LatestRepEntry[]>([]);
+  const [showLatest, setShowLatest] = useState(false);
+  const [hasRecentActivity, setHasRecentActivity] = useState(false);
   const [totalReps, setTotalReps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userEntry, setUserEntry] = useState<{
@@ -443,6 +465,36 @@ export default function Leaderboard() {
       setSearchParams({}, { replace: true });
     }
   }, [profile, showSignup, setSearchParams]);
+
+  const fetchLatestReps = useCallback(async () => {
+    const { data } = await supabase
+      .from("reps")
+      .select("user_id, validated_at, profiles(name, avatar_url)")
+      .order("validated_at", { ascending: false })
+      .limit(50);
+    if (!data) return;
+    const grouped = new Map<string, { name: string; avatarUrl: string | null; count: number; validatedAt: string }>();
+    for (const r of data as { user_id: string; validated_at: string; profiles: { name: string; avatar_url: string | null } }[]) {
+      const existing = grouped.get(r.user_id);
+      if (existing) {
+        existing.count++;
+      } else {
+        grouped.set(r.user_id, {
+          name: r.profiles.name,
+          avatarUrl: r.profiles.avatar_url,
+          count: 1,
+          validatedAt: r.validated_at,
+        });
+      }
+    }
+    const results = Array.from(grouped.entries()).map(([userId, v]) => ({
+      userId,
+      ...v,
+    }));
+    setLatestReps(results);
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    setHasRecentActivity(results.some(r => new Date(r.validatedAt).getTime() > fiveMinAgo));
+  }, []);
 
   const fetchTotalReps = useCallback(async () => {
     const { count } = await supabase
@@ -644,6 +696,7 @@ export default function Leaderboard() {
 
   useEffect(() => {
     fetchTotalReps();
+    fetchLatestReps();
     if (boardType === "total") {
       fetchLeaderboard(gender, period);
     } else if (boardType === "session") {
@@ -655,20 +708,22 @@ export default function Leaderboard() {
     } else if (boardType === "team_score") {
       fetchTeamScoreLeaderboard(period);
     }
-  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchTotalReps]);
+  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchTotalReps, fetchLatestReps]);
 
   useRepsChannel(
     useCallback(() => {
       setTotalReps((prev) => prev + 1);
+      setHasRecentActivity(true);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
+        fetchLatestReps();
         if (boardType === "total") fetchLeaderboard(gender, period);
         else if (boardType === "session") fetchSessionLeaderboard(gender);
         else if (boardType === "streak") fetchStreakLeaderboard(gender);
         else if (boardType === "rep_score") fetchRepScoreLeaderboard(gender, period);
         else if (boardType === "team_score") fetchTeamScoreLeaderboard(period);
       }, 2000);
-    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard])
+    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchLatestReps])
   );
 
   useEffect(() => {
@@ -708,6 +763,19 @@ export default function Leaderboard() {
             alt=""
             className="absolute w-[4.5rem] left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
           />
+          <button
+            onClick={() => { setShowLatest(!showLatest); setHasRecentActivity(false); }}
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center"
+          >
+            <div className="relative">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              {hasRecentActivity && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
+              )}
+            </div>
+          </button>
           <p className="text-headline text-ink-primary">GBT</p>
           <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
             {formatNumber(totalReps)}
@@ -716,6 +784,38 @@ export default function Leaderboard() {
             Global Burpee Total
           </p>
         </div>
+
+        {/* Latest activity panel */}
+        {showLatest && latestReps.length > 0 && (
+          <div className="mb-3 bg-bg-surface rounded-lg p-3 animate-[fadeIn_200ms_ease-out]">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Latest Activity</p>
+              <button onClick={() => setShowLatest(false)} className="text-ink-muted p-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+              {latestReps.map((r) => (
+                <div key={r.userId} className="flex items-center gap-2.5">
+                  {r.avatarUrl ? (
+                    <img src={r.avatarUrl} alt="" referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                      {r.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-caption text-ink-primary truncate block">{r.name}</span>
+                  </div>
+                  <span className="text-caption text-accent font-bold tabular-nums">{r.count}</span>
+                  <span className="text-micro text-ink-muted tabular-nums w-6 text-right">{timeAgo(r.validatedAt)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Board type tabs */}
         <div className="flex gap-1 mb-3 bg-bg-surface rounded-pill p-1">
