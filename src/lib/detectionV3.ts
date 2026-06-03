@@ -608,7 +608,7 @@ export class DetectionEngineV3 {
         const shoulderWristGap = (avgWristY - avgShoulderY) / this.standingHeight;
         // Positive gap = wrists below shoulders (plank hold, arms extended)
         // Near zero or negative = shoulders at wrist level (chest on ground)
-        if (shoulderWristGap > 0.20) {
+        if (shoulderWristGap > 0.30) {
           return "no_floor_contact";
         }
       }
