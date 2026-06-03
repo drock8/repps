@@ -334,7 +334,7 @@ export default function Home() {
       </div>
 
       {/* Milestone progress bar */}
-      <div className="w-full px-4 mt-3">
+      <div className="w-full px-4 mt-2">
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 bg-bg-input rounded-pill overflow-hidden">
             <div
@@ -352,9 +352,9 @@ export default function Home() {
       {featuredEvent && (
         <Link
           to={`/events/${featuredEvent.id}`}
-          className="w-full px-4 mt-3 block"
+          className="w-full px-4 mt-2 block"
         >
-          <div className="bg-bg-surface rounded-lg px-4 py-3 transition-all duration-200 ease-apple active:scale-[0.98]">
+          <div className="bg-bg-surface rounded-lg px-4 py-2 transition-all duration-200 ease-apple active:scale-[0.98]">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-micro text-accent font-bold uppercase tracking-wide flex items-center gap-1">
@@ -398,7 +398,7 @@ export default function Home() {
       )}
 
       {teamMembers.length > 0 && (
-        <div className="w-full px-4 mt-3">
+        <div className="w-full px-4 mt-2">
           <div className="bg-bg-surface rounded-lg px-3 py-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -521,11 +521,11 @@ export default function Home() {
         </div>
       )}
 
-      <div className="mt-3 w-full">
+      <div className="mt-2 w-full">
         <ActivityFeed />
       </div>
 
-      <div className="mt-6 flex flex-col items-center">
+      <div className="mt-3 flex flex-col items-center">
         <div className="flex flex-col items-center">
           <div className="relative">
             <button
@@ -547,7 +547,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-3">
         <YouTubeEmbed videoId="pZpr_WPCzf4" compact />
       </div>
     </div>

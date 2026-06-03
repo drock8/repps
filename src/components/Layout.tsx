@@ -64,7 +64,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className={`mx-auto max-w-md w-full px-4 pt-3 flex-1 ${scrollable ? "pb-24 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
+      <main className={`mx-auto max-w-md w-full px-4 pt-3 flex-1 ${scrollable ? "pb-20 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
         <Outlet />
       </main>
       {/* AddToHomeScreen — ready to enable when app is solid */}

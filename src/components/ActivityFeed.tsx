@@ -143,14 +143,14 @@ export default function ActivityFeed() {
   return (
     <>
       {!hasReceivedRep && bubbles.length === 0 && !userHasReps && (
-        <div className="h-24 flex items-center justify-center">
+        <div className="h-16 flex items-center justify-center">
           <p className="text-body text-ink-muted">
             Be the first to drop a burpee
           </p>
         </div>
       )}
 
-      {(hasReceivedRep || userHasReps) && bubbles.length === 0 && <div className="h-24" />}
+      {(hasReceivedRep || userHasReps) && bubbles.length === 0 && <div className="h-16" />}
 
       <div className="fixed inset-0 z-30 pointer-events-none overflow-hidden">
         {bubbles.map((bubble) => (
