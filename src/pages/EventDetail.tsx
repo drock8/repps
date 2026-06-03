@@ -499,22 +499,21 @@ export default function EventDetail() {
               Complete
             </button>
           )}
-          {event.category === "official" && !event.is_featured && ["announced", "active"].includes(event.status) && (
-            <button
-              onClick={handleFeature}
-              disabled={actionLoading}
-              className="py-2 px-4 rounded-pill bg-accent-gold/20 text-accent-gold text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-            >
-              Feature
-            </button>
-          )}
-          {event.is_featured && (
+          {event.is_featured ? (
             <button
               onClick={handleUnfeature}
               disabled={actionLoading}
+              className="py-2 px-4 rounded-pill bg-accent-gold/20 text-accent-gold text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              Featured
+            </button>
+          ) : event.category === "official" && ["announced", "active"].includes(event.status) && (
+            <button
+              onClick={handleFeature}
+              disabled={actionLoading}
               className="py-2 px-4 rounded-pill bg-ink-muted/20 text-ink-muted text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
             >
-              Un-feature
+              Feature
             </button>
           )}
           {event.status === "completed" && (
