@@ -141,12 +141,58 @@ async function transitionStaleStatuses(events: EventRow[]): Promise<EventRow[]> 
   return updated;
 }
 
+interface MyEventChip {
+  id: string;
+  name: string;
+  status: string;
+  ends_at: string;
+}
+
 export default function Events() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<CategoryTab>("featured");
   const [events, setEvents] = useState<EventWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
+  const [myEvents, setMyEvents] = useState<MyEventChip[]>([]);
+
+  useEffect(() => {
+    if (!profile) { setMyEvents([]); return; }
+    async function fetchMyEvents() {
+      const [{ data: created }, { data: participated }] = await Promise.all([
+        supabase
+          .from("events")
+          .select("id, name, status, ends_at")
+          .eq("created_by", profile!.id)
+          .neq("status", "archived")
+          .order("starts_at", { ascending: false }),
+        supabase
+          .from("event_participants")
+          .select("event_id")
+          .eq("user_id", profile!.id)
+          .eq("status", "active"),
+      ]);
+
+      const eventMap = new Map<string, MyEventChip>();
+      (created || []).forEach((e) => eventMap.set(e.id, e));
+
+      const joinedIds = (participated || [])
+        .map((p) => p.event_id)
+        .filter((id) => !eventMap.has(id));
+
+      if (joinedIds.length > 0) {
+        const { data: joinedEvents } = await supabase
+          .from("events")
+          .select("id, name, status, ends_at")
+          .in("id", joinedIds)
+          .neq("status", "archived");
+        (joinedEvents || []).forEach((e) => eventMap.set(e.id, e));
+      }
+
+      setMyEvents(Array.from(eventMap.values()));
+    }
+    fetchMyEvents();
+  }, [profile]);
 
   // Realtime subscription for participant joins
   useEffect(() => {
@@ -277,6 +323,43 @@ export default function Events() {
             </svg>
             Create
           </button>
+        </div>
+      )}
+
+      {/* Your Events */}
+      {myEvents.length > 0 && (
+        <div>
+          <p className="text-micro text-ink-muted uppercase tracking-wide mb-2">Your Events</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {myEvents.map((e) => {
+              const diff = new Date(e.ends_at).getTime() - Date.now();
+              const timeLabel = e.status === "completed"
+                ? "Completed"
+                : e.status === "draft"
+                  ? "Draft"
+                  : diff <= 0
+                    ? "Ending"
+                    : (() => {
+                        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        return d > 0 ? `${d}d left` : `${h}h left`;
+                      })();
+              const statusColor = e.status === "active" ? "bg-success" : e.status === "announced" ? "bg-accent" : "bg-ink-muted";
+              return (
+                <button
+                  key={e.id}
+                  onClick={() => navigate(`/events/${e.id}`)}
+                  className="flex-shrink-0 bg-bg-surface rounded-lg px-3 py-2 text-left transition-all duration-200 ease-apple active:scale-[0.97]"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusColor} flex-shrink-0`} />
+                    <span className="text-caption text-ink-primary font-semibold truncate max-w-[10rem]">{e.name}</span>
+                  </div>
+                  <p className="text-micro text-ink-muted mt-0.5">{timeLabel}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

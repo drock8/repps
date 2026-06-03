@@ -280,6 +280,24 @@ export default function EventDetail() {
     setActionLoading(false);
   };
 
+  const handleUnfeature = async () => {
+    if (!event) return;
+    setActionLoading(true);
+    await supabase.from("events").update({ is_featured: false }).eq("id", event.id);
+    await fetchEvent();
+    setActionLoading(false);
+  };
+
+  const handleDeleteDraft = async () => {
+    if (!event) return;
+    if (!window.confirm("Delete this draft event?")) return;
+    setActionLoading(true);
+    await supabase.from("event_participants").delete().eq("event_id", event.id);
+    await supabase.from("events").delete().eq("id", event.id);
+    setActionLoading(false);
+    navigate("/events");
+  };
+
   const handleArchive = async () => {
     if (!event) return;
     setActionLoading(true);
@@ -489,6 +507,15 @@ export default function EventDetail() {
               Feature
             </button>
           )}
+          {event.category === "official" && event.is_featured && (
+            <button
+              onClick={handleUnfeature}
+              disabled={actionLoading}
+              className="py-2 px-4 rounded-pill bg-ink-muted/20 text-ink-muted text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              Un-feature
+            </button>
+          )}
           {event.status === "completed" && (
             <button
               onClick={handleArchive}
@@ -496,6 +523,15 @@ export default function EventDetail() {
               className="py-2 px-4 rounded-pill bg-ink-muted/20 text-ink-muted text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
             >
               Archive
+            </button>
+          )}
+          {event.status === "draft" && (
+            <button
+              onClick={handleDeleteDraft}
+              disabled={actionLoading}
+              className="py-2 px-4 rounded-pill bg-red-500/20 text-red-400 text-caption font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+            >
+              Delete
             </button>
           )}
         </div>

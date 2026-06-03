@@ -47,6 +47,7 @@ interface FeaturedEvent {
   name: string;
   target_reps: number | null;
   total_reps: number;
+  participant_count: number;
   starts_at: string;
   ends_at: string;
   status: string;
@@ -179,6 +180,7 @@ export default function Home() {
         ...data,
         status,
         total_reps: progress?.total_reps ?? 0,
+        participant_count: progress?.participant_count ?? 0,
       });
     }
     fetchFeatured();
@@ -271,6 +273,15 @@ export default function Home() {
       });
       handleNewRep(payload.user_id);
       fetchTeamProgress();
+      setFeaturedEvent((prev) => {
+        if (!prev) return prev;
+        supabase.rpc("get_event_progress", { p_event_id: prev.id }).then(({ data }) => {
+          if (data) {
+            setFeaturedEvent((cur) => cur ? { ...cur, total_reps: data.total_reps ?? cur.total_reps, participant_count: data.participant_count ?? cur.participant_count } : cur);
+          }
+        });
+        return prev;
+      });
     },
     () => {
       supabase.from("reps").select("*", { count: "exact", head: true }).then(({ count }) => {
@@ -365,6 +376,9 @@ export default function Home() {
                     </>
                   ) : null}
                   <span className="text-micro text-ink-muted whitespace-nowrap">
+                    {featuredEvent.participant_count > 0 && (
+                      <>{featuredEvent.participant_count} joined · </>
+                    )}
                     {(() => {
                       const diff = new Date(featuredEvent.ends_at).getTime() - Date.now();
                       if (diff <= 0) return "Ending";
