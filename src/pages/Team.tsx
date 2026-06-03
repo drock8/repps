@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
 import ActivityHeatmap from "../components/ActivityHeatmap";
@@ -32,6 +33,7 @@ type View = "no-team" | "invite" | "detail";
 
 export default function Team() {
   const { profile, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>("no-team");
   const [team, setTeam] = useState<TeamData | null>(null);
   const [members, setMembers] = useState<MemberWithReps[]>([]);
@@ -698,6 +700,32 @@ export default function Team() {
         )}
 
       </div>
+
+      {/* Team Chat button */}
+      {team.status === "active" && (
+        <button
+          onClick={async () => {
+            const { data } = await supabase.rpc("get_inbox");
+            if (Array.isArray(data)) {
+              const teamConvo = data.find((c: { type: string; team_id: string | null }) => c.type === "team" && c.team_id === team.id);
+              if (teamConvo) {
+                navigate(`/inbox/${teamConvo.conversation_id}`);
+                return;
+              }
+            }
+            // Create team conversation by sending a message
+            const { data: result } = await supabase.rpc("send_team_message", { p_message_key: "lets_go" });
+            if (result?.conversation_id) navigate(`/inbox/${result.conversation_id}`);
+            else navigate("/inbox");
+          }}
+          className="w-full py-3 mb-4 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-caption flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          Team Chat
+        </button>
+      )}
 
       {/* Team Repp Score — Today + All Time */}
       {(() => {

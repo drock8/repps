@@ -14,6 +14,9 @@ import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import CreateEvent from "./pages/CreateEvent";
 import EventJoin from "./pages/EventJoin";
+import UserProfile from "./pages/UserProfile";
+import Inbox from "./pages/Inbox";
+import Conversation from "./pages/Conversation";
 import Admin from "./pages/Admin";
 
 export default function App() {
@@ -36,6 +39,9 @@ export default function App() {
               <Route path="events/create" element={<CreateEvent />} />
               <Route path="events/join/:code" element={<EventJoin />} />
               <Route path="events/:id" element={<EventDetail />} />
+              <Route path="user/:id" element={<UserProfile />} />
+              <Route path="inbox" element={<Inbox />} />
+              <Route path="inbox/:id" element={<Conversation />} />
               <Route path="reset-password" element={<Home />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

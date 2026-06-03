@@ -564,6 +564,7 @@ export default function EventDetail() {
           expandedTeamId={expandedTeamId}
           teamMembers={teamMembers}
           callerName={profile?.name || ""}
+          profileId={profile?.id}
           onToggleTeam={(teamId) => {
             if (expandedTeamId === teamId) {
               setExpandedTeamId(null);
@@ -601,6 +602,7 @@ function LeaderboardTab({
   teamMembers,
   onToggleTeam,
   callerName,
+  profileId,
 }: {
   event: EventData;
   leaderboard: LeaderboardData | null;
@@ -610,7 +612,9 @@ function LeaderboardTab({
   teamMembers: Record<string, IndividualEntry[]>;
   onToggleTeam: (teamId: string) => void;
   callerName: string;
+  profileId: string | undefined;
 }) {
+  const navigate = useNavigate();
   const entries = leaderboard?.leaderboard || [];
   const caller = leaderboard?.caller;
   const isCompleted = event.status === "completed" || event.status === "archived";
@@ -649,7 +653,14 @@ function LeaderboardTab({
         )}
         <p className="text-micro text-ink-muted uppercase tracking-wide">Contributions</p>
         {(entries as IndividualEntry[]).map((entry, i) => (
-          <div key={entry.user_id} className={`flex items-center py-3 px-4 bg-bg-surface rounded-lg ${isCompleted && i === 0 ? "ring-1 ring-accent/30" : ""}`}>
+          <button
+            key={entry.user_id}
+            onClick={() => {
+              if (profileId && entry.user_id === profileId) navigate("/profile");
+              else navigate(`/user/${entry.user_id}`);
+            }}
+            className={`w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left ${isCompleted && i === 0 ? "ring-1 ring-accent/30" : ""}`}
+          >
             <span className="w-8 text-center flex-shrink-0">
               {i < 3 ? <span className="text-body-lg">{MEDALS[i]}</span> : <span className="text-body text-ink-muted">{i + 1}.</span>}
             </span>
@@ -658,7 +669,7 @@ function LeaderboardTab({
             </div>
             <span className="ml-3 text-body text-ink-primary truncate flex-1">{entry.user_name}</span>
             <span className="text-body text-accent font-bold tabular-nums ml-2">{formatNumber(entry.total_reps)}</span>
-          </div>
+          </button>
         ))}
       </div>
     );
@@ -700,11 +711,18 @@ function LeaderboardTab({
               {teamEntries.find((t) => t.team_id === expandedTeamId)?.team_name} Members
             </p>
             {teamMembers[expandedTeamId].map((m) => (
-              <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
+              <button
+                key={m.user_id}
+                onClick={() => {
+                  if (profileId && m.user_id === profileId) navigate("/profile");
+                  else navigate(`/user/${m.user_id}`);
+                }}
+                className="w-full flex items-center py-2 px-3 bg-bg-elevated rounded-md text-left"
+              >
                 <Avatar url={m.avatar_url} name={m.user_name} />
                 <span className="ml-2 text-caption text-ink-primary truncate flex-1">{m.user_name}</span>
                 <span className="text-caption text-accent font-bold tabular-nums ml-2">{formatNumber(m.total_reps)}</span>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -745,11 +763,18 @@ function LeaderboardTab({
             {expandedTeamId === entry.team_id && teamMembers[entry.team_id] && (
               <div className="ml-10 mt-1 flex flex-col gap-1">
                 {teamMembers[entry.team_id].map((m) => (
-                  <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
+                  <button
+                    key={m.user_id}
+                    onClick={() => {
+                      if (profileId && m.user_id === profileId) navigate("/profile");
+                      else navigate(`/user/${m.user_id}`);
+                    }}
+                    className="w-full flex items-center py-2 px-3 bg-bg-elevated rounded-md text-left"
+                  >
                     <Avatar url={m.avatar_url} name={m.user_name} />
                     <span className="ml-2 text-caption text-ink-primary truncate flex-1">{m.user_name}</span>
                     <span className="text-caption text-accent font-bold tabular-nums ml-2">{formatNumber(m.total_reps)}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -774,7 +799,14 @@ function LeaderboardTab({
   return (
     <div className="flex flex-col gap-2">
       {(entries as IndividualEntry[]).map((entry, i) => (
-        <div key={entry.user_id} className={`flex items-center py-3 px-4 bg-bg-surface rounded-lg ${isCompleted && i === 0 ? "ring-1 ring-accent/30" : ""}`}>
+        <button
+          key={entry.user_id}
+          onClick={() => {
+            if (profileId && entry.user_id === profileId) navigate("/profile");
+            else navigate(`/user/${entry.user_id}`);
+          }}
+          className={`w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left ${isCompleted && i === 0 ? "ring-1 ring-accent/30" : ""}`}
+        >
           <span className="w-8 text-center flex-shrink-0">
             {i < 3 ? <span className="text-body-lg">{MEDALS[i]}</span> : <span className="text-body text-ink-muted">{i + 1}.</span>}
           </span>
@@ -783,7 +815,7 @@ function LeaderboardTab({
           </div>
           <span className="ml-3 text-body text-ink-primary truncate flex-1">{entry.user_name}</span>
           <span className="text-body text-accent font-bold tabular-nums ml-2">{formatNumber(entry.total_reps)}</span>
-        </div>
+        </button>
       ))}
 
       {caller && !(entries as IndividualEntry[]).some((e) => e.rank === caller.rank) && (

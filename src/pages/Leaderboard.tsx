@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber, MEDALS } from "../lib/format";
 import { useAuth } from "../contexts/AuthContext";
@@ -428,6 +428,7 @@ function SignupOverlay({
 export default function Leaderboard() {
   const { profile, signInWithGoogle } = useAuth();
   const theme = useTheme();
+  const navigate = useNavigate();
   const ogIds = useOG100();
   const [searchParams, setSearchParams] = useSearchParams();
   const signupFlow = searchParams.get("signup") === "1";
@@ -908,7 +909,13 @@ export default function Leaderboard() {
                     </span>
                   </div>
                 )}
-                <div className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+                <button
+                  onClick={() => {
+                    if (profile && entry.userId === profile.id) navigate("/profile");
+                    else navigate(`/user/${entry.userId}`);
+                  }}
+                  className="w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left"
+                >
                   <span className="w-8 text-center flex-shrink-0">
                     {i < 3 ? (
                       <span className="text-body-lg">{MEDALS[i]}</span>
@@ -926,7 +933,7 @@ export default function Leaderboard() {
                   <span className="text-body text-accent font-bold tabular-nums ml-2">
                     {entry.count}
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}
@@ -981,7 +988,14 @@ export default function Leaderboard() {
       ) : boardType === "session" ? (
         <div className="flex flex-col gap-2">
           {sessionEntries.map((entry, i) => (
-            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+            <button
+              key={entry.userId}
+              onClick={() => {
+                if (profile && entry.userId === profile.id) navigate("/profile");
+                else navigate(`/user/${entry.userId}`);
+              }}
+              className="w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left"
+            >
               <span className="w-8 text-center flex-shrink-0">
                 {i < 3 ? (
                   <span className="text-body-lg">{MEDALS[i]}</span>
@@ -1009,13 +1023,20 @@ export default function Leaderboard() {
                 </span>
                 <span className="text-micro text-ink-muted block">repps</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : boardType === "streak" ? (
         <div className="flex flex-col gap-2">
           {streakEntries.map((entry, i) => (
-            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+            <button
+              key={entry.userId}
+              onClick={() => {
+                if (profile && entry.userId === profile.id) navigate("/profile");
+                else navigate(`/user/${entry.userId}`);
+              }}
+              className="w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left"
+            >
               <span className="w-8 text-center flex-shrink-0">
                 {i < 3 ? (
                   <span className="text-body-lg">{MEDALS[i]}</span>
@@ -1045,13 +1066,20 @@ export default function Leaderboard() {
                   {entry.longestStreak === 1 ? "day" : "days"}
                 </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : boardType === "rep_score" ? (
         <div className="flex flex-col gap-2">
           {repScoreEntries.map((entry, i) => (
-            <div key={entry.userId} className="flex items-center py-3 px-4 bg-bg-surface rounded-lg">
+            <button
+              key={entry.userId}
+              onClick={() => {
+                if (profile && entry.userId === profile.id) navigate("/profile");
+                else navigate(`/user/${entry.userId}`);
+              }}
+              className="w-full flex items-center py-3 px-4 bg-bg-surface rounded-lg text-left"
+            >
               <span className="w-8 text-center flex-shrink-0">
                 {i < 3 ? (
                   <span className="text-body-lg">{MEDALS[i]}</span>
@@ -1089,7 +1117,7 @@ export default function Leaderboard() {
                 </span>
                 <span className="text-micro text-ink-muted block">pts</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       ) : (
@@ -1158,7 +1186,14 @@ export default function Leaderboard() {
                   {[...entry.members]
                     .sort((a, b) => (b.score || 0) - (a.score || 0))
                     .map((m) => (
-                    <div key={m.user_id} className="flex items-center py-2 px-3 bg-bg-elevated rounded-md">
+                    <button
+                      key={m.user_id}
+                      onClick={() => {
+                        if (profile && m.user_id === profile.id) navigate("/profile");
+                        else navigate(`/user/${m.user_id}`);
+                      }}
+                      className="w-full flex items-center py-2 px-3 bg-bg-elevated rounded-md text-left"
+                    >
                       <Avatar url={m.avatar_url} name={m.name} />
                       <span className="ml-2 text-caption text-ink-primary truncate flex-1 flex items-center gap-1">
                         {m.name}
@@ -1170,7 +1205,7 @@ export default function Leaderboard() {
                       <span className="text-caption text-accent font-bold tabular-nums ml-2">
                         {formatNumber(m.score)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
