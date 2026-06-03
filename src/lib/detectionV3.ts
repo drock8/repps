@@ -16,6 +16,7 @@ export type RejectionReason =
   | "shallow_descent"
   | "no_plank"
   | "no_floor_contact"
+  | "forward_drift"
   | "incomplete_rise"
   | "too_slow"
   | "jitter"
@@ -297,6 +298,7 @@ export class DetectionEngineV3 {
   private calibrationStartTime = 0;
   private standingHeight = 0;
   private standingAnkleY = 0;
+  private standingCenterY = 0;
 
   // Smoothing
   private ratioBuffer: number[] = [];
@@ -356,6 +358,7 @@ export class DetectionEngineV3 {
   recalibrate() {
     this.standingHeight = 0;
     this.standingAnkleY = 0;
+    this.standingCenterY = 0;
     this.calibrationHeights = [];
     this.calibrationStartTime = 0;
     this.ratioBuffer = [];
@@ -536,14 +539,15 @@ export class DetectionEngineV3 {
     return { hipAngle, kneeAngle, elbowAngle: null, torsoAngle, noseAnkleRatio };
   }
 
-  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, landmarks: Landmark[]): boolean {
+  // Returns null if bottom entry is valid, or a rejection reason if not
+  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
     const t = this.thresholds;
 
-    if (ratio >= t.floorRatio) return false;
+    if (ratio >= t.floorRatio) return "shallow_descent";
 
     if (this.cameraAngle === "side") {
       const sideCheck = torsoAngle !== null && torsoAngle > t.plankTorsoAngle;
-      if (t.requirePlank && !sideCheck) return false;
+      if (t.requirePlank && !sideCheck) return "no_plank";
 
       // Side view: check shoulder-Y drop toward hip-Y
       const lm = this.extractLandmarks(landmarks);
@@ -554,33 +558,49 @@ export class DetectionEngineV3 {
         const shoulderHipGap = Math.abs(shoulder.y - hip.y);
         if (t.requireFloorContact && shoulderHipGap > this.standingHeight * 0.15) {
           // Shoulders haven't dropped close enough to hips — not fully down yet
-          // Only enforce at standard+ where floor contact matters
         }
       }
-      return true;
+      return null;
     }
 
     // Front view: multi-signal fusion
-    if (!t.requirePlank && !t.requireFloorContact) return true;
+    if (!t.requirePlank && !t.requireFloorContact) return null;
+
+    // Forward-drift guard: user moved toward camera instead of dropping down
+    const lm = this.extractLandmarks(landmarks);
+    const currentCenterY = (lm.lHip.y + lm.rHip.y + lm.lShoulder.y + lm.rShoulder.y) / 4;
+    const centerDrift = Math.abs(currentCenterY - this.standingCenterY) / this.standingHeight;
+    if (centerDrift > 0.50) {
+      return "forward_drift";
+    }
 
     const noseCheck = t.noseAnkleRatio === null || noseAnkleRatio < t.noseAnkleRatio;
-    if (!noseCheck) return false;
+    if (!noseCheck) return "shallow_descent";
 
     // Torso flattening check (shoulder-hip Y gap shrinks)
     if (t.requirePlank && torsoAngle !== null && torsoAngle < 30) {
-      return false;
+      return "no_plank";
     }
 
-    // Bilateral symmetry check: both shoulders must be near the ground, not just one side
-    const lm = this.extractLandmarks(landmarks);
+    // Shoulder-hip convergence: when lying flat, shoulders and hips are at the same Y
+    const shoulderVis = Math.min((lm.lShoulder.visibility ?? 0), (lm.rShoulder.visibility ?? 0));
+    const hipVis = Math.min((lm.lHip.visibility ?? 0), (lm.rHip.visibility ?? 0));
+    if (shoulderVis > SOFT_VISIBILITY && hipVis > SOFT_VISIBILITY) {
+      const avgShoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
+      const avgHipY = (lm.lHip.y + lm.rHip.y) / 2;
+      const shoulderHipGap = Math.abs(avgShoulderY - avgHipY) / this.standingHeight;
+      if (shoulderHipGap > 0.18) {
+        return "no_floor_contact";
+      }
+    }
+
+    // Bilateral symmetry check: both shoulders must be near the ground
     const lsVis = (lm.lShoulder.visibility ?? 0);
     const rsVis = (lm.rShoulder.visibility ?? 0);
     if (lsVis > SOFT_VISIBILITY && rsVis > SOFT_VISIBILITY) {
       const shoulderYDiff = Math.abs(lm.lShoulder.y - lm.rShoulder.y);
-      // If one shoulder is much higher than the other (>20% of standing height),
-      // the user is leaning to one side, not in a proper plank/floor position
       if (shoulderYDiff > this.standingHeight * 0.20) {
-        return false;
+        return "no_plank";
       }
     }
 
@@ -592,7 +612,7 @@ export class DetectionEngineV3 {
       const avgHipY = (lm.lHip.y + lm.rHip.y) / 2;
       const hipAnkleRatio = Math.abs(avgHipY - ankleY) / this.standingHeight;
       if (hipAnkleRatio > 0.30) {
-        return false;
+        return "no_plank";
       }
     }
 
@@ -603,11 +623,11 @@ export class DetectionEngineV3 {
       const avgWristY = (lm.lWrist.y + lm.rWrist.y) / 2;
       const wristAnkleRatio = Math.abs(avgWristY - ankleY) / this.standingHeight;
       if (wristAnkleRatio > 0.35) {
-        return false;
+        return "no_plank";
       }
     }
 
-    return true;
+    return null;
   }
 
   private checkJump(landmarks: Landmark[]): void {
@@ -819,6 +839,7 @@ export class DetectionEngineV3 {
 
         this.standingHeight = candidateHeight;
         this.standingAnkleY = Math.max(lm.lAnkle.y, lm.rAnkle.y);
+        this.standingCenterY = (lm.lHip.y + lm.rHip.y + lm.lShoulder.y + lm.rShoulder.y) / 4;
 
         const totalVotes = this.angleVotes.front + this.angleVotes.side;
         const frontRatio = this.angleVotes.front / totalVotes;
@@ -896,15 +917,15 @@ export class DetectionEngineV3 {
       }
 
       case "HINGING": {
-        const bottomOk = this.checkBottomEntry(r, angles.noseAnkleRatio, angles.torsoAngle, landmarks);
-        if (bottomOk) {
+        const bottomReject = this.checkBottomEntry(r, angles.noseAnkleRatio, angles.torsoAngle, landmarks);
+        if (bottomReject === null) {
           this.state = "BOTTOM";
           this.bottomEnteredTime = now;
           this.bottomMinRatio = r;
           this.deepestPhase = "BOTTOM";
           stateChanged = true;
         } else if (r > t.standRatio) {
-          rejection = "shallow_descent";
+          rejection = bottomReject;
           this.state = "READY";
           this.resetCycle();
           stateChanged = true;

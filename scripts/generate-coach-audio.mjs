@@ -46,6 +46,11 @@ const CLIPS = [
   { file: "lets-go", text: "Let's go!" },
   { file: "on-fire", text: "On fire!" },
 
+  // Forward-drift rejection cues
+  { file: "drop-in-place", text: "Drop in place!" },
+  { file: "drop-straight-down", text: "Drop straight down!" },
+  { file: "hands-to-feet", text: "Hands to feet!" },
+
   // Additional clips from COACHING_SPEC §9
   { file: "halfway", text: "Halfway!" },
   { file: "last-one", text: "Last one!" },

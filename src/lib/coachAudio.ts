@@ -1,12 +1,13 @@
-const REJECTION_CLIPS: Record<string, { primary: string; escalated: string | null }> = {
-  shallow_descent: { primary: "all-the-way-down", escalated: "chest-to-floor" },
-  no_floor_contact: { primary: "touch-the-floor", escalated: "lay-flat" },
-  incomplete_rise: { primary: "stand-tall", escalated: "all-the-way-up" },
-  no_jump: { primary: "jump-up", escalated: "feet-off" },
-  no_tuck: { primary: "knees-up", escalated: "drive-those-knees" },
-  no_plank: { primary: "kick-back", escalated: null },
-  too_slow: { primary: "keep-moving", escalated: null },
-  lost_tracking: { primary: "step-back-in", escalated: null },
+const REJECTION_CLIPS: Record<string, { primary: string; escalated: string | null; final: string | null }> = {
+  shallow_descent: { primary: "all-the-way-down", escalated: "chest-to-floor", final: null },
+  no_floor_contact: { primary: "touch-the-floor", escalated: "lay-flat", final: null },
+  incomplete_rise: { primary: "stand-tall", escalated: "all-the-way-up", final: null },
+  no_jump: { primary: "jump-up", escalated: "feet-off", final: null },
+  no_tuck: { primary: "knees-up", escalated: "drive-those-knees", final: null },
+  no_plank: { primary: "kick-back", escalated: null, final: null },
+  forward_drift: { primary: "drop-in-place", escalated: "drop-straight-down", final: "hands-to-feet" },
+  too_slow: { primary: "keep-moving", escalated: null, final: null },
+  lost_tracking: { primary: "step-back-in", escalated: null, final: null },
 };
 
 const COACHING_CLIPS: Record<string, string> = {
@@ -102,8 +103,12 @@ export function playRejectionCue(reason: string, consecutiveCount: number): void
   const clips = REJECTION_CLIPS[reason];
   if (!clips) return;
 
-  const useEscalated = consecutiveCount >= 3 && clips.escalated;
-  const clipName = useEscalated ? clips.escalated! : clips.primary;
+  let clipName = clips.primary;
+  if (consecutiveCount >= 5 && clips.final) {
+    clipName = clips.final;
+  } else if (consecutiveCount >= 3 && clips.escalated) {
+    clipName = clips.escalated;
+  }
   playClip(clipName, PRIORITY_REJECTION);
 }
 
