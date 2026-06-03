@@ -32,8 +32,8 @@ function makeTabs(theme: string): Tab[] {
     { to: "/home", label: "Home", icon: { type: "img", src: HOME_ICONS[theme] || HOME_ICONS.orange }, end: true },
     { to: "/events", label: "Events", icon: { type: "svg", d: EVENTS_ICON_D }, end: false },
     { to: "/leaderboard", label: "Board", icon: { type: "svg", d: BOARD_ICON_D }, end: false },
-    { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
     { to: "/inbox", label: "Inbox", icon: { type: "svg", d: INBOX_ICON_D }, end: false },
+    { to: "/team", label: "Teams", icon: { type: "svg", d: TEAM_ICON_D }, end: false },
   ];
 }
 
