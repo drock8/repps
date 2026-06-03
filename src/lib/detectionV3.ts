@@ -121,7 +121,7 @@ const CASUAL_THRESHOLDS: ThresholdSet = {
 
 const STANDARD_THRESHOLDS: ThresholdSet = {
   front: {
-    floorRatio: 0.50,
+    floorRatio: 0.55,
     standRatio: 0.78,
     minDuration: 800,
     maxDuration: 12000,
@@ -137,12 +137,12 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     plankTorsoAngle: 35,
   },
   side: {
-    floorRatio: 0.48,
+    floorRatio: 0.52,
     standRatio: 0.78,
     minDuration: 800,
     maxDuration: 12000,
     minFloorDwell: 180,
-    noseAnkleRatio: 0.45,
+    noseAnkleRatio: 0.50,
     requirePlank: true,
     requireFloorContact: true,
     requireJump: false,
