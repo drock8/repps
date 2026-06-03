@@ -351,7 +351,6 @@ export default function Dab() {
             "Camera access"
           );
         } catch {
-          // Audio denied or unavailable — fall back to video only
           stream = await withTimeout(
             navigator.mediaDevices.getUserMedia({
               video: { facingMode: "user" },
@@ -366,21 +365,26 @@ export default function Dab() {
         }
         streamRef.current = stream;
 
-        if (videoRef.current) {
-          const videoOnly = new MediaStream(stream.getVideoTracks());
-          videoRef.current.srcObject = videoOnly;
-          videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.setAttribute("autoplay", "true");
-          await videoRef.current.play().catch(() => {});
-          // Wait for video to actually produce frames before starting detection
-          if (videoRef.current.readyState < 2) {
-            await new Promise<void>((resolve) => {
-              const vid = videoRef.current!;
-              const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
-              vid.addEventListener("loadeddata", onReady);
-              setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 10000);
-            });
-          }
+        if (!videoRef.current) throw new Error("Camera view not ready — try again");
+        const vid = videoRef.current;
+        vid.srcObject = new MediaStream(stream.getVideoTracks());
+        vid.setAttribute("playsinline", "true");
+        vid.setAttribute("autoplay", "true");
+        await vid.play().catch(() => {});
+
+        if (vid.readyState < 2) {
+          await new Promise<void>((resolve) => {
+            const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
+            vid.addEventListener("loadeddata", onReady);
+            setTimeout(() => {
+              vid.removeEventListener("loadeddata", onReady);
+              if (vid.readyState < 2) {
+                vid.load();
+                vid.play().catch(() => {});
+              }
+              resolve();
+            }, 10000);
+          });
         }
 
         setLoadStage("Let's go!");
