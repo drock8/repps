@@ -580,14 +580,6 @@ export class DetectionEngineV3 {
     // Front view: multi-signal fusion
     if (!t.requirePlank && !t.requireFloorContact) return null;
 
-    // Forward-drift guard: user moved toward camera instead of dropping down
-    const lm = this.extractLandmarks(landmarks);
-    const currentCenterY = (lm.lHip.y + lm.rHip.y + lm.lShoulder.y + lm.rShoulder.y) / 4;
-    const centerDrift = Math.abs(currentCenterY - this.standingCenterY) / this.standingHeight;
-    if (centerDrift > 0.50) {
-      return "forward_drift";
-    }
-
     const noseCheck = t.noseAnkleRatio === null || noseAnkleRatio < t.noseAnkleRatio;
     if (!noseCheck) return "shallow_descent";
 
