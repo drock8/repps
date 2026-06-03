@@ -8,6 +8,9 @@ docs/
 CLAUDE.md
 *.pdf
 
+# Claude Code
+.claude/
+
 # Logs
 logs
 *.log
