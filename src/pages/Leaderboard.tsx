@@ -474,7 +474,7 @@ export default function Leaderboard() {
       .limit(50);
     if (!data) return;
     const grouped = new Map<string, { name: string; avatarUrl: string | null; count: number; validatedAt: string }>();
-    for (const r of data as { user_id: string; validated_at: string; profiles: { name: string; avatar_url: string | null } }[]) {
+    for (const r of data as unknown as { user_id: string; validated_at: string; profiles: { name: string; avatar_url: string | null } }[]) {
       const existing = grouped.get(r.user_id);
       if (existing) {
         existing.count++;
