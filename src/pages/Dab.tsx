@@ -115,6 +115,7 @@ export default function Dab() {
   const [loadStage, setLoadStage] = useState("Powering up…");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [slowDeviceWarning, setSlowDeviceWarning] = useState(false);
 
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
@@ -376,14 +377,7 @@ export default function Dab() {
           await new Promise<void>((resolve) => {
             const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
             vid.addEventListener("loadeddata", onReady);
-            setTimeout(() => {
-              vid.removeEventListener("loadeddata", onReady);
-              if (vid.readyState < 2) {
-                vid.load();
-                vid.play().catch(() => {});
-              }
-              resolve();
-            }, 10000);
+            setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 10000);
           });
         }
 
@@ -393,28 +387,47 @@ export default function Dab() {
 
         let lastDetectTime = 0;
         let lastRepCount = 0;
+        let frameInterval = 80;
+        const detectTimes: number[] = [];
+        let benchmarkDone = false;
         const detect = () => {
           if (cancelled || !videoRef.current || !canvasRef.current || !landmarkerRef.current) {
             return;
           }
 
           // Skip frame if video hasn't produced data yet (Android slow camera start)
-          if (videoRef.current.readyState < 2) {
+          if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
             animationIdRef.current = requestAnimationFrame(detect);
             return;
           }
 
           const now = performance.now();
-          if (now - lastDetectTime < 80) {
+          if (now - lastDetectTime < frameInterval) {
             animationIdRef.current = requestAnimationFrame(detect);
             return;
           }
           lastDetectTime = now;
 
+          const detectStart = performance.now();
           const result = landmarkerRef.current.detectForVideo(
             videoRef.current,
             now
           );
+          const detectMs = performance.now() - detectStart;
+
+          if (!benchmarkDone) {
+            detectTimes.push(detectMs);
+            if (detectTimes.length >= 10) {
+              benchmarkDone = true;
+              const sorted = [...detectTimes].sort((a, b) => a - b);
+              const median = sorted[5];
+              // Give 50% headroom above median detection time
+              frameInterval = Math.max(80, Math.ceil(median * 1.5));
+              if (median > 800) {
+                setSlowDeviceWarning(true);
+              }
+            }
+          }
           const ctx = canvasRef.current.getContext("2d");
           if (!ctx) return;
 
@@ -1150,6 +1163,13 @@ export default function Dab() {
               style={{ backgroundColor: "rgba(0,0,0,0.75)" }}
             >
               {rejectionToast}
+            </div>
+          </div>
+        )}
+        {slowDeviceWarning && (
+          <div className="absolute top-2 left-0 right-0 flex justify-center z-30 pointer-events-none">
+            <div className="bg-bg-base/90 backdrop-blur-sm rounded-pill px-4 py-2 text-center">
+              <p className="text-caption text-ink-secondary">Detection may be slow on this device</p>
             </div>
           </div>
         )}
