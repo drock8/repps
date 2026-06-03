@@ -27,7 +27,7 @@ export default function Layout() {
   const { profile } = useAuth();
   const theme = useTheme();
   const { pathname } = useLocation();
-  const showGenderPrompt = profile && profile.gender_set === false;
+  const showGenderPrompt = profile && profile.gender_set === false && profile.gender === "unspecified";
   const title = getPageTitle(pathname);
   const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/") || pathname === "/events" || pathname.startsWith("/events/");
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
