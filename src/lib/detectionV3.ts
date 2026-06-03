@@ -122,11 +122,11 @@ const CASUAL_THRESHOLDS: ThresholdSet = {
 
 const STANDARD_THRESHOLDS: ThresholdSet = {
   front: {
-    floorRatio: 0.55,
+    floorRatio: 0.50,
     standRatio: 0.78,
     minDuration: 800,
     maxDuration: 12000,
-    minFloorDwell: 150,
+    minFloorDwell: 300,
     noseAnkleRatio: 0.55,
     requirePlank: true,
     requireFloorContact: true,
@@ -138,11 +138,11 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     plankTorsoAngle: 35,
   },
   side: {
-    floorRatio: 0.52,
+    floorRatio: 0.48,
     standRatio: 0.78,
     minDuration: 800,
     maxDuration: 12000,
-    minFloorDwell: 180,
+    minFloorDwell: 300,
     noseAnkleRatio: 0.50,
     requirePlank: true,
     requireFloorContact: true,
@@ -536,11 +536,25 @@ export class DetectionEngineV3 {
     if (hVis > SOFT_VISIBILITY) hipAngle = angleDeg(shoulder, hip, knee);
     if (kVis > SOFT_VISIBILITY) kneeAngle = angleDeg(hip, knee, ankle);
 
-    return { hipAngle, kneeAngle, elbowAngle: null, torsoAngle, noseAnkleRatio };
+    // Front-view elbow angle: use the best-visibility side
+    let elbowAngle: number | null = null;
+    const lElbow = lm.lElbow;
+    const rElbow = lm.rElbow;
+    const lEVis = Math.min((lm.lShoulder.visibility ?? 0), (lElbow.visibility ?? 0), (lm.lWrist.visibility ?? 0));
+    const rEVis = Math.min((lm.rShoulder.visibility ?? 0), (rElbow.visibility ?? 0), (lm.rWrist.visibility ?? 0));
+    if (lEVis > SOFT_VISIBILITY || rEVis > SOFT_VISIBILITY) {
+      if (lEVis >= rEVis) {
+        elbowAngle = angleDeg(lm.lShoulder, lElbow, lm.lWrist);
+      } else {
+        elbowAngle = angleDeg(lm.rShoulder, rElbow, lm.rWrist);
+      }
+    }
+
+    return { hipAngle, kneeAngle, elbowAngle, torsoAngle, noseAnkleRatio };
   }
 
   // Returns null if bottom entry is valid, or a rejection reason if not
-  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
+  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, elbowAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
     const t = this.thresholds;
 
     if (ratio >= t.floorRatio) return "shallow_descent";
@@ -582,6 +596,11 @@ export class DetectionEngineV3 {
       return "no_plank";
     }
 
+    // Elbow bend check: arms must be bent (chest lowered), not extended (plank hold)
+    // Straight arms ~160-180°, chest-on-ground ~60-120°
+    if (t.requireFloorContact && elbowAngle !== null && elbowAngle > 135) {
+      return "no_floor_contact";
+    }
 
     return null;
   }
@@ -873,7 +892,7 @@ export class DetectionEngineV3 {
       }
 
       case "HINGING": {
-        const bottomReject = this.checkBottomEntry(r, angles.noseAnkleRatio, angles.torsoAngle, landmarks);
+        const bottomReject = this.checkBottomEntry(r, angles.noseAnkleRatio, angles.torsoAngle, angles.elbowAngle, landmarks);
         if (bottomReject === null) {
           this.state = "BOTTOM";
           this.bottomEnteredTime = now;
