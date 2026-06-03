@@ -4,7 +4,6 @@ import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
 import { PRESET_MESSAGES, PRESET_KEYS } from "../lib/presets";
 import { useAuth } from "../contexts/AuthContext";
-import Avatar from "../components/Avatar";
 
 interface PublicProfileData {
   user_id: string;

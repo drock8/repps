@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { PRESET_MESSAGES } from "../lib/presets";
 import { useAuth } from "../contexts/AuthContext";
-import Avatar from "../components/Avatar";
 
 interface InboxConversation {
   conversation_id: string;
