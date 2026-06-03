@@ -897,7 +897,7 @@ export class DetectionEngineV3 {
       }
 
       case "HINGING": {
-        const bottomReject = this.checkBottomEntry(r, angles.noseAnkleRatio, angles.torsoAngle, angles.elbowAngle, landmarks);
+        const bottomReject = this.checkBottomEntry(rawR, angles.noseAnkleRatio, angles.torsoAngle, angles.elbowAngle, landmarks);
         if (bottomReject === null) {
           this.state = "BOTTOM";
           this.bottomEnteredTime = now;
