@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix gender prompt reappearing (2026-06-03)
+
+### Fixed
+- **Gender prompt no longer reappears after selection** — prompt now checks both `gender_set` and actual gender value, preventing re-prompting due to token refresh races or alternate selection paths (Dab share flow).
+
 ## Audio coaching + V3 default + distance feedback (2026-06-03)
 
 ### Added

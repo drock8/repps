@@ -525,7 +525,7 @@ export default function Home() {
         <ActivityFeed />
       </div>
 
-      <div className="mt-2 flex flex-col items-center">
+      <div className="mt-6 flex flex-col items-center">
         <div className="flex flex-col items-center">
           <div className="relative">
             <button
@@ -547,7 +547,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-6">
         <YouTubeEmbed videoId="pZpr_WPCzf4" compact />
       </div>
     </div>
