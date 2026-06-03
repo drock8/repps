@@ -596,10 +596,22 @@ export class DetectionEngineV3 {
       return "no_plank";
     }
 
-    // Elbow bend check: arms must be bent (chest lowered), not extended (plank hold)
-    // Straight arms ~160-180°, chest-on-ground ~60-120°
-    if (t.requireFloorContact && elbowAngle !== null && elbowAngle > 120) {
-      return "no_floor_contact";
+    // Shoulder-wrist proximity: when chest is on the ground, shoulders drop to
+    // wrist level (hands planted beside chest). In a plank hold, shoulders stay
+    // above wrists because arms are propping the body up.
+    if (t.requireFloorContact) {
+      const shoulderVis = Math.min((lm.lShoulder.visibility ?? 0), (lm.rShoulder.visibility ?? 0));
+      const wristVis = Math.min((lm.lWrist.visibility ?? 0), (lm.rWrist.visibility ?? 0));
+      if (shoulderVis > SOFT_VISIBILITY && wristVis > SOFT_VISIBILITY) {
+        const avgShoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
+        const avgWristY = (lm.lWrist.y + lm.rWrist.y) / 2;
+        const shoulderWristGap = (avgWristY - avgShoulderY) / this.standingHeight;
+        // Positive gap = wrists below shoulders (plank hold, arms extended)
+        // Near zero or negative = shoulders at wrist level (chest on ground)
+        if (shoulderWristGap > 0.08) {
+          return "no_floor_contact";
+        }
+      }
     }
 
     return null;
