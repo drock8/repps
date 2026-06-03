@@ -338,19 +338,27 @@ export default function Dab() {
         }
         landmarkerRef.current = landmarker;
 
-        setLoadStage("Get ready to rumble…");
+        setLoadStage("Starting camera…");
         setLoadProgress(75);
         let stream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
-            audio: true,
-          });
+          stream = await withTimeout(
+            navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user" },
+              audio: true,
+            }),
+            15000,
+            "Camera access"
+          );
         } catch {
           // Audio denied or unavailable — fall back to video only
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
-          });
+          stream = await withTimeout(
+            navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "user" },
+            }),
+            15000,
+            "Camera access (video-only)"
+          );
         }
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -361,14 +369,16 @@ export default function Dab() {
         if (videoRef.current) {
           const videoOnly = new MediaStream(stream.getVideoTracks());
           videoRef.current.srcObject = videoOnly;
-          await videoRef.current.play();
+          videoRef.current.setAttribute("playsinline", "true");
+          videoRef.current.setAttribute("autoplay", "true");
+          await videoRef.current.play().catch(() => {});
           // Wait for video to actually produce frames before starting detection
           if (videoRef.current.readyState < 2) {
             await new Promise<void>((resolve) => {
               const vid = videoRef.current!;
               const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
               vid.addEventListener("loadeddata", onReady);
-              setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 5000);
+              setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 10000);
             });
           }
         }

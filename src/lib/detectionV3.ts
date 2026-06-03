@@ -589,7 +589,7 @@ export class DetectionEngineV3 {
       const avgShoulderY = (lm.lShoulder.y + lm.rShoulder.y) / 2;
       const avgHipY = (lm.lHip.y + lm.rHip.y) / 2;
       const shoulderHipGap = Math.abs(avgShoulderY - avgHipY) / this.standingHeight;
-      if (shoulderHipGap > 0.18) {
+      if (shoulderHipGap > 0.30) {
         return "no_floor_contact";
       }
     }
