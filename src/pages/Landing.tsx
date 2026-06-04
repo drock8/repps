@@ -89,7 +89,7 @@ export default function Landing() {
       </div>
 
       {/* Main content — fills remaining space */}
-      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pb-[3vh] pt-[4vh]">
+      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pt-[4vh]" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)" }}>
         {/* Logo + HQ badge + Sign In */}
         <div className="w-full flex flex-col items-center flex-shrink-0">
           <div className="w-full flex items-center justify-between">
