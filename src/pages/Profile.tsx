@@ -893,8 +893,21 @@ export default function Profile() {
         {/* Activity heatmap */}
         <ActivityHeatmap dailyCounts={dailyCounts} months={3} />
 
-        {/* 7-day bar chart */}
-        <WeeklyBarChart dailyCounts={dailyCounts} />
+        {/* 7-day bar chart — prefer scoreHistory reps so it matches the breakdown table */}
+        <WeeklyBarChart dailyCounts={
+          scoreHistory.length > 0
+            ? (() => {
+                const histMap = new Map(scoreHistory.map(r => [r.day, r.reps]));
+                const merged = dailyCounts.map(d => ({ ...d, count: histMap.get(d.day) ?? d.count }));
+                for (const r of scoreHistory) {
+                  if (!dailyCounts.some(d => d.day === r.day)) {
+                    merged.push({ day: r.day, count: r.reps });
+                  }
+                }
+                return merged;
+              })()
+            : dailyCounts
+        } />
 
         {/* Weekly trend sparkline */}
         <WeeklyTrendChart dailyCounts={dailyCounts} />
