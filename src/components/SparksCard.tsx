@@ -111,9 +111,14 @@ export default function SparksCard() {
         </p>
       )}
 
-      <p className="text-micro text-ink-muted mt-2">
-        Earn <span className="text-purple-400 font-semibold">50 pts</span> per referral, <span className="text-purple-400 font-semibold">100 pts</span> if they hit 5 reps day one
-      </p>
+      <div className="mt-2 bg-accent/10 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-micro font-bold text-accent uppercase tracking-wide">2x Launch Bonus</span>
+        </div>
+        <p className="text-micro text-ink-secondary mt-0.5">
+          <span className="text-purple-400 font-semibold">50 pts</span> per referral, <span className="text-purple-400 font-semibold">100 pts</span> if they hit 5 reps day one
+        </p>
+      </div>
 
       <div className="flex gap-3 mt-3">
         <button
