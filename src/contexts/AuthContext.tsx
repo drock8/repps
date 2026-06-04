@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn("[auth] bootstrap timeout — unblocking UI");
         supabase.auth.getSession().then(({ data }) => bootstrap(data.session));
       }
-    }, 8000);
+    }, 4000);
 
     // Subscribe to auth state changes FIRST so we never miss PASSWORD_RECOVERY
     const { data: listener } = supabase.auth.onAuthStateChange(
@@ -229,6 +229,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const signInWithGoogle = useCallback(async () => {
+    // Store current path so we can return after OAuth redirect
+    try { sessionStorage.setItem("repps_auth_return", window.location.pathname); } catch { /* ignore */ }
     const redirectTo = window.location.origin + "/";
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",

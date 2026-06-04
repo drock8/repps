@@ -399,6 +399,20 @@ export default function Dab() {
           });
         }
 
+        // Verify we actually have video frames (Android can resolve the timeout without real data)
+        if (vid.videoWidth === 0 || vid.videoHeight === 0) {
+          // One more attempt: pause, reassign stream, play again
+          vid.pause();
+          vid.srcObject = null;
+          await new Promise((r) => setTimeout(r, 500));
+          vid.srcObject = new MediaStream(stream.getVideoTracks());
+          try { await vid.play(); } catch { /* ignore */ }
+          await new Promise((r) => setTimeout(r, 2000));
+          if (vid.videoWidth === 0 || vid.videoHeight === 0) {
+            throw new Error("Camera opened but no video frames received. Try closing other camera apps and tap Try Again.");
+          }
+        }
+
         setLoadStage("Let's go!");
         setLoadProgress(100);
         setLoading(false);
