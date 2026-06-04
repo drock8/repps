@@ -17,22 +17,31 @@ export function consumeReferralCode(): string | null {
   } catch { return null; }
 }
 
+async function claimReferral(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc("create_referral", { p_referral_code: code.toUpperCase() });
+  if (error) return `rpc_error: ${error.message}`;
+  if (data && typeof data === "object" && "error" in data) return `referral_error: ${(data as Record<string, string>).error}`;
+  return "success";
+}
+
 export default function ReferralJoin() {
   const { code } = useParams<{ code: string }>();
   const { profile, loading } = useAuth();
   const [claiming, setClaiming] = useState(false);
   const [done, setDone] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (code) storeReferralCode(code);
   }, [code]);
 
-  // If already logged in, create the referral immediately instead of just redirecting
   useEffect(() => {
     if (!profile || !code || claiming || done) return;
     setClaiming(true);
     (async () => {
-      try { await supabase.rpc("create_referral", { p_referral_code: code.toUpperCase() }); } catch { /* ignore */ }
+      const res = await claimReferral(code);
+      console.log("[referral] create_referral result:", res, "code:", code, "user:", profile.name);
+      setResult(res);
       consumeReferralCode();
       setDone(true);
     })();
@@ -46,7 +55,17 @@ export default function ReferralJoin() {
     );
   }
 
-  if (profile && done) return <Navigate to="/home" replace />;
+  if (profile && done) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[100dvh] bg-bg-base gap-4">
+        <p className="text-body text-ink-secondary">
+          {result === "success" ? "Referral linked!" : `Debug: ${result}`}
+        </p>
+        <Navigate to="/home" replace />
+      </div>
+    );
+  }
+
   if (profile && claiming) {
     return (
       <div className="flex items-center justify-center h-[100dvh] bg-bg-base">
@@ -55,6 +74,5 @@ export default function ReferralJoin() {
     );
   }
 
-  // Not logged in — send to landing for signup
   return <Navigate to="/" replace />;
 }

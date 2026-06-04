@@ -159,7 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const referralCode = consumeReferralCode();
     if (referralCode) {
-      try { await supabase.rpc("create_referral", { p_referral_code: referralCode }); } catch { /* ignore */ }
+      const { data, error } = await supabase.rpc("create_referral", { p_referral_code: referralCode });
+      console.log("[referral] AuthContext create_referral:", { data, error, referralCode, userId: user.id });
     }
 
     const refreshed = await fetchProfile(user.id);
