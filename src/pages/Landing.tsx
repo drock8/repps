@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
 import { useRepsChannel } from "../hooks/useRepsChannel";
 import { useAnimatedCounter } from "../hooks/useAnimatedCounter";
 import { useTheme } from "../contexts/ThemeContext";
 import ActivityFeed from "../components/ActivityFeed";
+import AuthForm from "../components/AuthForm";
 
 const TICKER_ITEMS = [
   "CV-VERIFIED",
@@ -19,10 +19,10 @@ const TICKER_ITEMS = [
 let cachedLandingCount: number | null = null;
 
 export default function Landing() {
-  const navigate = useNavigate();
   const theme = useTheme();
   const [totalReps, setTotalReps] = useState(cachedLandingCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
+  const [showAuth, setShowAuth] = useState(false);
   const mountedRef = useRef(true);
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
     : theme === "yellow" ? "/Repps-Yellow-Logo.png"
@@ -70,47 +70,70 @@ export default function Landing() {
       </div>
 
       {/* Main content — fills remaining space */}
-      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pb-[3vh] pt-[6vh]">
-        {/* Logo + HQ badge — top, tight together */}
-        <div className="flex flex-col items-center flex-shrink-0">
-          <img src={logo} alt="REPPs" className="h-10" />
+      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pb-[3vh] pt-[4vh]">
+        {/* Logo + HQ badge + Sign In */}
+        <div className="w-full flex flex-col items-center flex-shrink-0">
+          <div className="w-full flex items-center justify-between">
+            <div className="w-16" />
+            <img src={logo} alt="REPPs" className="h-10" />
+            <button
+              onClick={() => setShowAuth(true)}
+              className="w-16 text-caption font-semibold text-ink-secondary transition-colors duration-200 ease-apple active:text-accent"
+            >
+              Sign In
+            </button>
+          </div>
           <p className="mt-1 text-micro text-ink-muted uppercase tracking-[0.15em]">
             Global Movement HQ
           </p>
         </div>
 
-        {/* Middle content — vertically centered in remaining space */}
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[1.5vh]">
-          <p className="text-micro text-accent uppercase tracking-[0.15em] font-bold">
-            The Mission
-          </p>
-
-          <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
-            Let's Get 1 Million<br />Moving for Good.
-          </h1>
-
-          <div>
-            <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
-            <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
-              {formatNumber(animatedCount)}
-            </p>
+        {showAuth ? (
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-4">
+            <p className="text-headline text-ink-primary font-bold">Join the Movement</p>
+            <AuthForm />
+            <button
+              onClick={() => setShowAuth(false)}
+              className="mt-2 text-caption text-ink-muted"
+            >
+              Back
+            </button>
           </div>
+        ) : (
+          <>
+            {/* Middle content — vertically centered in remaining space */}
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[1.5vh]">
+              <p className="text-micro text-accent uppercase tracking-[0.15em] font-bold">
+                The Mission
+              </p>
 
-          <div className="w-4/5 max-h-[22vh]">
-            <VideoPlayer videoId="pZpr_WPCzf4" />
-          </div>
-        </div>
+              <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
+                Let's Get 1 Million<br />Moving for Good.
+              </h1>
 
-        {/* CTA — sits above bottom with sufficient padding */}
-        <div className="w-full flex flex-col items-center flex-shrink-0">
-          <button
-            onClick={() => navigate("/home")}
-            className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-          >
-            Join the Movement
-          </button>
-          <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
-        </div>
+              <div>
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
+                <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
+                  {formatNumber(animatedCount)}
+                </p>
+              </div>
+
+              <div className="w-4/5 max-h-[22vh]">
+                <VideoPlayer videoId="pZpr_WPCzf4" />
+              </div>
+            </div>
+
+            {/* CTA — sits above bottom with sufficient padding */}
+            <div className="w-full flex flex-col items-center flex-shrink-0">
+              <button
+                onClick={() => setShowAuth(true)}
+                className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+              >
+                Join the Movement
+              </button>
+            </div>
+          </>
+        )}
       </div>
       <div className="absolute"><ActivityFeed /></div>
     </div>

@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import ResetPasswordModal from "./components/ResetPasswordModal";
 import Layout from "./components/Layout";
 import LandingGate from "./components/LandingGate";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Dab from "./pages/Dab";
 import Leaderboard from "./pages/Leaderboard";
@@ -27,24 +28,26 @@ export default function App() {
           <ResetPasswordModal />
           <Routes>
             <Route index element={<LandingGate />} />
-            <Route path="admin" element={<Admin />} />
-            <Route element={<Layout />}>
-              <Route path="home" element={<Home />} />
-              <Route path="dab" element={<Dab />} />
-              <Route path="leaderboard" element={<Leaderboard />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="team" element={<Team />} />
-              <Route path="team/join/:code" element={<TeamJoin />} />
-              <Route path="events" element={<Events />} />
-              <Route path="events/create" element={<CreateEvent />} />
-              <Route path="events/join/:code" element={<EventJoin />} />
-              <Route path="events/:id" element={<EventDetail />} />
-              <Route path="user/:id" element={<UserProfile />} />
-              <Route path="inbox" element={<Inbox />} />
-              <Route path="inbox/:id" element={<Conversation />} />
-              <Route path="reset-password" element={<Home />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="admin" element={<Admin />} />
+              <Route element={<Layout />}>
+                <Route path="home" element={<Home />} />
+                <Route path="dab" element={<Dab />} />
+                <Route path="leaderboard" element={<Leaderboard />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="team" element={<Team />} />
+                <Route path="team/join/:code" element={<TeamJoin />} />
+                <Route path="events" element={<Events />} />
+                <Route path="events/create" element={<CreateEvent />} />
+                <Route path="events/join/:code" element={<EventJoin />} />
+                <Route path="events/:id" element={<EventDetail />} />
+                <Route path="user/:id" element={<UserProfile />} />
+                <Route path="inbox" element={<Inbox />} />
+                <Route path="inbox/:id" element={<Conversation />} />
+                <Route path="reset-password" element={<Home />} />
+              </Route>
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

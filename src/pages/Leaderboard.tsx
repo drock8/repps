@@ -1,16 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber, MEDALS } from "../lib/format";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { getMascot } from "../lib/mascots";
 import { useRepsChannel } from "../hooks/useRepsChannel";
-import { useResetCooldown } from "../hooks/useResetCooldown";
-import PasswordInput from "../components/PasswordInput";
 import Avatar from "../components/Avatar";
 import OGBadge from "../components/OGBadge";
-import GoogleIcon from "../components/GoogleIcon";
 import { useOG100 } from "../hooks/useOG100";
 
 type GenderFilter = "all" | "female" | "male" | "non_binary";
@@ -108,340 +105,14 @@ const TIME_TABS: { label: string; value: TimePeriod }[] = [
   { label: "All", value: "all" },
 ];
 
-
-function SignupOverlay({
-  reps,
-  onDismiss,
-}: {
-  reps: number;
-  onDismiss: () => void;
-}) {
-  const { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } = useAuth();
-  const [mode, setMode] = useState<"choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent">("choose");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const { cooldown: resetCooldown, startCooldown: startResetCooldown } = useResetCooldown();
-
-  const handleEmailSignup = async () => {
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setError("All fields are required");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    try {
-      const { confirmationRequired } = await signUpWithEmail(email.trim(), password, name.trim());
-      if (confirmationRequired) {
-        setMode("check-email");
-      }
-      setSubmitting(false);
-    } catch (e) {
-      setError((e as Error).message);
-      setSubmitting(false);
-    }
-  };
-
-  const handleEmailSignin = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Email and password are required");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    try {
-      await signInWithEmail(email.trim(), password);
-    } catch (e) {
-      setError((e as Error).message);
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center">
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onDismiss}
-      />
-      <div className="relative w-full max-w-md bg-bg-surface rounded-t-xl px-6 pt-6 pb-8 animate-slide-up"
-        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
-      >
-        {mode === "choose" && (
-          <>
-            <div className="flex justify-center mb-4">
-              <span className="bg-accent/20 text-accent font-bold text-caption rounded-pill px-4 py-1.5">
-                +{reps} VERIFIED {reps === 1 ? "REP" : "REPS"}
-              </span>
-            </div>
-            <p className="text-headline text-ink-primary text-center">
-              Lock in your spot
-            </p>
-            <p className="text-body text-ink-secondary text-center mt-2">
-              Sign up to lock in your spot
-            </p>
-            <div className="flex flex-col gap-3 mt-6">
-              <button
-                onClick={signInWithGoogle}
-                className="w-full py-4 px-6 rounded-pill bg-ink-primary text-ink-inverse font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
-              <button
-                onClick={() => setMode("signup")}
-                className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="2"/>
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-                </svg>
-                Sign up with Email
-              </button>
-            </div>
-            <button
-              onClick={onDismiss}
-              className="w-full mt-4 py-2 text-body text-ink-secondary text-center transition-colors duration-200 ease-apple"
-            >
-              Maybe later
-            </button>
-          </>
-        )}
-
-        {mode === "signup" && (
-          <>
-            <p className="text-headline text-ink-primary text-center mb-6">
-              Create your account
-            </p>
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Name"
-                value={name}
-                onChange={(e) => { setName(e.target.value); setError(""); }}
-                maxLength={50}
-                autoFocus
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-              />
-              <PasswordInput
-                placeholder="Password (min 6 characters)"
-                value={password}
-                onChange={(val) => { setPassword(val); setError(""); }}
-              />
-              {error && <p className="text-caption text-error">{error}</p>}
-              <button
-                onClick={handleEmailSignup}
-                disabled={submitting}
-                className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? "Creating account..." : "Sign up"}
-              </button>
-            </div>
-            <button
-              onClick={() => { setMode("signin"); setError(""); }}
-              className="w-full mt-3 py-2 text-caption text-ink-secondary text-center"
-            >
-              Already have an account? Sign in
-            </button>
-            <button
-              onClick={() => { setMode("choose"); setError(""); }}
-              className="w-full mt-1 py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </>
-        )}
-
-        {mode === "signin" && (
-          <>
-            <p className="text-headline text-ink-primary text-center mb-6">
-              Welcome back
-            </p>
-            <div className="flex flex-col gap-3">
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                autoFocus
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-              />
-              <PasswordInput
-                placeholder="Password"
-                value={password}
-                onChange={(val) => { setPassword(val); setError(""); }}
-              />
-              {error && <p className="text-caption text-error">{error}</p>}
-              <button
-                onClick={handleEmailSignin}
-                disabled={submitting}
-                className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? "Signing in..." : "Sign in"}
-              </button>
-            </div>
-            <button
-              onClick={() => { setMode("forgot"); setError(""); }}
-              className="w-full mt-3 py-2 text-caption text-ink-secondary text-center"
-            >
-              Forgot password?
-            </button>
-            <button
-              onClick={() => { setMode("signup"); setError(""); }}
-              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
-            >
-              Don't have an account? Sign up
-            </button>
-            <button
-              onClick={() => { setMode("choose"); setError(""); }}
-              className="w-full mt-1 py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </>
-        )}
-
-        {mode === "check-email" && (
-          <>
-            <div className="flex flex-col items-center gap-4">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-              </svg>
-              <p className="text-headline text-ink-primary text-center">Check your email</p>
-              <p className="text-body text-ink-secondary text-center">
-                We sent a confirmation link to <span className="font-semibold text-ink-primary">{email}</span>. Click the link to activate your account, then come back and sign in.
-              </p>
-              <button
-                onClick={() => { setMode("signin"); setError(""); setSubmitting(false); }}
-                className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-              >
-                Sign in
-              </button>
-              <button
-                onClick={() => { setMode("choose"); setError(""); setSubmitting(false); }}
-                className="w-full py-2 text-caption text-ink-muted text-center"
-              >
-                Back
-              </button>
-            </div>
-          </>
-        )}
-
-        {mode === "forgot" && (
-          <>
-            <p className="text-headline text-ink-primary text-center mb-2">Reset password</p>
-            <p className="text-body text-ink-secondary text-center mb-4">
-              Enter your email and we'll send you a reset link.
-            </p>
-            <div className="flex flex-col gap-3">
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                autoFocus
-                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-              />
-              {error && <p className="text-caption text-error">{error}</p>}
-              <button
-                onClick={async () => {
-                  if (!email.trim()) {
-                    setError("Email is required"); return;
-                  }
-                  if (resetCooldown > 0) return;
-                  setSubmitting(true); setError("");
-                  try {
-                    await resetPassword(email.trim());
-                    startResetCooldown();
-                    setMode("reset-sent");
-                    setSubmitting(false);
-                  } catch (e) {
-                    const msg = (e as Error).message || "";
-                    if (msg.toLowerCase().includes("rate limit")) {
-                      startResetCooldown();
-                      setError("Too many requests. Please wait before trying again.");
-                    } else {
-                      setError(msg);
-                    }
-                    setSubmitting(false);
-                  }
-                }}
-                disabled={submitting || resetCooldown > 0}
-                className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? "Sending..." : resetCooldown > 0 ? `Wait ${resetCooldown}s` : "Send reset link"}
-              </button>
-            </div>
-            <button
-              onClick={() => { setMode("signin"); setError(""); }}
-              className="w-full mt-3 py-2 text-caption text-ink-muted text-center"
-            >
-              Back to sign in
-            </button>
-          </>
-        )}
-
-        {mode === "reset-sent" && (
-          <>
-            <div className="flex flex-col items-center gap-4">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-              </svg>
-              <p className="text-headline text-ink-primary text-center">Check your email</p>
-              <p className="text-body text-ink-secondary text-center">
-                We sent a password reset link to <span className="font-semibold text-ink-primary">{email}</span>. Click the link to set a new password.
-              </p>
-              <button
-                onClick={() => { setMode("signin"); setError(""); setSubmitting(false); }}
-                className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-              >
-                Sign in
-              </button>
-              <button
-                onClick={() => { setMode("choose"); setError(""); setSubmitting(false); }}
-                className="w-full py-2 text-caption text-ink-muted text-center"
-              >
-                Back
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function Leaderboard() {
-  const { profile, signInWithGoogle } = useAuth();
+  const { profile } = useAuth();
   const theme = useTheme();
   const navigate = useNavigate();
   const ogIds = useOG100();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const signupFlow = searchParams.get("signup") === "1";
-  const signupGender = searchParams.get("gender") as GenderFilter | null;
-  const signupReps = parseInt(searchParams.get("reps") || "0", 10);
-
   const [boardType, setBoardType] = useState<BoardType>("total");
-  const [gender, setGender] = useState<GenderFilter>(
-    signupGender && ["female", "male", "non_binary"].includes(signupGender)
-      ? signupGender
-      : "all"
-  );
-  const [period, setPeriod] = useState<TimePeriod>(signupFlow ? "daily" : "all");
+  const [gender, setGender] = useState<GenderFilter>("all");
+  const [period, setPeriod] = useState<TimePeriod>("all");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
   const [streakEntries, setStreakEntries] = useState<StreakEntry[]>([]);
@@ -457,15 +128,7 @@ export default function Leaderboard() {
     rank: number;
     entry: LeaderboardEntry;
   } | null>(null);
-  const [showSignup, setShowSignup] = useState(signupFlow && !profile);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (profile && showSignup) {
-      setShowSignup(false);
-      setSearchParams({}, { replace: true });
-    }
-  }, [profile, showSignup, setSearchParams]);
 
   const fetchLatestReps = useCallback(async () => {
     const { data } = await supabase
@@ -733,10 +396,6 @@ export default function Leaderboard() {
     };
   }, []);
 
-  const guestPosition = signupFlow && !profile && signupReps > 0
-    ? entries.findIndex((e) => e.count <= signupReps)
-    : -1;
-
   function formatSessionDuration(seconds: number): string {
     const m = Math.floor(seconds / 60);
     const s = Math.round(seconds % 60);
@@ -886,29 +545,8 @@ export default function Leaderboard() {
       ) : boardType === "total" ? (
         <div className="flex flex-col gap-2">
           {entries.map((entry, i) => {
-            const isGuestInsertPoint = guestPosition === i;
             return (
               <div key={entry.userId}>
-                {isGuestInsertPoint && (
-                  <div className="flex items-center py-3 px-4 bg-bg-surface rounded-lg mb-2 border-l-4 border-accent shadow-[0_0_16px_2px_rgba(255,155,47,0.15)]">
-                    <span className="w-8 text-center flex-shrink-0">
-                      <span className="text-micro text-accent font-bold">You</span>
-                    </span>
-                    <div className="ml-2">
-                      <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
-                      </div>
-                    </div>
-                    <span className="ml-3 text-body text-accent truncate flex-1 font-semibold">
-                      Your repps
-                    </span>
-                    <span className="text-body text-accent font-bold tabular-nums ml-2">
-                      {signupReps}
-                    </span>
-                  </div>
-                )}
                 <button
                   onClick={() => {
                     if (profile && entry.userId === profile.id) navigate("/profile");
@@ -937,27 +575,6 @@ export default function Leaderboard() {
               </div>
             );
           })}
-
-          {guestPosition === -1 && signupFlow && !profile && signupReps > 0 && (
-            <div className="flex items-center py-3 px-4 bg-bg-surface rounded-lg border-l-4 border-accent shadow-[0_0_16px_2px_rgba(255,155,47,0.15)]">
-              <span className="w-8 text-center flex-shrink-0">
-                <span className="text-micro text-accent font-bold">You</span>
-              </span>
-              <div className="ml-2">
-                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                  </svg>
-                </div>
-              </div>
-              <span className="ml-3 text-body text-accent truncate flex-1 font-semibold">
-                Your reps
-              </span>
-              <span className="text-body text-accent font-bold tabular-nums ml-2">
-                {signupReps}
-              </span>
-            </div>
-          )}
 
           {userEntry && (
             <div className="pt-2 mt-2">
@@ -1214,27 +831,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {!profile && !signupFlow && (
-        <div className="mt-8 text-center">
-          <button
-            onClick={signInWithGoogle}
-            className="bg-accent text-ink-inverse font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95 active:shadow-[0_0_40px_8px_rgba(var(--color-accent-glow-secondary),0.4)]"
-          >
-            Get on the leaderboard
-          </button>
-        </div>
-      )}
       </div>
-
-      {showSignup && (
-        <SignupOverlay
-          reps={signupReps}
-          onDismiss={() => {
-            setShowSignup(false);
-            setSearchParams({}, { replace: true });
-          }}
-        />
-      )}
     </div>
   );
 }

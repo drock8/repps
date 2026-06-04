@@ -2,12 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth, type Gender } from "../contexts/AuthContext";
 import { useRepsChannel } from "../hooks/useRepsChannel";
-import { useResetCooldown } from "../hooks/useResetCooldown";
 import ActivityHeatmap from "../components/ActivityHeatmap";
 import WeeklyBarChart from "../components/WeeklyBarChart";
 import WeeklyTrendChart from "../components/WeeklyTrendChart";
-import PasswordInput from "../components/PasswordInput";
-import GoogleIcon from "../components/GoogleIcon";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -35,7 +32,7 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
-  const { profile, signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, refreshProfile } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -69,14 +66,6 @@ export default function Profile() {
   const [scoreHistory, setScoreHistory] = useState<{ day: string; reps: number; dailyMultiplied: number; streakBonus: number; teamStreakBonus: number; weeklyApplied: boolean; dayTotal: number }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  // Guest auth form state
-  const [authMode, setAuthMode] = useState<"choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent">("choose");
-  const [authName, setAuthName] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [authSubmitting, setAuthSubmitting] = useState(false);
-  const { cooldown: resetCooldown, startCooldown: startResetCooldown } = useResetCooldown();
 
   const fetchStats = useCallback(async () => {
     if (!profile) return;
@@ -170,265 +159,7 @@ export default function Profile() {
   );
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
-  if (!profile) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
-        <p className="text-headline text-ink-primary mb-2">Profile</p>
-        <p className="text-body text-ink-secondary mb-8 text-center">
-          Sign in to track your repps and claim your leaderboard spot
-        </p>
-
-        {authMode === "choose" && (
-          <div className="w-full max-w-sm flex flex-col gap-3">
-            <button
-              onClick={signInWithGoogle}
-              className="w-full py-4 px-6 rounded-pill bg-ink-primary text-ink-inverse font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-            <button
-              onClick={() => setAuthMode("signup")}
-              className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-              </svg>
-              Sign up with Email
-            </button>
-            <button
-              onClick={() => setAuthMode("signin")}
-              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
-            >
-              Already have an account? Sign in
-            </button>
-          </div>
-        )}
-
-        {authMode === "signup" && (
-          <div className="w-full max-w-sm flex flex-col gap-3">
-            <input
-              type="text"
-              placeholder="Name"
-              value={authName}
-              onChange={(e) => { setAuthName(e.target.value); setAuthError(""); }}
-              maxLength={50}
-              autoFocus
-              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={authEmail}
-              onChange={(e) => { setAuthEmail(e.target.value); setAuthError(""); }}
-              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            <PasswordInput
-              placeholder="Password (min 6 characters)"
-              value={authPassword}
-              onChange={(val) => { setAuthPassword(val); setAuthError(""); }}
-            />
-            {authError && <p className="text-caption text-error">{authError}</p>}
-            <button
-              onClick={async () => {
-                if (!authName.trim() || !authEmail.trim() || !authPassword.trim()) {
-                  setAuthError("All fields are required"); return;
-                }
-                if (authPassword.length < 6) {
-                  setAuthError("Password must be at least 6 characters"); return;
-                }
-                setAuthSubmitting(true); setAuthError("");
-                try {
-                  const { confirmationRequired } = await signUpWithEmail(authEmail.trim(), authPassword, authName.trim());
-                  if (confirmationRequired) {
-                    setAuthMode("check-email");
-                  }
-                  setAuthSubmitting(false);
-                } catch (e) {
-                  setAuthError((e as Error).message);
-                  setAuthSubmitting(false);
-                }
-              }}
-              disabled={authSubmitting}
-              className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-            >
-              {authSubmitting ? "Creating account..." : "Sign up"}
-            </button>
-            <button
-              onClick={() => { setAuthMode("signin"); setAuthError(""); }}
-              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
-            >
-              Already have an account? Sign in
-            </button>
-            <button
-              onClick={() => { setAuthMode("choose"); setAuthError(""); }}
-              className="w-full py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </div>
-        )}
-
-        {authMode === "signin" && (
-          <div className="w-full max-w-sm flex flex-col gap-3">
-            <input
-              type="email"
-              placeholder="Email"
-              value={authEmail}
-              onChange={(e) => { setAuthEmail(e.target.value); setAuthError(""); }}
-              autoFocus
-              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            <PasswordInput
-              placeholder="Password"
-              value={authPassword}
-              onChange={(val) => { setAuthPassword(val); setAuthError(""); }}
-            />
-            {authError && <p className="text-caption text-error">{authError}</p>}
-            <button
-              onClick={async () => {
-                if (!authEmail.trim() || !authPassword.trim()) {
-                  setAuthError("Email and password are required"); return;
-                }
-                setAuthSubmitting(true); setAuthError("");
-                try {
-                  await signInWithEmail(authEmail.trim(), authPassword);
-                } catch (e) {
-                  setAuthError((e as Error).message);
-                  setAuthSubmitting(false);
-                }
-              }}
-              disabled={authSubmitting}
-              className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-            >
-              {authSubmitting ? "Signing in..." : "Sign in"}
-            </button>
-            <button
-              onClick={() => { setAuthMode("forgot"); setAuthError(""); }}
-              className="w-full py-2 text-caption text-ink-secondary text-center"
-            >
-              Forgot password?
-            </button>
-            <button
-              onClick={() => { setAuthMode("signup"); setAuthError(""); }}
-              className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
-            >
-              Don't have an account? Sign up
-            </button>
-            <button
-              onClick={() => { setAuthMode("choose"); setAuthError(""); }}
-              className="w-full py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </div>
-        )}
-
-        {authMode === "check-email" && (
-          <div className="w-full max-w-sm flex flex-col items-center gap-4">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-            </svg>
-            <p className="text-headline text-ink-primary text-center">Check your email</p>
-            <p className="text-body text-ink-secondary text-center">
-              We sent a confirmation link to <span className="font-semibold text-ink-primary">{authEmail}</span>. Click the link to activate your account, then come back and sign in.
-            </p>
-            <button
-              onClick={() => { setAuthMode("signin"); setAuthError(""); setAuthSubmitting(false); }}
-              className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => { setAuthMode("choose"); setAuthError(""); setAuthSubmitting(false); }}
-              className="w-full py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </div>
-        )}
-
-        {authMode === "forgot" && (
-          <div className="w-full max-w-sm flex flex-col gap-3">
-            <p className="text-headline text-ink-primary text-center mb-2">Reset password</p>
-            <p className="text-body text-ink-secondary text-center mb-2">
-              Enter your email and we'll send you a reset link.
-            </p>
-            <input
-              type="email"
-              placeholder="Email"
-              value={authEmail}
-              onChange={(e) => { setAuthEmail(e.target.value); setAuthError(""); }}
-              autoFocus
-              className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            {authError && <p className="text-caption text-error">{authError}</p>}
-            <button
-              onClick={async () => {
-                if (!authEmail.trim()) {
-                  setAuthError("Email is required"); return;
-                }
-                if (resetCooldown > 0) return;
-                setAuthSubmitting(true); setAuthError("");
-                try {
-                  await resetPassword(authEmail.trim());
-                  startResetCooldown();
-                  setAuthMode("reset-sent");
-                  setAuthSubmitting(false);
-                } catch (e) {
-                  const msg = (e as Error).message || "";
-                  if (msg.toLowerCase().includes("rate limit")) {
-                    startResetCooldown();
-                    setAuthError("Too many requests. Please wait before trying again.");
-                  } else {
-                    setAuthError(msg);
-                  }
-                  setAuthSubmitting(false);
-                }
-              }}
-              disabled={authSubmitting || resetCooldown > 0}
-              className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-            >
-              {authSubmitting ? "Sending..." : resetCooldown > 0 ? `Wait ${resetCooldown}s` : "Send reset link"}
-            </button>
-            <button
-              onClick={() => { setAuthMode("signin"); setAuthError(""); }}
-              className="w-full py-2 text-caption text-ink-muted text-center"
-            >
-              Back to sign in
-            </button>
-          </div>
-        )}
-
-        {authMode === "reset-sent" && (
-          <div className="w-full max-w-sm flex flex-col items-center gap-4">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-              <rect x="2" y="4" width="20" height="16" rx="2"/>
-              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-            </svg>
-            <p className="text-headline text-ink-primary text-center">Check your email</p>
-            <p className="text-body text-ink-secondary text-center">
-              We sent a password reset link to <span className="font-semibold text-ink-primary">{authEmail}</span>. Click the link to set a new password.
-            </p>
-            <button
-              onClick={() => { setAuthMode("signin"); setAuthError(""); setAuthSubmitting(false); }}
-              className="w-full mt-2 py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => { setAuthMode("choose"); setAuthError(""); setAuthSubmitting(false); }}
-              className="w-full py-2 text-caption text-ink-muted text-center"
-            >
-              Back
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  if (!profile) return null;
 
   const handleStartEditName = () => {
     setNameValue(profile.name);
