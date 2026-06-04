@@ -1175,6 +1175,22 @@ export default function Dab() {
                     }}
                   />
                 </div>
+                {calibrationCount > 0 && (
+                  <button
+                    className="pointer-events-auto mt-3 text-caption text-ink-muted active:text-ink-primary transition-colors"
+                    onClick={() => {
+                      if (engineVersion === "v3" && engineV3Ref.current) {
+                        engineV3Ref.current.recalibrate();
+                      } else if (engineVersion === "v2" && engineV2Ref.current) {
+                        engineV2Ref.current.recalibrate();
+                      }
+                      setCalibrationCount(0);
+                      setStabilityProgress(0);
+                    }}
+                  >
+                    Start over
+                  </button>
+                )}
               </div>
             </div>
           </div>

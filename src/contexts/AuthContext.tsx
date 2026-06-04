@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, t
 import { supabase } from "../lib/supabase";
 import { getGuestSession, clearGuestSession } from "../lib/guestSession";
 import { consumeReferralCode } from "../pages/ReferralJoin";
+import { generateSimpleQRDataUrl } from "../lib/qrRenderer";
 import type { Session, User } from "@supabase/supabase-js";
 
 export type Gender = "female" | "male" | "non_binary" | "unspecified";
@@ -20,6 +21,7 @@ export interface Profile {
   nationality_code: string | null;
   nationality_name: string | null;
   referral_code: string;
+  referral_qr_url: string | null;
 }
 
 interface AuthContextValue {
@@ -165,6 +167,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const refreshed = await fetchProfile(user.id);
     if (refreshed) p = refreshed;
+
+    if (!p.referral_qr_url && p.referral_code) {
+      try {
+        const url = `https://repps.pro/r/${p.referral_code}`;
+        const qrDataUrl = await generateSimpleQRDataUrl(url, 128);
+        await supabase
+          .from("profiles")
+          .update({ referral_qr_url: qrDataUrl })
+          .eq("id", p.id);
+        p = { ...p, referral_qr_url: qrDataUrl };
+      } catch (e) {
+        console.warn("[auth] QR generation failed:", e);
+      }
+    }
 
     setProfile(p);
   }, []);

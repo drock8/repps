@@ -91,7 +91,8 @@ export async function renderStyledQR(
 
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not get 2d context for QR canvas");
 
   ctx.fillStyle = LIGHT;
   ctx.fillRect(0, 0, size, size);
@@ -170,12 +171,29 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   });
 }
 
+const qrCache = new Map<string, string>();
+
 export async function generateStyledQRDataUrl(
   url: string,
   size: number,
   logoSrc?: string
 ): Promise<string> {
+  const cacheKey = `${url}|${size}|${logoSrc ?? ""}`;
+  const cached = qrCache.get(cacheKey);
+  if (cached) return cached;
+
   const canvas = document.createElement("canvas");
   await renderStyledQR(canvas, url, { size, logoSrc });
-  return canvas.toDataURL("image/png");
+  const dataUrl = canvas.toDataURL("image/png");
+  qrCache.set(cacheKey, dataUrl);
+  return dataUrl;
+}
+
+export function generateSimpleQRDataUrl(url: string, size: number): Promise<string> {
+  return QRCode.toDataURL(url, {
+    width: size,
+    margin: 1,
+    color: { dark: DARK, light: LIGHT },
+    errorCorrectionLevel: "M",
+  });
 }
