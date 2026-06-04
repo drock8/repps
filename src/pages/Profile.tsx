@@ -5,6 +5,7 @@ import { useRepsChannel } from "../hooks/useRepsChannel";
 import ActivityHeatmap from "../components/ActivityHeatmap";
 import WeeklyBarChart from "../components/WeeklyBarChart";
 import WeeklyTrendChart from "../components/WeeklyTrendChart";
+import BonusPointsBanner from "../components/BonusPointsBanner";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -61,7 +62,7 @@ export default function Profile() {
   const [repScore, setRepScore] = useState<{
     score: number; baseReps: number; individualStreak: number; teamStreak: number;
     dailyMultiplierPts: number; streakBonusPts: number; teamStreakBonusPts: number; weeklyMultiplierPts: number;
-    dailyMultiplier: number; hasActiveTeam: boolean;
+    dailyMultiplier: number; hasActiveTeam: boolean; rewardPts: number;
   } | null>(null);
   const [scoreHistory, setScoreHistory] = useState<{ day: string; reps: number; dailyMultiplied: number; streakBonus: number; teamStreakBonus: number; weeklyApplied: boolean; dayTotal: number }[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -122,6 +123,7 @@ export default function Profile() {
         weeklyMultiplierPts: Number(s.weekly_multiplier_pts || 0),
         dailyMultiplier: Number(s.daily_multiplier || 1),
         hasActiveTeam: Boolean(s.has_active_team),
+        rewardPts: Number(s.reward_pts || 0),
       });
     }
 
@@ -325,6 +327,9 @@ export default function Profile() {
 
       {/* Cards — consistent 2-unit gap */}
       <div className="flex flex-col gap-2 mt-4">
+        {/* Bonus points banner */}
+        <BonusPointsBanner />
+
         {/* Name card */}
         {editingName ? (
           <div className="bg-bg-surface rounded-lg p-4">
@@ -475,6 +480,9 @@ export default function Profile() {
                   )}
                   {repScore.weeklyMultiplierPts > 0 && (
                     <span className="text-micro text-emerald-400 tabular-nums">+{repScore.weeklyMultiplierPts.toLocaleString()} weekly</span>
+                  )}
+                  {repScore.rewardPts > 0 && (
+                    <span className="text-micro text-purple-400 tabular-nums">+{repScore.rewardPts.toLocaleString()} rewards</span>
                   )}
                 </div>
               )}

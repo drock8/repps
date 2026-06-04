@@ -15,6 +15,9 @@ export interface Profile {
   team_id: string | null;
   team_joined_at: string | null;
   timezone: string;
+  dob: string | null;
+  nationality_code: string | null;
+  nationality_name: string | null;
 }
 
 interface AuthContextValue {
