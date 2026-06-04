@@ -17,6 +17,7 @@ import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "
 import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
 import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
+  generateQRDataUrl,
   loadImage,
   drawBrandOverlay,
   createVideoRecorder,
@@ -202,13 +203,14 @@ export default function Dab() {
 
     (async () => {
       try {
-        const logoSrc = theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png";
-        const qrDataUrl = profile?.referral_qr_url ?? null;
-
-        const [logo, qrImg] = await Promise.all([
-          loadImage(logoSrc).catch(() => null),
-          qrDataUrl ? loadImage(qrDataUrl).catch(() => null) : Promise.resolve(null),
+        const referralUrl = profile?.referral_code
+          ? `https://repps.pro/r/${profile.referral_code}`
+          : "https://repps.pro";
+        const [logo, qrDataUrl] = await Promise.all([
+          loadImage(theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png").catch(() => null),
+          generateQRDataUrl(referralUrl),
         ]);
+        const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {
           logoImg: logo,
           sponsorImgs: [],
@@ -221,7 +223,7 @@ export default function Dab() {
         // Brand overlay is optional — recording still works without it
       }
     })();
-  }, [profile?.id, profile?.referral_qr_url, theme]);
+  }, [profile?.id, theme]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);

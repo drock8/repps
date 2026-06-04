@@ -1,3 +1,5 @@
+import QRCode from "qrcode";
+
 export interface BrandOverlayConfig {
   logoImg: HTMLImageElement | null;
   sponsorImgs: HTMLImageElement[];
@@ -13,12 +15,19 @@ const SPONSOR_HEIGHT = 28;
 const PADDING = 16;
 const BOTTOM_BAR_HEIGHT = 80;
 
+export async function generateQRDataUrl(referralUrl: string): Promise<string> {
+  return QRCode.toDataURL(referralUrl, {
+    width: QR_SIZE * 2,
+    margin: 1,
+    color: { dark: "#111315", light: "#F5F2EA" },
+    errorCorrectionLevel: "M",
+  });
+}
+
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    if (!src.startsWith("data:")) {
-      img.crossOrigin = "anonymous";
-    }
+    img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
