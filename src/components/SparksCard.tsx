@@ -62,7 +62,7 @@ export default function SparksCard() {
     <div className="bg-bg-surface rounded-lg p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-purple-400">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-accent">
             <path d="M13 2L4.09 12.63a1 1 0 0 0 .78 1.62H11l-1 7.75L19.91 11.37a1 1 0 0 0-.78-1.62H13l1-7.75z" fill="currentColor" />
           </svg>
           <p className="text-micro text-ink-muted uppercase tracking-wide">Sparks</p>
@@ -110,6 +110,10 @@ export default function SparksCard() {
           Share your link to earn Sparks when people join!
         </p>
       )}
+
+      <p className="text-micro text-ink-muted mt-2">
+        Earn <span className="text-purple-400 font-semibold">11 pts</span> per referral, <span className="text-purple-400 font-semibold">15 pts</span> if they hit 5 reps day one
+      </p>
 
       <div className="flex gap-3 mt-3">
         <button
