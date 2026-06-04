@@ -234,9 +234,12 @@ export default function Dab() {
     stopCoachAudio();
   }, []);
 
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
+
   const insertRep = useCallback(
     () => {
-      if (profile) {
+      if (profileRef.current) {
         supabase
           .rpc("insert_rep", { p_exercise_type: "burpee" })
           .then(({ data, error }) => {
@@ -252,7 +255,7 @@ export default function Dab() {
           });
       }
     },
-    [profile]
+    []
   );
 
   // Preload voice guide clips on mount
@@ -777,8 +780,11 @@ export default function Dab() {
       landmarkerRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      try { if (recorderRef.current?.isRecording) recorderRef.current.stop(); } catch {}
+      recorderRef.current = null;
+      calibratedRef.current = false;
     };
-  }, [authLoading, screen, insertRep, tuneMode, engineVersion, retryCount, showRejection, showCoachingCue, searchParams]);
+  }, [authLoading, screen, tuneMode, engineVersion, retryCount, showRejection, showCoachingCue, searchParams]);
 
   const finishSession = useCallback(async () => {
     // Capture video blob BEFORE changing screen state
