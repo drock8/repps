@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -16,14 +16,33 @@ const TICKER_ITEMS = [
   "GLOBAL COUNTER",
 ];
 
+const MOTIVATIONAL_QUOTES = [
+  "The body achieves what the mind believes.",
+  "One rep at a time. One day at a time.",
+  "You didn't come this far to only come this far.",
+  "Small daily improvements lead to stunning results.",
+  "The only bad workout is the one that didn't happen.",
+  "Your future self will thank you.",
+  "Movement is medicine.",
+  "Discipline is choosing what you want most over what you want now.",
+  "Every rep counts. Every day matters.",
+  "Be stronger than your excuses.",
+  "The hardest part is showing up. You're here.",
+  "Progress, not perfection.",
+  "Fall seven times, stand up eight.",
+  "Champions are made when nobody is watching.",
+  "Your only limit is you.",
+];
+
 let cachedLandingCount: number | null = null;
 
 export default function Landing() {
   const theme = useTheme();
   const [totalReps, setTotalReps] = useState(cachedLandingCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
-  const [showAuth, setShowAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState<false | "choose" | "signin">(false);
   const mountedRef = useRef(true);
+  const quote = useMemo(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)], []);
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
     : theme === "yellow" ? "/Repps-Yellow-Logo.png"
     : "/repps-logo.png";
@@ -76,12 +95,16 @@ export default function Landing() {
           <div className="w-full flex items-center justify-between">
             <div className="w-16" />
             <img src={logo} alt="REPPs" className="h-10" />
-            <button
-              onClick={() => setShowAuth(true)}
-              className="w-16 text-caption font-semibold text-ink-secondary transition-colors duration-200 ease-apple active:text-accent"
-            >
-              Sign In
-            </button>
+            {!showAuth ? (
+              <button
+                onClick={() => setShowAuth("signin")}
+                className="w-16 text-caption font-semibold text-ink-secondary transition-colors duration-200 ease-apple active:text-accent"
+              >
+                Sign In
+              </button>
+            ) : (
+              <div className="w-16" />
+            )}
           </div>
           <p className="mt-1 text-micro text-ink-muted uppercase tracking-[0.15em]">
             Global Movement HQ
@@ -90,8 +113,10 @@ export default function Landing() {
 
         {showAuth ? (
           <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-4">
-            <p className="text-headline text-ink-primary font-bold">Join the Movement</p>
-            <AuthForm />
+            <div className="text-center">
+              <p className="text-body text-ink-secondary italic">"{quote}"</p>
+            </div>
+            <AuthForm initialMode={showAuth} />
             <button
               onClick={() => setShowAuth(false)}
               className="mt-2 text-caption text-ink-muted"
@@ -112,7 +137,7 @@ export default function Landing() {
               </h1>
 
               <div>
-                <p className="text-micro text-ink-muted uppercase tracking-wide">Global Burpees</p>
+                <p className="text-micro text-ink-muted uppercase tracking-wide">Global Verified Burpees</p>
                 <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
                   {formatNumber(animatedCount)}
                 </p>
@@ -126,7 +151,7 @@ export default function Landing() {
             {/* CTA — sits above bottom with sufficient padding */}
             <div className="w-full flex flex-col items-center flex-shrink-0">
               <button
-                onClick={() => setShowAuth(true)}
+                onClick={() => setShowAuth("choose")}
                 className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
               >
                 Join the Movement

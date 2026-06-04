@@ -139,7 +139,7 @@ export default function AuthForm({ initialMode = "choose" }: { initialMode?: Aut
           Already have an account? Sign in
         </button>
         <button
-          onClick={() => { setMode("choose"); setError(""); }}
+          onClick={() => { setMode(initialMode); setError(""); }}
           className="w-full py-2 text-caption text-ink-muted text-center"
         >
           Back
@@ -182,13 +182,7 @@ export default function AuthForm({ initialMode = "choose" }: { initialMode?: Aut
           onClick={() => { setMode("signup"); setError(""); }}
           className="w-full mt-1 py-2 text-caption text-ink-secondary text-center"
         >
-          Don't have an account? Sign up
-        </button>
-        <button
-          onClick={() => { setMode("choose"); setError(""); }}
-          className="w-full py-2 text-caption text-ink-muted text-center"
-        >
-          Back
+          Haven't joined yet? Sign up now
         </button>
       </div>
     );
