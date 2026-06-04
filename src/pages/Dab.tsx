@@ -22,7 +22,6 @@ import {
   createVideoRecorder,
   downloadBlob,
 } from "../lib/videoRecorder";
-import { generateStyledQRDataUrl } from "../lib/qrRenderer";
 import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep } from "../lib/guestSession";
@@ -31,7 +30,7 @@ import { speakGuide, speakReady, stopGuide, preloadGuideClips } from "../lib/voi
 type Screen = "detecting" | "summary" | "claim-spot";
 type EngineVersion = "v1" | "v2" | "v3";
 
-const CALIBRATION_FRAMES = 30;
+const CALIBRATION_FRAMES = 15;
 const DIFFICULTY_KEY = "repps_difficulty_level";
 
 const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> = {
@@ -202,15 +201,13 @@ export default function Dab() {
 
     (async () => {
       try {
-        const referralUrl = profile?.referral_code
-          ? `https://repps.pro/r/${profile.referral_code}`
-          : "https://repps.pro";
         const logoSrc = theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png";
-        const [logo, qrDataUrl] = await Promise.all([
+        const qrDataUrl = profile?.referral_qr_url ?? null;
+
+        const [logo, qrImg] = await Promise.all([
           loadImage(logoSrc).catch(() => null),
-          generateStyledQRDataUrl(referralUrl, 128, "/Repps-Black-Icon.png").catch(() => null),
+          qrDataUrl ? loadImage(qrDataUrl).catch(() => null) : Promise.resolve(null),
         ]);
-        const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {
           logoImg: logo,
           sponsorImgs: [],
@@ -223,7 +220,7 @@ export default function Dab() {
         // Brand overlay is optional — recording still works without it
       }
     })();
-  }, [profile?.id, theme]);
+  }, [profile?.id, profile?.referral_qr_url, theme]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);

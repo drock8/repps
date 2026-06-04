@@ -841,7 +841,7 @@ export class DetectionEngineV3 {
 
       const frameProgress = Math.min(this.calibrationHeights.length / CALIBRATION_FRAMES, 1);
       const timeProgress = Math.min(calibrationElapsed / CALIBRATION_MIN_DURATION_MS, 1);
-      const combinedProgress = Math.min(frameProgress, timeProgress);
+      const combinedProgress = (frameProgress + timeProgress) / 2;
 
       return this.makeFrame(now, {
         calibrationProgress: combinedProgress,
