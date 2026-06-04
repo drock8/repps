@@ -62,7 +62,9 @@ export default function SparksCard() {
     <div className="bg-bg-surface rounded-lg p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">⚡</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-purple-400">
+            <path d="M13 2L4.09 12.63a1 1 0 0 0 .78 1.62H11l-1 7.75L19.91 11.37a1 1 0 0 0-.78-1.62H13l1-7.75z" fill="currentColor" />
+          </svg>
           <p className="text-micro text-ink-muted uppercase tracking-wide">Sparks</p>
         </div>
         <div className="flex items-baseline gap-1">
@@ -118,7 +120,7 @@ export default function SparksCard() {
         </button>
         <button
           onClick={handleShare}
-          className="flex-1 bg-purple-500/20 text-purple-400 font-semibold text-caption rounded-pill py-2.5 transition-all duration-200 ease-apple active:scale-95"
+          className="flex-1 bg-accent text-ink-inverse font-semibold text-caption rounded-pill py-2.5 transition-all duration-200 ease-apple active:scale-95"
         >
           Share
         </button>
