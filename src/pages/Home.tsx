@@ -150,6 +150,24 @@ export default function Home() {
   const [teamRank, setTeamRank] = useState<TeamRankInfo | null>(null);
   const [teamStreak, setTeamStreak] = useState<{ current: number; longest: number }>({ current: 0, longest: 0 });
   const [featuredEvent, setFeaturedEvent] = useState<FeaturedEvent | null>(null);
+  const [milestoneTarget, setMilestoneTarget] = useState(2000);
+  const [milestoneDate, setMilestoneDate] = useState("2026-06-06");
+
+  useEffect(() => {
+    async function fetchGlobalTarget() {
+      const { data } = await supabase
+        .from("settings")
+        .select("key, value")
+        .in("key", ["global_target", "target_date"]);
+      if (data) {
+        for (const row of data) {
+          if (row.key === "global_target") setMilestoneTarget(Number(row.value) || 2000);
+          if (row.key === "target_date") setMilestoneDate(row.value);
+        }
+      }
+    }
+    fetchGlobalTarget();
+  }, []);
 
   useEffect(() => {
     async function fetchFeatured() {
@@ -296,9 +314,7 @@ export default function Home() {
   );
   const animatedMovers = useAnimatedCounter(moverCount, 200);
 
-  const MILESTONE_TARGET = 1000;
-  const MILESTONE_DATE = "2026-06-06";
-  const milestonePercent = (totalReps / MILESTONE_TARGET) * 100;
+  const milestonePercent = (totalReps / milestoneTarget) * 100;
 
   return (
     <div className="flex flex-col items-center text-center h-full">
@@ -315,10 +331,10 @@ export default function Home() {
         <div className="text-center">
           <p className="text-micro text-ink-muted uppercase tracking-wide">TARGET</p>
           <p className="text-display-md text-ink-primary tabular-nums leading-tight mt-0.5">
-            {formatNumber(MILESTONE_TARGET)}
+            {formatNumber(milestoneTarget)}
           </p>
-          <p className="text-micro text-ink-secondary mt-0.5">by Jun 6</p>
-          <p className="text-micro text-accent font-semibold">{formatCountdown(MILESTONE_DATE)}</p>
+          <p className="text-micro text-ink-secondary mt-0.5">by {new Date(milestoneDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+          <p className="text-micro text-accent font-semibold">{formatCountdown(milestoneDate)}</p>
         </div>
         <div className="text-center">
           <p className="text-micro text-ink-muted uppercase tracking-wide flex items-center justify-center gap-1">

@@ -107,6 +107,7 @@ export default function Dab() {
   const [ratio, setRatio] = useState(0);
   const [calibrated, setCalibrated] = useState(false);
   const [calibrationCount, setCalibrationCount] = useState(0);
+  const [showRetryButton, setShowRetryButton] = useState(false);
   const [showReady, setShowReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -259,6 +260,12 @@ export default function Dab() {
   useEffect(() => {
     preloadGuideClips();
   }, []);
+
+  useEffect(() => {
+    if (loading || calibrated) { setShowRetryButton(false); return; }
+    const t = setTimeout(() => setShowRetryButton(true), 4000);
+    return () => clearTimeout(t);
+  }, [loading, calibrated]);
 
   // Voice guide: speak alignment cues during calibration
   useEffect(() => {
@@ -1175,7 +1182,7 @@ export default function Dab() {
                     }}
                   />
                 </div>
-                {calibrationCount > 0 && (
+                {showRetryButton && (
                   <button
                     className="pointer-events-auto mt-3 text-caption text-ink-muted active:text-ink-primary transition-colors"
                     onClick={() => {
@@ -1186,6 +1193,7 @@ export default function Dab() {
                       }
                       setCalibrationCount(0);
                       setStabilityProgress(0);
+                      setShowRetryButton(false);
                     }}
                   >
                     Start over

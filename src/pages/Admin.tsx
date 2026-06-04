@@ -120,6 +120,9 @@ export default function Admin() {
   const [activeEngine, setActiveEngine] = useState<EngineVersion>("v2");
   const [selectedTheme, setSelectedTheme] = useState<Theme>("orange");
   const [saving, setSaving] = useState<string | null>(null);
+  const [globalTarget, setGlobalTarget] = useState("2000");
+  const [globalTargetDate, setGlobalTargetDate] = useState("2026-06-06");
+  const [globalTargetLabel, setGlobalTargetLabel] = useState("2,000 burpees by June 6, 2026");
 
   function switchTab(tab: AdminTab) {
     setActiveTab(tab);
@@ -143,11 +146,14 @@ export default function Admin() {
     const { data } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["detection_engine", "theme"]);
+      .in("key", ["detection_engine", "theme", "global_target", "target_date", "target_label"]);
     if (data) {
       for (const row of data) {
         if (row.key === "detection_engine") setActiveEngine(row.value as EngineVersion);
         if (row.key === "theme") setSelectedTheme(row.value as Theme);
+        if (row.key === "global_target") setGlobalTarget(row.value);
+        if (row.key === "target_date") setGlobalTargetDate(row.value);
+        if (row.key === "target_label") setGlobalTargetLabel(row.value);
       }
     }
   }, []);
@@ -289,6 +295,70 @@ export default function Admin() {
                 <StatCard label="Users" value={stats.totalUsers.toLocaleString()} />
                 <StatCard label="Teams" value={stats.totalTeams.toLocaleString()} />
                 <StatCard label="Active Events" value={stats.activeEvents.toLocaleString()} />
+              </div>
+            </section>
+
+            {/* Global Target */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
+                  Global Target
+                </h2>
+                <p className="text-xs text-ink-muted mt-1">
+                  Set the platform-wide burpee target and deadline. Displayed on home and events.
+                </p>
+              </div>
+              <div className="bg-bg-surface rounded-2xl border border-divider p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-ink-secondary block mb-1.5">
+                    Target Reps
+                  </label>
+                  <input
+                    type="number"
+                    value={globalTarget}
+                    onChange={(e) => setGlobalTarget(e.target.value)}
+                    onBlur={() => upsertSetting("global_target", globalTarget)}
+                    className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-ink-secondary block mb-1.5">
+                    Target Date
+                  </label>
+                  <input
+                    type="date"
+                    value={globalTargetDate}
+                    onChange={(e) => {
+                      setGlobalTargetDate(e.target.value);
+                      upsertSetting("target_date", e.target.value);
+                    }}
+                    className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-ink-secondary block mb-1.5">
+                    Display Label
+                  </label>
+                  <input
+                    type="text"
+                    value={globalTargetLabel}
+                    onChange={(e) => setGlobalTargetLabel(e.target.value)}
+                    onBlur={() => upsertSetting("target_label", globalTargetLabel)}
+                    placeholder="e.g. 2,000 burpees by June 6, 2026"
+                    className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+                <div className="pt-2 flex items-center gap-3">
+                  <div className="flex-1 h-3 bg-bg-input rounded-pill overflow-hidden">
+                    <div
+                      className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
+                      style={{ width: `${Math.min(100, (stats.totalReps / Math.max(1, Number(globalTarget))) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-ink-muted tabular-nums whitespace-nowrap">
+                    {stats.totalReps.toLocaleString()} / {Number(globalTarget).toLocaleString()}
+                  </span>
+                </div>
               </div>
             </section>
 
