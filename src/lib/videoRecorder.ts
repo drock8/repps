@@ -15,13 +15,37 @@ const SPONSOR_HEIGHT = 28;
 const PADDING = 16;
 const BOTTOM_BAR_HEIGHT = 80;
 
-export async function generateQRDataUrl(referralUrl: string): Promise<string> {
-  return QRCode.toDataURL(referralUrl, {
-    width: QR_SIZE * 2,
+export async function generateQRDataUrl(referralUrl: string, logoSrc?: string): Promise<string> {
+  const size = QR_SIZE * 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  await QRCode.toCanvas(canvas, referralUrl, {
+    width: size,
     margin: 1,
     color: { dark: "#111315", light: "#F5F2EA" },
-    errorCorrectionLevel: "M",
+    errorCorrectionLevel: "H",
   });
+  if (logoSrc) {
+    try {
+      const logo = await loadImage(logoSrc);
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        const logoSize = size * 0.22;
+        const pad = logoSize * 0.12;
+        const cx = (size - logoSize) / 2;
+        const cy = (size - logoSize) / 2;
+        ctx.fillStyle = "#F5F2EA";
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, (logoSize + pad) / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.drawImage(logo, cx, cy, logoSize, logoSize);
+      }
+    } catch {
+      // Logo failed — QR still works without it
+    }
+  }
+  return canvas.toDataURL("image/png");
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
