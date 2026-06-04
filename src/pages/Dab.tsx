@@ -25,11 +25,10 @@ import {
 } from "../lib/videoRecorder";
 import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
-import { addGuestRep, setGuestGender } from "../lib/guestSession";
+import { addGuestRep } from "../lib/guestSession";
+import AuthForm from "../components/AuthForm";
 import { speakGuide, speakReady, stopGuide, preloadGuideClips } from "../lib/voiceGuide";
-import type { Gender } from "../contexts/AuthContext";
-
-type Screen = "detecting" | "summary" | "gender-picker";
+type Screen = "detecting" | "summary" | "claim-spot";
 type EngineVersion = "v1" | "v2" | "v3";
 
 const CALIBRATION_FRAMES = 30;
@@ -880,35 +879,22 @@ export default function Dab() {
     </div>
   );
 
-  if (screen === "gender-picker") {
-    const genderOptions: { label: string; value: Gender }[] = [
-      { label: "Female", value: "female" },
-      { label: "Male", value: "male" },
-      { label: "Non-binary", value: "non_binary" },
-    ];
+  if (screen === "claim-spot") {
+    if (profile) {
+      navigate("/leaderboard");
+      return null;
+    }
 
     return (
       <div className="flex flex-col items-center justify-center h-[100dvh] -mx-4 -mt-6 px-4">
         <div className="w-full max-w-sm text-center">
-          <p className="text-display-md text-ink-primary">See how you rank!</p>
+          <p className="text-display-md text-accent tabular-nums">+{reps}</p>
+          <p className="text-display-md text-ink-primary mt-2">Lock in your spot</p>
           <p className="text-body text-ink-secondary mt-3">
-            Pick your category to see the leaderboard
+            Sign up to claim your rank on the leaderboard
           </p>
-          <div className="flex flex-col gap-3 mt-8">
-            {genderOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  if (!profile) {
-                    setGuestGender(opt.value);
-                  }
-                  navigate(`/leaderboard?signup=1&gender=${opt.value}&reps=${reps}`);
-                }}
-                className="w-full py-4 px-6 rounded-pill bg-bg-elevated text-ink-primary font-semibold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div className="mt-8">
+            <AuthForm />
           </div>
         </div>
       </div>
@@ -961,47 +947,37 @@ export default function Dab() {
 
         {/* Action bar */}
         <div className="flex-shrink-0 px-4 pb-2">
-        <div className="bg-bg-elevated rounded-xl flex max-w-md mx-auto">
           <button
-            onClick={() => {
-              if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-              navigate("/home");
-            }}
-            className="flex-1 py-3 text-ink-primary font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
-          >
-            Home
-          </button>
-          {recordedBlob && (
-            <>
-              <div className="w-px my-2 bg-divider" />
-              <button
-                onClick={async () => {
-                  const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
-                  const filename = `repps-${reps}-repps.${ext}`;
-                  const file = new File([recordedBlob], filename, { type: recordedBlob.type });
-                  if (navigator.canShare?.({ files: [file] })) {
-                    try {
-                      await navigator.share({
-                        files: [file],
-                        title: `${reps} ${reps === 1 ? "repp" : "repps"} on REPPs`,
-                      });
-                    } catch (e) {
-                      if ((e as Error).name !== "AbortError") {
-                        downloadBlob(recordedBlob, filename);
-                      }
+            onClick={async () => {
+              if (recordedBlob) {
+                const ext = recordedBlob.type.includes("mp4") ? "mp4" : "webm";
+                const filename = `repps-${reps}-repps.${ext}`;
+                const file = new File([recordedBlob], filename, { type: recordedBlob.type });
+                if (navigator.canShare?.({ files: [file] })) {
+                  try {
+                    await navigator.share({
+                      files: [file],
+                      title: `${reps} ${reps === 1 ? "repp" : "repps"} on REPPs`,
+                    });
+                  } catch (e) {
+                    if ((e as Error).name !== "AbortError") {
+                      downloadBlob(recordedBlob, filename);
                     }
-                  } else {
-                    downloadBlob(recordedBlob, filename);
                   }
-                  if (reps > 0) setScreen("gender-picker");
-                }}
-                className="flex-1 py-3 text-accent font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
-              >
-                Share
-              </button>
-            </>
-          )}
-        </div>
+                } else {
+                  downloadBlob(recordedBlob, filename);
+                }
+              }
+              if (reps > 0) {
+                setScreen("claim-spot");
+              } else {
+                navigate("/home");
+              }
+            }}
+            className="w-full max-w-md mx-auto block py-3 bg-bg-elevated rounded-xl text-accent font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
+          >
+            {reps > 0 ? "Save / Share" : "Done"}
+          </button>
         </div>
       </div>
     );
