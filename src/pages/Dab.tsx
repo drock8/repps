@@ -205,9 +205,10 @@ export default function Dab() {
         const referralUrl = profile?.referral_code
           ? `https://repps.pro/r/${profile.referral_code}`
           : "https://repps.pro";
+        const logoSrc = theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png";
         const [logo, qrDataUrl] = await Promise.all([
-          loadImage(theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png").catch(() => null),
-          generateStyledQRDataUrl(referralUrl, 128, "/Repps-Black-Icon.png"),
+          loadImage(logoSrc).catch(() => null),
+          generateStyledQRDataUrl(referralUrl, 128, "/Repps-Black-Icon.png").catch(() => null),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {
@@ -222,7 +223,7 @@ export default function Dab() {
         // Brand overlay is optional — recording still works without it
       }
     })();
-  }, [profile?.id]);
+  }, [profile?.id, theme]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(animationIdRef.current);
