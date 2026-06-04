@@ -1,5 +1,3 @@
-import QRCode from "qrcode";
-
 export interface BrandOverlayConfig {
   logoImg: HTMLImageElement | null;
   sponsorImgs: HTMLImageElement[];
@@ -14,16 +12,6 @@ const LOGO_HEIGHT = 36;
 const SPONSOR_HEIGHT = 28;
 const PADDING = 16;
 const BOTTOM_BAR_HEIGHT = 80;
-
-export async function generateQRDataUrl(userId: string): Promise<string> {
-  const url = `https://repps.pro/?ref=${userId}`;
-  return QRCode.toDataURL(url, {
-    width: QR_SIZE * 2,
-    margin: 1,
-    color: { dark: "#111315", light: "#F5F2EA" },
-    errorCorrectionLevel: "M",
-  });
-}
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {

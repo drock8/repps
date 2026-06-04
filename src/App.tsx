@@ -19,6 +19,7 @@ import UserProfile from "./pages/UserProfile";
 import Inbox from "./pages/Inbox";
 import Conversation from "./pages/Conversation";
 import Admin from "./pages/Admin";
+import ReferralJoin from "./pages/ReferralJoin";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <ResetPasswordModal />
           <Routes>
             <Route index element={<LandingGate />} />
+            <Route path="r/:code" element={<ReferralJoin />} />
             {/* Guest-accessible routes */}
             <Route element={<Layout />}>
               <Route path="home" element={<Home />} />

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { getGuestSession, clearGuestSession } from "../lib/guestSession";
+import { consumeReferralCode } from "../pages/ReferralJoin";
 import type { Session, User } from "@supabase/supabase-js";
 
 export type Gender = "female" | "male" | "non_binary" | "unspecified";
@@ -18,6 +19,7 @@ export interface Profile {
   dob: string | null;
   nationality_code: string | null;
   nationality_name: string | null;
+  referral_code: string;
 }
 
 interface AuthContextValue {
@@ -154,6 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await claimGuestReps(user.id);
+
+    const referralCode = consumeReferralCode();
+    if (referralCode) {
+      await supabase.rpc("create_referral", { p_referral_code: referralCode }).catch(() => {});
+    }
+
     const refreshed = await fetchProfile(user.id);
     if (refreshed) p = refreshed;
 

@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "./BottomNav";
 import GenderPrompt from "./GenderPrompt";
 import FeedbackFAB from "./FeedbackFAB";
+import ReferralQRModal from "./ReferralQRModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -29,6 +31,7 @@ export default function Layout() {
   const theme = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [showQR, setShowQR] = useState(false);
   const showGenderPrompt = profile && profile.gender_set === false && profile.gender === "unspecified";
   const title = getPageTitle(pathname);
   const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/") || pathname === "/events" || pathname.startsWith("/events/");
@@ -46,20 +49,36 @@ export default function Layout() {
               {title}
             </span>
             {profile && (
-              <button
-                onClick={() => navigate("/profile")}
-                className="absolute right-0 w-8 h-8 rounded-full overflow-hidden flex-shrink-0 transition-all duration-200 ease-apple active:scale-90"
-              >
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-avatar-bg flex items-center justify-center">
-                    <span className="text-caption font-bold text-avatar-text">
-                      {profile.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-              </button>
+              <div className="absolute right-0 flex items-center gap-2">
+                <button
+                  onClick={() => setShowQR(true)}
+                  className="w-8 h-8 flex items-center justify-center text-ink-muted transition-colors duration-200 ease-apple active:text-accent"
+                  title="Referral QR"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="8" height="8" rx="1" />
+                    <rect x="14" y="2" width="8" height="8" rx="1" />
+                    <rect x="2" y="14" width="8" height="8" rx="1" />
+                    <rect x="14" y="14" width="4" height="4" />
+                    <line x1="22" y1="14" x2="22" y2="18" />
+                    <line x1="18" y1="22" x2="22" y2="22" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 transition-all duration-200 ease-apple active:scale-90"
+                >
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-avatar-bg flex items-center justify-center">
+                      <span className="text-caption font-bold text-avatar-text">
+                        {profile.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -73,6 +92,7 @@ export default function Layout() {
       {showGenderPrompt && <GenderPrompt />}
 
       {!showGenderPrompt && <FeedbackFAB />}
+      <ReferralQRModal open={showQR} onClose={() => setShowQR(false)} />
     </div>
   );
 }

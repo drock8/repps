@@ -6,6 +6,7 @@ import ActivityHeatmap from "../components/ActivityHeatmap";
 import WeeklyBarChart from "../components/WeeklyBarChart";
 import WeeklyTrendChart from "../components/WeeklyTrendChart";
 import BonusPointsBanner from "../components/BonusPointsBanner";
+import SparksCard from "../components/SparksCard";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -329,6 +330,9 @@ export default function Profile() {
       <div className="flex flex-col gap-2 mt-4">
         {/* Bonus points banner */}
         <BonusPointsBanner />
+
+        {/* Sparks — referral stats */}
+        <SparksCard />
 
         {/* Name card */}
         {editingName ? (

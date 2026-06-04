@@ -17,12 +17,12 @@ import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "
 import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
 import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
-  generateQRDataUrl,
   loadImage,
   drawBrandOverlay,
   createVideoRecorder,
   downloadBlob,
 } from "../lib/videoRecorder";
+import { generateStyledQRDataUrl } from "../lib/qrRenderer";
 import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETTI_DURATION, GRAVITY } from "../lib/confetti";
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep } from "../lib/guestSession";
@@ -202,9 +202,12 @@ export default function Dab() {
 
     (async () => {
       try {
+        const referralUrl = profile?.referral_code
+          ? `https://repps.pro/r/${profile.referral_code}`
+          : "https://repps.pro";
         const [logo, qrDataUrl] = await Promise.all([
           loadImage(theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png").catch(() => null),
-          generateQRDataUrl(profile?.id || "guest"),
+          generateStyledQRDataUrl(referralUrl, 128, "/Repps-Black-Icon.png"),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {
