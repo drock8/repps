@@ -1,21 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { renderStyledQR } from "../lib/qrRenderer";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function ReferralQRModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile } = useAuth();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
 
   const referralUrl = profile ? `https://repps.pro/r/${profile.referral_code}` : "";
-
-  useEffect(() => {
-    if (!open || !canvasRef.current || !referralUrl) return;
-    renderStyledQR(canvasRef.current, referralUrl, {
-      size: 240,
-      logoSrc: "/Repps-Black-Icon.png",
-    });
-  }, [open, referralUrl]);
 
   if (!open || !profile) return null;
 
@@ -61,7 +51,13 @@ export default function ReferralQRModal({ open, onClose }: { open: boolean; onCl
         <p className="text-micro text-ink-muted uppercase tracking-wide">Your Referral QR</p>
 
         <div className="rounded-lg overflow-hidden">
-          <canvas ref={canvasRef} style={{ width: 240, height: 240 }} />
+          {profile.referral_qr_url ? (
+            <img src={profile.referral_qr_url} width={240} height={240} alt="Referral QR code" />
+          ) : (
+            <div className="w-[240px] h-[240px] bg-bg-surface flex items-center justify-center text-ink-muted text-caption">
+              QR unavailable
+            </div>
+          )}
         </div>
 
         <p className="text-caption text-ink-secondary text-center">
