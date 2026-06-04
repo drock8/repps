@@ -151,12 +151,23 @@ export default function AuthForm({ initialMode = "choose" }: { initialMode?: Aut
   if (mode === "signin") {
     return (
       <div className="w-full max-w-sm flex flex-col gap-3">
+        <button
+          onClick={signInWithGoogle}
+          className="w-full py-4 px-6 rounded-pill bg-ink-primary text-ink-inverse font-semibold text-body-lg flex items-center justify-center gap-3 transition-all duration-200 ease-apple active:scale-95"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+        <div className="flex items-center gap-3 my-1">
+          <div className="flex-1 h-px bg-divider" />
+          <span className="text-micro text-ink-muted uppercase">or</span>
+          <div className="flex-1 h-px bg-divider" />
+        </div>
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => { setEmail(e.target.value); setError(""); }}
-          autoFocus
           className="w-full bg-bg-input text-ink-primary text-body rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
         />
         <PasswordInput
