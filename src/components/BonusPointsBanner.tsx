@@ -252,7 +252,14 @@ export default function BonusPointsBanner() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-micro text-ink-muted uppercase tracking-wide">Date of Birth</p>
-              {claimed.dob ? (
+              {animatingDob ? (
+                <span className="text-micro font-bold tabular-nums text-accent">
+                  <span className="inline-flex items-center gap-0.5">
+                    +<CountUp target={dobAwarded} />
+                    <span className={reducedMotion ? "" : "animate-pulse"}> pts</span>
+                  </span>
+                </span>
+              ) : claimed.dob ? (
                 <span className="flex items-center gap-1 text-micro text-success font-semibold">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
@@ -260,15 +267,8 @@ export default function BonusPointsBanner() {
                   Claimed
                 </span>
               ) : (
-                <span className={`text-micro font-bold tabular-nums ${animatingDob ? "text-accent" : "text-purple-400"}`}>
-                  {animatingDob ? (
-                    <span className="inline-flex items-center gap-0.5">
-                      +<CountUp target={dobAwarded} />
-                      <span className={reducedMotion ? "" : "animate-pulse"}> pts</span>
-                    </span>
-                  ) : (
-                    `+${settings.dob} pts`
-                  )}
+                <span className="text-micro font-bold tabular-nums text-purple-400">
+                  +{settings.dob} pts
                 </span>
               )}
             </div>
@@ -303,7 +303,14 @@ export default function BonusPointsBanner() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-micro text-ink-muted uppercase tracking-wide">Nationality</p>
-              {claimed.nationality ? (
+              {animatingNat ? (
+                <span className="text-micro font-bold tabular-nums text-accent">
+                  <span className="inline-flex items-center gap-0.5">
+                    +<CountUp target={natAwarded} />
+                    <span className={reducedMotion ? "" : "animate-pulse"}> pts</span>
+                  </span>
+                </span>
+              ) : claimed.nationality ? (
                 <span className="flex items-center gap-1 text-micro text-success font-semibold">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
@@ -311,15 +318,8 @@ export default function BonusPointsBanner() {
                   Claimed
                 </span>
               ) : (
-                <span className={`text-micro font-bold tabular-nums ${animatingNat ? "text-accent" : "text-purple-400"}`}>
-                  {animatingNat ? (
-                    <span className="inline-flex items-center gap-0.5">
-                      +<CountUp target={natAwarded} />
-                      <span className={reducedMotion ? "" : "animate-pulse"}> pts</span>
-                    </span>
-                  ) : (
-                    `+${settings.nationality} pts`
-                  )}
+                <span className="text-micro font-bold tabular-nums text-purple-400">
+                  +{settings.nationality} pts
                 </span>
               )}
             </div>
