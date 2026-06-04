@@ -1062,7 +1062,10 @@ export default function Dab() {
         {!calibrated && <p className="text-micro text-ink-muted uppercase tracking-wide">Drop A Burpee</p>}
         <p className={calibrated ? "text-[72px] leading-none text-accent tabular-nums font-bold" : "text-display-xl text-accent tabular-nums"}>{reps}</p>
         {calibrated && reps === 0 && (
-          <p className="text-micro text-ink-muted mt-0.5">Each repp must be under 10 seconds</p>
+          <div className="mt-0.5 space-y-0.5">
+            <p className="text-micro text-ink-muted">Keep your head down, face the ground</p>
+            <p className="text-micro text-ink-muted/60">Each repp must be under 10 seconds</p>
+          </div>
         )}
       </div>
 

@@ -9,6 +9,7 @@ const GUIDE_CLIPS: Record<string, string> = {
   "aligned": "/audio/guide/hold-still.mp3",
   "stabilizing": "/audio/guide/place-phone-down.mp3",
   "ready": "/audio/guide/ready.mp3",
+  "head-down": "/audio/guide/head-down.mp3",
 };
 
 const MIN_INTERVAL_MS = 3000;
@@ -53,6 +54,13 @@ export function speakGuide(alignmentStatus: string) {
 
 export function speakReady() {
   speakGuideForce("ready");
+  const readyAudio = getAudio(GUIDE_CLIPS["ready"]);
+  const playHeadDown = () => speakGuideForce("head-down");
+  if (readyAudio.duration && readyAudio.duration > 0) {
+    setTimeout(playHeadDown, readyAudio.duration * 1000 + 300);
+  } else {
+    setTimeout(playHeadDown, 1500);
+  }
 }
 
 function speakGuideForce(key: string) {
