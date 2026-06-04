@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -37,6 +38,7 @@ const MOTIVATIONAL_QUOTES = [
 let cachedLandingCount: number | null = null;
 
 export default function Landing() {
+  const navigate = useNavigate();
   const theme = useTheme();
   const [totalReps, setTotalReps] = useState(cachedLandingCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
@@ -151,11 +153,12 @@ export default function Landing() {
             {/* CTA — sits above bottom with sufficient padding */}
             <div className="w-full flex flex-col items-center flex-shrink-0">
               <button
-                onClick={() => setShowAuth("choose")}
+                onClick={() => navigate("/home")}
                 className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
               >
                 Join the Movement
               </button>
+              <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
             </div>
           </>
         )}

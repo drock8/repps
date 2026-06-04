@@ -28,11 +28,15 @@ export default function App() {
           <ResetPasswordModal />
           <Routes>
             <Route index element={<LandingGate />} />
+            {/* Guest-accessible routes */}
+            <Route element={<Layout />}>
+              <Route path="home" element={<Home />} />
+              <Route path="dab" element={<Dab />} />
+            </Route>
+            {/* Auth-required routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="admin" element={<Admin />} />
               <Route element={<Layout />}>
-                <Route path="home" element={<Home />} />
-                <Route path="dab" element={<Dab />} />
                 <Route path="leaderboard" element={<Leaderboard />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="team" element={<Team />} />
