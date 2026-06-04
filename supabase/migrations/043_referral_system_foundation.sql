@@ -70,6 +70,6 @@ create policy "Referred users can read own row"
 
 -- 6. Seed referral settings
 insert into settings (key, value, updated_at) values
-  ('referral_base_points', '11', now()),
-  ('referral_bonus_points', '15', now())
+  ('referral_base_points', '50', now()),
+  ('referral_bonus_points', '100', now())
 on conflict (key) do nothing;

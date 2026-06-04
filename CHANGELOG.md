@@ -1,5 +1,16 @@
 # Changelog
 
+## Referral Sparks system (2026-06-04)
+
+### Added
+- **Referral system (Sparks)** — share your personal link or QR to earn points when new users join. 50 pts on first rep, 100 pts if they hit 5 reps on day one.
+- **`/r/:code` route** — referral deep link stores code in localStorage, consumed after OAuth signup to link referrer → referred.
+- **QR icon in header** — tap to open modal with styled scannable QR code (rounded modules, Repps icon centered).
+- **SparksCard on profile** — shows Sparks count, referred user list with status (Active/Joined), points earned, and Copy Link + Share buttons.
+- **Styled QR renderer** — `src/lib/qrRenderer.ts` draws rounded-corner modules, custom finder patterns, centered logo, and rounded outer corners. Error correction level H.
+- **Video overlay QR** — rep recordings now embed user's referral QR (`repps.pro/r/{code}`) instead of generic ref link. Every shared video is a referral vehicle.
+- **DB: migrations 043–045** — `referral_code` on profiles (6-char, unique, backfilled), `referrals` table with RLS, `create_referral` / `process_referral_activation` / `get_my_sparks` RPCs, settings seeded at 50/100 pts.
+
 ## Fix gender prompt reappearing (2026-06-03)
 
 ### Fixed

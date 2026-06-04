@@ -112,7 +112,7 @@ export default function SparksCard() {
       )}
 
       <p className="text-micro text-ink-muted mt-2">
-        Earn <span className="text-purple-400 font-semibold">11 pts</span> per referral, <span className="text-purple-400 font-semibold">15 pts</span> if they hit 5 reps day one
+        Earn <span className="text-purple-400 font-semibold">50 pts</span> per referral, <span className="text-purple-400 font-semibold">100 pts</span> if they hit 5 reps day one
       </p>
 
       <div className="flex gap-3 mt-3">
