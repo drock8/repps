@@ -208,7 +208,7 @@ export default function Dab() {
           : "https://repps.pro";
         const [logo, qrDataUrl] = await Promise.all([
           loadImage(theme === "blue" ? "/Repps-Blue-Logo.png" : theme === "yellow" ? "/Repps-Yellow-Logo.png" : "/repps-logo.png").catch(() => null),
-          generateQRDataUrl(referralUrl),
+          generateQRDataUrl(referralUrl, "/Repps-Black-Icon.png"),
         ]);
         const qrImg = qrDataUrl ? await loadImage(qrDataUrl).catch(() => null) : null;
         brandConfigRef.current = {

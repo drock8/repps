@@ -235,10 +235,10 @@ const DIFFICULTY_THRESHOLDS: Record<DifficultyLevel, ThresholdSet> = {
 const SMOOTHING_WINDOW = 5;
 const CALIBRATION_FRAMES = 15;
 const CALIBRATION_MIN_DURATION_MS = 2000;
-const STABILITY_WINDOW_MS = 1500;
-const STABILITY_MAX_DRIFT = 0.045;
-const STABILITY_MIN_FRAMES = 15;
-const MIN_STANDING_HEIGHT = 0.35;
+const STABILITY_WINDOW_MS = 1200;
+const STABILITY_MAX_DRIFT = 0.05;
+const STABILITY_MIN_FRAMES = 10;
+const MIN_STANDING_HEIGHT = 0.25;
 const MAX_STANDING_HEIGHT = 0.85;
 const MIN_VISIBILITY = 0.5;
 const SOFT_VISIBILITY = 0.3;
@@ -747,11 +747,9 @@ export class DetectionEngineV3 {
           this.angleVotes = { front: 0, side: 0 };
         }
         if (!allVisible) {
-          this.isStable = false;
-          this.stabilityFrames = [];
           return this.makeFrame(now, {
             alignmentStatus: "no-pose",
-            stabilityStatus: "unstable",
+            stabilityStatus: this.isStable ? "stable" : "unstable",
             calibrationProgress: 0,
           });
         }
@@ -806,14 +804,14 @@ export class DetectionEngineV3 {
         }
 
         const heightStd = stddev(this.calibrationHeights);
-        if (heightStd > candidateHeight * 0.08) {
+        if (heightStd > candidateHeight * 0.15) {
           this.calibrationHeights = [];
           this.calibrationStartTime = 0;
           this.angleVotes = { front: 0, side: 0 };
           return this.makeFrame(now, {
             calibrationProgress: 0,
             alignmentStatus: "aligned",
-            stabilityStatus: "stable",
+            stabilityStatus: "unstable",
           });
         }
 
