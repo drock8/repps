@@ -341,25 +341,33 @@ export default function Dab() {
 
         setLoadStage("Starting camera…");
         setLoadProgress(75);
-        let stream: MediaStream;
-        try {
-          stream = await withTimeout(
-            navigator.mediaDevices.getUserMedia({
-              video: { facingMode: "user" },
-              audio: true,
-            }),
-            15000,
-            "Camera access"
-          );
-        } catch {
-          stream = await withTimeout(
-            navigator.mediaDevices.getUserMedia({
-              video: { facingMode: "user" },
-            }),
-            15000,
-            "Camera access (video-only)"
-          );
+
+        // Android (especially Samsung) can stall with bare facingMode string.
+        // We try several constraint sets in order: ideal front + audio,
+        // ideal front video-only, exact front, and finally unconstrained.
+        const constraintSets: MediaStreamConstraints[] = [
+          { video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true },
+          { video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+          { video: { facingMode: { exact: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+          { video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+          { video: true, audio: false },
+        ];
+
+        let stream: MediaStream | null = null;
+        for (const constraints of constraintSets) {
+          if (cancelled) return;
+          try {
+            stream = await withTimeout(
+              navigator.mediaDevices.getUserMedia(constraints),
+              15000,
+              "Camera access"
+            );
+            break;
+          } catch (e) {
+            console.warn("[DAB] getUserMedia failed with constraints:", JSON.stringify(constraints), (e as Error).message);
+          }
         }
+        if (!stream) throw new Error("Could not access any camera. Check browser permissions and try again.");
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -371,13 +379,24 @@ export default function Dab() {
         vid.srcObject = new MediaStream(stream.getVideoTracks());
         vid.setAttribute("playsinline", "true");
         vid.setAttribute("autoplay", "true");
-        await vid.play().catch(() => {});
 
+        // Android Chrome sometimes needs a user-gesture-driven play() retry
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            await vid.play();
+            break;
+          } catch {
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+
+        // Wait for actual video frames — listen for both loadeddata and canplay (Android fires canplay more reliably)
         if (vid.readyState < 2) {
           await new Promise<void>((resolve) => {
-            const onReady = () => { vid.removeEventListener("loadeddata", onReady); resolve(); };
-            vid.addEventListener("loadeddata", onReady);
-            setTimeout(() => { vid.removeEventListener("loadeddata", onReady); resolve(); }, 10000);
+            const done = () => { vid.removeEventListener("loadeddata", done); vid.removeEventListener("canplay", done); resolve(); };
+            vid.addEventListener("loadeddata", done);
+            vid.addEventListener("canplay", done);
+            setTimeout(done, 10000);
           });
         }
 
@@ -989,26 +1008,23 @@ export default function Dab() {
   }
 
   if (cameraError) {
-    const isPermissionError = cameraError.includes("camera access") || cameraError.includes("Permission");
     return (
       <div className="flex flex-col items-center justify-center text-center pt-24 px-4">
         <p className="text-display-md">📷</p>
         <p className="text-body text-ink-primary mt-4">{cameraError}</p>
         <div className="flex gap-3 mt-8">
-          {!isPermissionError && (
-            <button
-              onClick={() => {
-                setCameraError(null);
-                setLoading(true);
-                setLoadProgress(0);
-                setLoadStage("Powering up…");
-                setRetryCount((c) => c + 1);
-              }}
-              className="bg-accent text-on-accent font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
-            >
-              Try Again
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setCameraError(null);
+              setLoading(true);
+              setLoadProgress(0);
+              setLoadStage("Powering up…");
+              setRetryCount((c) => c + 1);
+            }}
+            className="bg-accent text-on-accent font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
+          >
+            Try Again
+          </button>
           <button
             onClick={() => navigate("/home")}
             className="bg-bg-elevated text-ink-primary font-bold text-body-lg rounded-pill py-4 px-8 transition-all duration-200 ease-apple active:scale-95"
@@ -1193,6 +1209,7 @@ export default function Dab() {
         )}
         <video
           ref={videoRef}
+          autoPlay
           playsInline
           muted
           style={{
