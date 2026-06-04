@@ -320,7 +320,7 @@ export default function Dab() {
         );
         if (cancelled) return;
 
-        setLoadStage("Starting camera…");
+        setLoadStage("Loading pose model…");
         setLoadProgress(40);
         const landmarker = await withTimeout(
           PoseLandmarker.createFromOptions(vision, {
@@ -344,11 +344,11 @@ export default function Dab() {
         setLoadStage("Starting camera…");
         setLoadProgress(75);
 
-        // Android (especially Samsung) can stall with bare facingMode string.
-        // We try several constraint sets in order: ideal front + audio,
-        // ideal front video-only, exact front, and finally unconstrained.
+        // Try several constraint sets: video-only first (iOS needs separate
+        // audio permission), then exact front, then unconstrained.
+        // Audio is requested only as a last-resort fallback since iOS Safari
+        // can stall when requesting camera + mic together.
         const constraintSets: MediaStreamConstraints[] = [
-          { video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true },
           { video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
           { video: { facingMode: { exact: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
           { video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
@@ -361,7 +361,7 @@ export default function Dab() {
           try {
             stream = await withTimeout(
               navigator.mediaDevices.getUserMedia(constraints),
-              15000,
+              10000,
               "Camera access"
             );
             break;
@@ -378,7 +378,7 @@ export default function Dab() {
 
         if (!videoRef.current) throw new Error("Camera view not ready — try again");
         const vid = videoRef.current;
-        vid.srcObject = new MediaStream(stream.getVideoTracks());
+        vid.srcObject = stream;
         vid.setAttribute("playsinline", "true");
         vid.setAttribute("autoplay", "true");
 
@@ -408,7 +408,7 @@ export default function Dab() {
           vid.pause();
           vid.srcObject = null;
           await new Promise((r) => setTimeout(r, 500));
-          vid.srcObject = new MediaStream(stream.getVideoTracks());
+          vid.srcObject = stream;
           try { await vid.play(); } catch { /* ignore */ }
           await new Promise((r) => setTimeout(r, 2000));
           if (vid.videoWidth === 0 || vid.videoHeight === 0) {
@@ -755,6 +755,10 @@ export default function Dab() {
         if (msg.includes("Permission") || msg.includes("NotAllowed") || msg.includes("denied")) {
           setCameraError(
             "REPPs needs camera access to detect your burpees. Tap the camera icon in your browser address bar to allow."
+          );
+        } else if (msg.includes("timed out")) {
+          setCameraError(
+            "Loading took too long — your connection may be slow. Close other tabs and tap Try Again."
           );
         } else {
           setCameraError(`Camera error: ${msg}`);
