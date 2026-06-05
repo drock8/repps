@@ -28,6 +28,7 @@ import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep } from "../lib/guestSession";
 import AuthForm from "../components/AuthForm";
 import { speakGuide, speakReady, stopGuide, preloadGuideClips } from "../lib/voiceGuide";
+import { pickCongratsMessage, playCongratsAudio, preloadCongratsAudio } from "../lib/congratsAudio";
 type Screen = "detecting" | "summary" | "claim-spot";
 type EngineVersion = "v1" | "v2" | "v3";
 
@@ -119,6 +120,7 @@ export default function Dab() {
 
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
+  const [congratsMessage, setCongratsMessage] = useState("");
 
   const [alignmentStatus, setAlignmentStatus] = useState<string>("no-pose");
 
@@ -200,6 +202,7 @@ export default function Dab() {
   useEffect(() => {
     preloadRepAudio(10);
     preloadCoachAudio();
+    preloadCongratsAudio();
 
     (async () => {
       try {
@@ -814,15 +817,29 @@ export default function Dab() {
 
     try {
       if (profile) {
-        const [userResult, globalResult] = await Promise.all([
+        const [userResult, globalResult, statsResult] = await Promise.all([
           supabase
             .from("reps")
             .select("*", { count: "exact", head: true })
             .eq("user_id", profile.id),
           supabase.from("reps").select("*", { count: "exact", head: true }),
+          supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
         ]);
         setSummaryUserTotal(userResult.count ?? 0);
         setSummaryGlobalTotal(globalResult.count ?? 0);
+
+        if (statsResult.data) {
+          const stats = statsResult.data[0] ?? statsResult.data;
+          const congrats = pickCongratsMessage(repCountRef.current, {
+            total_reps: stats.total_reps ?? 0,
+            best_session_count: stats.best_session_count ?? 0,
+            current_streak: stats.current_streak ?? 0,
+            longest_streak: stats.longest_streak ?? 0,
+            days_active: stats.days_active ?? 0,
+          });
+          setCongratsMessage(congrats.message);
+          playCongratsAudio(congrats.audioFile);
+        }
       } else {
         const { count } = await supabase.from("reps").select("*", { count: "exact", head: true });
         setSummaryGlobalTotal(count ?? 0);
@@ -940,6 +957,12 @@ export default function Dab() {
   if (screen === "summary") {
     return (
       <div className="flex flex-col -mx-4 overflow-hidden" style={{ height: "calc(100dvh - 44px - 68px)" }}>
+        {/* Congrats message */}
+        {congratsMessage && (
+          <div className="flex-shrink-0 px-4 pt-3 pb-1">
+            <p className="text-body text-accent font-semibold text-center">{congratsMessage}</p>
+          </div>
+        )}
         {/* Stats row */}
         <div className="flex items-baseline justify-center gap-4 px-4 pt-2 pb-1 flex-shrink-0">
           <div className="text-center">
