@@ -132,12 +132,18 @@ export default function CompetitionJoin() {
 
       {alreadyJoined ? (
         <div className="text-center">
-          <p className="text-body-lg text-ink-primary mb-4">You're already in this competition!</p>
+          <p className="text-body-lg text-ink-primary mb-4">You're in! Get ready to compete.</p>
+          <button
+            onClick={() => navigate(`/dab?comp=${comp.id}`)}
+            className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3"
+          >
+            Start Reps
+          </button>
           <button
             onClick={() => navigate(`/live/${comp.id}`)}
-            className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold"
+            className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold"
           >
-            Open Dashboard
+            Watch Dashboard
           </button>
         </div>
       ) : !joinable ? (

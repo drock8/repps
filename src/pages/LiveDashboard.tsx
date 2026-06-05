@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { useAnimatedCounter } from "../hooks/useAnimatedCounter";
@@ -421,6 +421,7 @@ function FinishOverlay({
 export default function LiveDashboard() {
   const { competitionId } = useParams<{ competitionId: string }>();
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   const [comp, setComp] = useState<CompState | null>(null);
   const [event, setEvent] = useState<EventInfo | null>(null);
@@ -435,6 +436,7 @@ export default function LiveDashboard() {
   repMapRef.current = repMap;
 
   const isOrganizer = profile && event && profile.id === event.created_by;
+  const isParticipant = profile && participants.some((p) => p.user_id === profile.id);
 
   // Load initial dashboard data
   const loadDashboard = useCallback(async () => {
@@ -783,6 +785,16 @@ export default function LiveDashboard() {
         />
       )}
       {isOrganizer && <AdminOverlay comp={comp} onTransition={handleTransition} />}
+
+      {/* Participant: Start Reps button */}
+      {isParticipant && !isFinished && (
+        <button
+          onClick={() => navigate(`/dab?comp=${comp.id}`)}
+          className="fixed bottom-6 right-6 z-50 px-6 py-4 rounded-full bg-accent text-ink-inverse text-body-lg font-bold shadow-lg active:scale-95 transition-transform"
+        >
+          {isLive ? "Do Reps" : "Get Ready"}
+        </button>
+      )}
     </div>
   );
 }
