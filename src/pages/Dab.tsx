@@ -168,6 +168,9 @@ export default function Dab() {
   const [compFinished, setCompFinished] = useState(false);
   const compStateRef = useRef(compState);
   compStateRef.current = compState;
+  const compWaiting = !!competitionId && compState !== "live" && !compFinished;
+  const compWaitingRef = useRef(compWaiting);
+  compWaitingRef.current = compWaiting;
 
   // Load competition state and subscribe to changes
   useEffect(() => {
@@ -210,6 +213,20 @@ export default function Dab() {
       p_status: "camera_ready",
     });
   }, [competitionId, calibrated]);
+
+  // Start audio + recording when competition goes live (deferred from calibration)
+  useEffect(() => {
+    if (!competitionId || compState !== "live" || !calibrated) return;
+    ensureAudioReady().then(() => startHeartbeat());
+    playGoAudio();
+    if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+      recordCanvasRef.current.width = videoRef.current.videoWidth;
+      recordCanvasRef.current.height = videoRef.current.videoHeight;
+      const audioTracks = streamRef.current?.getAudioTracks() ?? [];
+      recorderRef.current = createVideoRecorder(recordCanvasRef.current, audioTracks);
+      recorderRef.current.start();
+    }
+  }, [competitionId, compState, calibrated]);
 
   // Competition timer countdown
   useEffect(() => {
@@ -652,13 +669,14 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
-                ensureAudioReady().then(() => startHeartbeat());
-                playGoAudio();
+                if (!compWaitingRef.current) {
+                  ensureAudioReady().then(() => startHeartbeat());
+                  playGoAudio();
+                }
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
                 accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
-                // Start recording — initialize canvas dimensions first
-                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                if (!compWaitingRef.current && recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
                   recordCanvasRef.current.height = videoRef.current.videoHeight;
                   const audioTracks = streamRef.current?.getAudioTracks() ?? [];
@@ -667,7 +685,7 @@ export default function Dab() {
                 }
               }
 
-              if (frame.repCount > lastRepCount) {
+              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
@@ -721,13 +739,14 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
-                ensureAudioReady().then(() => startHeartbeat());
-                playGoAudio();
+                if (!compWaitingRef.current) {
+                  ensureAudioReady().then(() => startHeartbeat());
+                  playGoAudio();
+                }
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
                 accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
-                // Start recording — initialize canvas dimensions first
-                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                if (!compWaitingRef.current && recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
                   recordCanvasRef.current.height = videoRef.current.videoHeight;
                   const audioTracks = streamRef.current?.getAudioTracks() ?? [];
@@ -736,7 +755,7 @@ export default function Dab() {
                 }
               }
 
-              if (frame.repCount > lastRepCount) {
+              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
@@ -795,12 +814,14 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
-                ensureAudioReady().then(() => startHeartbeat());
-                playGoAudio();
+                if (!compWaitingRef.current) {
+                  ensureAudioReady().then(() => startHeartbeat());
+                  playGoAudio();
+                }
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
                 accentSecondaryRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
-                if (recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
+                if (!compWaitingRef.current && recordCanvasRef.current && videoRef.current && !recorderRef.current?.isRecording) {
                   recordCanvasRef.current.width = videoRef.current.videoWidth;
                   recordCanvasRef.current.height = videoRef.current.videoHeight;
                   const audioTracks = streamRef.current?.getAudioTracks() ?? [];
@@ -809,15 +830,15 @@ export default function Dab() {
                 }
               }
 
-              if (frame.rejection) {
+              if (!compWaitingRef.current && frame.rejection) {
                 showRejection(frame.rejection);
               }
 
-              if (frame.coachingCue) {
+              if (!compWaitingRef.current && frame.coachingCue) {
                 showCoachingCue(frame.coachingCue);
               }
 
-              if (frame.repCount > lastRepCount) {
+              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);

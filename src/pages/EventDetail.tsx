@@ -677,6 +677,15 @@ export default function EventDetail() {
           {competitions.length === 0 && !showCreateComp && isOrganizer && (
             <p className="text-caption text-ink-muted text-center py-2">No live competitions yet</p>
           )}
+
+          {isOrganizer && !showCreateComp && competitions.length > 0 && (
+            <button
+              onClick={() => setShowCreateComp(true)}
+              className="w-full py-3 rounded-lg border border-dashed border-accent/40 text-accent text-body font-semibold active:scale-[0.98] transition-transform"
+            >
+              + Add Competition
+            </button>
+          )}
         </div>
       )}
 
