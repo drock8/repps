@@ -1,11 +1,42 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import QRScanner from "./QRScanner";
 
 export default function ReferralQRModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
   const referralUrl = profile ? `https://repps.pro/r/${profile.referral_code}` : "";
+
+  const handleScanResult = useCallback((value: string) => {
+    setScanning(false);
+    onClose();
+    const compMatch = value.match(/\/compete\/([A-Za-z0-9]+)/);
+    if (compMatch) {
+      navigate(`/compete/${compMatch[1]}`);
+      return;
+    }
+    const refMatch = value.match(/\/r\/([A-Za-z0-9]+)/);
+    if (refMatch) {
+      navigate(`/r/${refMatch[1]}`);
+      return;
+    }
+    if (value.startsWith(window.location.origin)) {
+      navigate(value.replace(window.location.origin, ""));
+      return;
+    }
+    try {
+      const url = new URL(value);
+      navigate(url.pathname);
+    } catch { /* not a valid URL */ }
+  }, [navigate, onClose]);
+
+  if (scanning) {
+    return <QRScanner onScan={handleScanResult} onClose={() => setScanning(false)} />;
+  }
 
   if (!open || !profile) return null;
 
@@ -78,6 +109,20 @@ export default function ReferralQRModal({ open, onClose }: { open: boolean; onCl
             Share
           </button>
         </div>
+
+        <button
+          onClick={() => setScanning(true)}
+          className="w-full bg-bg-surface text-ink-primary font-semibold text-body rounded-pill py-3 flex items-center justify-center gap-2 transition-all duration-200 ease-apple active:scale-95"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+          </svg>
+          Scan QR
+        </button>
 
         <p className="text-micro text-ink-muted tabular-nums">{profile.referral_code}</p>
       </div>
