@@ -1,5 +1,10 @@
 # Changelog
 
+## Profile — persistent DOB and nationality fields (2026-06-05)
+
+### Fixed
+- **DOB and nationality now always visible on profile** — previously only shown inside the BonusPointsBanner which disappears after rewards are claimed. Now they appear as persistent, tap-to-edit cards matching the Name/Gender pattern, with flag emoji for nationality and formatted date for DOB.
+
 ## Leaderboard v2 Phase 1 — Scope × Metric system (2026-06-05)
 
 ### Added
