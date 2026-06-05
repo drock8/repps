@@ -571,8 +571,6 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
-                stopGuide();
-                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
@@ -642,8 +640,6 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
-                stopGuide();
-                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
@@ -725,8 +721,6 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
-                stopGuide();
-                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 consecutiveRejectionRef.current = { reason: "", count: 0 };
