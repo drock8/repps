@@ -337,7 +337,6 @@ export default function EventDetail() {
       setShowCreateComp(false);
       setCompName("");
       await fetchEvent();
-      navigate(`/live/${data.competition_id}`);
     }
     setCompCreating(false);
   };
