@@ -5,6 +5,7 @@ interface UserStats {
   longest_streak: number;
   days_active: number;
   previous_best_session?: number;
+  previous_longest_streak?: number;
 }
 
 interface CongratsResult {
@@ -134,8 +135,9 @@ export function pickCongratsMessage(reps: number, stats: UserStats): CongratsRes
     }
   }
 
-  // 4. New longest streak
-  if (stats.current_streak > 1 && stats.current_streak >= stats.longest_streak) {
+  // 4. New longest streak (only the first day it surpasses previous record)
+  const prevLongest = stats.previous_longest_streak ?? stats.longest_streak;
+  if (stats.current_streak > 1 && stats.current_streak === prevLongest + 1) {
     const m = pick(MESSAGES["longest-streak"]);
     return { message: m.msg, audioFile: m.file };
   }

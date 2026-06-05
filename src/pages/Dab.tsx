@@ -122,6 +122,7 @@ export default function Dab() {
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
   const [congratsMessage, setCongratsMessage] = useState("");
   const prevBestSessionRef = useRef(0);
+  const prevLongestStreakRef = useRef(0);
 
   const [alignmentStatus, setAlignmentStatus] = useState<string>("no-pose");
 
@@ -209,7 +210,10 @@ export default function Dab() {
       supabase.rpc("get_user_stats_summary", { p_user_id: profile.id })
         .then(({ data }) => {
           const stats = data?.[0] ?? data;
-          if (stats) prevBestSessionRef.current = stats.best_session_count ?? 0;
+          if (stats) {
+            prevBestSessionRef.current = stats.best_session_count ?? 0;
+            prevLongestStreakRef.current = stats.longest_streak ?? 0;
+          }
         })
         .catch(() => {});
     }
@@ -851,6 +855,7 @@ export default function Dab() {
             longest_streak: stats.longest_streak ?? 0,
             days_active: stats.days_active ?? 0,
             previous_best_session: prevBestSessionRef.current,
+            previous_longest_streak: prevLongestStreakRef.current,
           });
           setCongratsMessage(congrats.message);
           playCongratsAudio(congrats.audioFile);
