@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber, MEDALS } from "../lib/format";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,58 +9,49 @@ import { useRepsChannel } from "../hooks/useRepsChannel";
 import Avatar from "../components/Avatar";
 import OGBadge from "../components/OGBadge";
 import { useOG100 } from "../hooks/useOG100";
+import FilterSheet from "../components/leaderboard/FilterSheet";
+import type { FilterState } from "../components/leaderboard/FilterSheet";
 
-type GenderFilter = "all" | "female" | "male" | "non_binary";
+// ── Types ──────────────────────────────────────────────────────
+
+type Scope = "individual" | "team" | "country";
+type Metric = "reps" | "consistency" | "score" | "streak" | "session";
 type TimePeriod = "daily" | "weekly" | "monthly" | "yearly" | "all";
-type BoardType = "total" | "session" | "streak" | "rep_score" | "team_score";
+type GenderFilter = "all" | "female" | "male" | "non_binary";
 
-interface LeaderboardEntry {
+interface IndividualEntry {
   userId: string;
   name: string;
   avatarUrl: string | null;
-  count: number;
-  createdAt: string;
+  metric: Metric;
+  primaryValue: number;
+  secondaryLabel: string;
+  // Score breakdown (when metric=score)
+  baseReps?: number;
+  dailyMultiplierPts?: number;
+  dailyMultiplier?: number;
+  streakBonusPts?: number;
+  teamStreakBonusPts?: number;
+  weeklyMultiplierPts?: number;
+  // Session (when metric=session)
+  durationSeconds?: number;
+  // Streak (when metric=streak)
+  currentStreak?: number;
 }
 
-interface SessionEntry {
-  userId: string;
-  name: string;
-  avatarUrl: string | null;
-  repCount: number;
-  durationSeconds: number;
-}
-
-interface StreakEntry {
-  userId: string;
-  name: string;
-  avatarUrl: string | null;
-  longestStreak: number;
-  currentStreak: number;
-}
-
-interface RepScoreEntry {
-  userId: string;
-  name: string;
-  avatarUrl: string | null;
-  score: number;
-  baseReps: number;
-  individualStreak: number;
-  teamStreak: number;
-  dailyMultiplierPts: number;
-  streakBonusPts: number;
-  teamStreakBonusPts: number;
-  weeklyMultiplierPts: number;
-  dailyMultiplier: number;
-  hasActiveTeam: boolean;
-}
-
-interface TeamScoreEntry {
+interface TeamEntry {
   teamId: string;
   teamName: string;
   teamLogoUrl: string | null;
-  combinedScore: number;
-  combinedReps: number;
-  members: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[];
+  metric: Metric;
+  primaryValue: number;
+  secondaryLabel: string;
+  members: { user_id: string; name: string; avatar_url: string | null; value: number; secondary?: number }[];
+  // Session extra
+  bestMemberName?: string;
+  durationSeconds?: number;
+  // Streak extra
+  currentStreak?: number;
 }
 
 interface LatestRepEntry {
@@ -71,6 +62,44 @@ interface LatestRepEntry {
   validatedAt: string;
 }
 
+// ── Constants ──────────────────────────────────────────────────
+
+const SCOPE_TABS: { label: string; value: Scope }[] = [
+  { label: "Individual", value: "individual" },
+  { label: "Team", value: "team" },
+  { label: "Country", value: "country" },
+];
+
+const METRIC_TABS: { label: string; value: Metric }[] = [
+  { label: "Repps", value: "reps" },
+  { label: "Consistency", value: "consistency" },
+  { label: "Score", value: "score" },
+  { label: "Streak", value: "streak" },
+  { label: "Session", value: "session" },
+];
+
+const TIME_LABELS: Record<TimePeriod, string> = {
+  daily: "Today",
+  weekly: "This Week",
+  monthly: "This Month",
+  yearly: "This Year",
+  all: "All Time",
+};
+
+const URL_TO_PERIOD: Record<string, TimePeriod> = {
+  today: "daily", week: "weekly", month: "monthly", year: "yearly", all: "all",
+};
+const PERIOD_TO_URL: Record<TimePeriod, string> = {
+  daily: "today", weekly: "week", monthly: "month", yearly: "year", all: "all",
+};
+
+function parseAgeBracket(bracket: string): { min: number | null; max: number | null } {
+  if (bracket === "all" || !bracket) return { min: null, max: null };
+  if (bracket === "100+") return { min: 100, max: null };
+  const [lo, hi] = bracket.split("-").map(Number);
+  return { min: lo, max: hi };
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -78,65 +107,121 @@ function timeAgo(dateStr: string): string {
   if (mins < 60) return `${mins}m`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d`;
+  return `${Math.floor(hrs / 24)}d`;
 }
 
-const BOARD_TABS: { label: string; value: BoardType }[] = [
-  { label: "Teams", value: "team_score" },
-  { label: "Score", value: "rep_score" },
-  { label: "Repps", value: "total" },
-  { label: "Streak", value: "streak" },
-  { label: "Session", value: "session" },
-];
+function formatSessionDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s}s`;
+}
 
-const GENDER_TABS: { label: string; value: GenderFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Female", value: "female" },
-  { label: "Male", value: "male" },
-  { label: "Non-binary", value: "non_binary" },
-];
+// ── URL state helpers ──────────────────────────────────────────
 
-const TIME_TABS: { label: string; value: TimePeriod }[] = [
-  { label: "Daily", value: "daily" },
-  { label: "Weekly", value: "weekly" },
-  { label: "Monthly", value: "monthly" },
-  { label: "Yearly", value: "yearly" },
-  { label: "All", value: "all" },
-];
+function readUrlState(params: URLSearchParams) {
+  const validScopes: Scope[] = ["individual", "team", "country"];
+  const validMetrics: Metric[] = ["reps", "consistency", "score", "streak", "session"];
+  const validGenders: GenderFilter[] = ["all", "female", "male", "non_binary"];
+
+  const scope = validScopes.includes(params.get("scope") as Scope)
+    ? (params.get("scope") as Scope)
+    : "individual";
+  const metric = validMetrics.includes(params.get("metric") as Metric)
+    ? (params.get("metric") as Metric)
+    : "reps";
+  const timeParam = params.get("time") || "today";
+  const period = URL_TO_PERIOD[timeParam] || "daily";
+  const gender = validGenders.includes(params.get("gender") as GenderFilter)
+    ? (params.get("gender") as GenderFilter)
+    : "all";
+  const age = params.get("age") || "all";
+  const country = params.get("country") || "";
+
+  return { scope, metric, period, gender, ageBracket: age, country };
+}
+
+function writeUrlState(state: {
+  scope: Scope; metric: Metric; period: TimePeriod;
+  gender: GenderFilter; ageBracket: string; country: string;
+}) {
+  const params = new URLSearchParams();
+  if (state.scope !== "individual") params.set("scope", state.scope);
+  if (state.metric !== "reps") params.set("metric", state.metric);
+  if (state.period !== "daily") params.set("time", PERIOD_TO_URL[state.period]);
+  if (state.gender !== "all") params.set("gender", state.gender);
+  if (state.ageBracket !== "all") params.set("age", state.ageBracket);
+  if (state.country) params.set("country", state.country);
+  const qs = params.toString();
+  const url = qs ? `/leaderboard?${qs}` : "/leaderboard";
+  window.history.replaceState(null, "", url);
+}
+
+// ── Component ──────────────────────────────────────────────────
 
 export default function Leaderboard() {
   const { profile } = useAuth();
   const theme = useTheme();
   const navigate = useNavigate();
   const ogIds = useOG100();
-  const [boardType, setBoardType] = useState<BoardType>("total");
-  const [gender, setGender] = useState<GenderFilter>("all");
-  const [period, setPeriod] = useState<TimePeriod>("all");
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [sessionEntries, setSessionEntries] = useState<SessionEntry[]>([]);
-  const [streakEntries, setStreakEntries] = useState<StreakEntry[]>([]);
-  const [repScoreEntries, setRepScoreEntries] = useState<RepScoreEntry[]>([]);
-  const [teamScoreEntries, setTeamScoreEntries] = useState<TeamScoreEntry[]>([]);
+  const [searchParams] = useSearchParams();
+
+  // Read initial state from URL
+  const initial = readUrlState(searchParams);
+
+  const [scope, setScope] = useState<Scope>(initial.scope);
+  const [metric, setMetric] = useState<Metric>(initial.metric);
+  const [period, setPeriod] = useState<TimePeriod>(initial.period);
+  const [gender, setGender] = useState<GenderFilter>(initial.gender);
+  const [ageBracket, setAgeBracket] = useState(initial.ageBracket);
+  const [countryFilter, setCountryFilter] = useState(initial.country);
+
+  const [individualEntries, setIndividualEntries] = useState<IndividualEntry[]>([]);
+  const [teamEntries, setTeamEntries] = useState<TeamEntry[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [latestReps, setLatestReps] = useState<LatestRepEntry[]>([]);
   const [showLatest, setShowLatest] = useState(false);
   const [hasRecentActivity, setHasRecentActivity] = useState(false);
   const [totalReps, setTotalReps] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [userEntry, setUserEntry] = useState<{
-    rank: number;
-    entry: LeaderboardEntry;
-  } | null>(null);
-  const [userSessionEntry, setUserSessionEntry] = useState<{ rank: number; entry: SessionEntry } | null>(null);
-  const [userStreakEntry, setUserStreakEntry] = useState<{ rank: number; entry: StreakEntry } | null>(null);
-  const [userRepScoreEntry, setUserRepScoreEntry] = useState<{ rank: number; entry: RepScoreEntry } | null>(null);
-  const [userTeamEntry, setUserTeamEntry] = useState<{ rank: number; entry: TeamScoreEntry } | null>(null);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  // Pinned card state
+  const [userPinned, setUserPinned] = useState<{ rank: number; entry: IndividualEntry } | null>(null);
+  const [teamPinned, setTeamPinned] = useState<{ rank: number; entry: TeamEntry } | null>(null);
   const [userRowVisible, setUserRowVisible] = useState(true);
   const userRowRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Phase 2/3 availability
+  const isCountryEnabled = false;
+  const isConsistencyEnabled = false;
+
+  // ── URL sync ────────────────────────────────────────────────
+  useEffect(() => {
+    writeUrlState({ scope, metric, period, gender, ageBracket, country: countryFilter });
+  }, [scope, metric, period, gender, ageBracket, countryFilter]);
+
+  // ── Filter helpers ──────────────────────────────────────────
+  const ageParams = parseAgeBracket(ageBracket);
+
+  const filterLine = (() => {
+    const parts: string[] = [TIME_LABELS[period]];
+    if (gender !== "all") {
+      const labels: Record<string, string> = { female: "Female", male: "Male", non_binary: "Non-binary" };
+      parts.push(labels[gender]);
+    }
+    if (ageBracket !== "all") parts.push(ageBracket);
+    if (countryFilter && scope === "individual") parts.push(countryFilter);
+    return parts;
+  })();
+
+  const nonDefaultFilterCount = (gender !== "all" ? 1 : 0)
+    + (ageBracket !== "all" ? 1 : 0)
+    + (countryFilter && scope === "individual" ? 1 : 0);
+
+  // ── Latest activity ─────────────────────────────────────────
   const fetchLatestReps = useCallback(async () => {
     const { data } = await supabase
       .from("reps")
@@ -147,387 +232,306 @@ export default function Leaderboard() {
     const grouped = new Map<string, { name: string; avatarUrl: string | null; count: number; validatedAt: string }>();
     for (const r of data as unknown as { user_id: string; validated_at: string; profiles: { name: string; avatar_url: string | null } }[]) {
       const existing = grouped.get(r.user_id);
-      if (existing) {
-        existing.count++;
-      } else {
-        grouped.set(r.user_id, {
-          name: r.profiles.name,
-          avatarUrl: r.profiles.avatar_url,
-          count: 1,
-          validatedAt: r.validated_at,
-        });
-      }
+      if (existing) existing.count++;
+      else grouped.set(r.user_id, { name: r.profiles.name, avatarUrl: r.profiles.avatar_url, count: 1, validatedAt: r.validated_at });
     }
-    const results = Array.from(grouped.entries()).map(([userId, v]) => ({
-      userId,
-      ...v,
-    }));
+    const results = Array.from(grouped.entries()).map(([userId, v]) => ({ userId, ...v }));
     setLatestReps(results);
-    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-    setHasRecentActivity(results.some(r => new Date(r.validatedAt).getTime() > fiveMinAgo));
+    setHasRecentActivity(results.some(r => new Date(r.validatedAt).getTime() > Date.now() - 5 * 60 * 1000));
   }, []);
 
   const fetchTotalReps = useCallback(async () => {
-    const { count } = await supabase
-      .from("reps")
-      .select("*", { count: "exact", head: true });
+    const { count } = await supabase.from("reps").select("*", { count: "exact", head: true });
     if (count !== null) setTotalReps(count);
   }, []);
 
-  const fetchLeaderboard = useCallback(
-    async (g: GenderFilter, p: TimePeriod) => {
-      setLoading(true);
+  // ── Individual fetchers ─────────────────────────────────────
 
-      const { data, error } = await supabase.rpc("get_leaderboard", {
-        p_gender: g === "all" ? null : g,
-        p_period: p,
-        p_limit: 50,
-      });
+  const fetchIndividualReps = useCallback(async () => {
+    const { data } = await supabase.rpc("get_leaderboard", {
+      p_gender: gender === "all" ? null : gender,
+      p_period: period,
+      p_limit: 50,
+      p_age_min: ageParams.min,
+      p_age_max: ageParams.max,
+      p_country: countryFilter || null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: IndividualEntry[] = (data || []).map((r: any) => ({
+      userId: r.user_id, name: r.name, avatarUrl: r.avatar_url,
+      metric: "reps" as Metric, primaryValue: Number(r.rep_count), secondaryLabel: "repps",
+    }));
+    setIndividualEntries(mapped);
+    resolveUserPinned(mapped, "reps");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, period, ageBracket, countryFilter, profile]);
 
-      if (error) {
-        console.error("Leaderboard query error:", error);
-        setEntries([]);
-        setUserEntry(null);
-        setLoading(false);
-        return;
-      }
+  const fetchIndividualScore = useCallback(async () => {
+    const { data } = await supabase.rpc("get_rep_score_leaderboard", {
+      p_gender: gender === "all" ? null : gender,
+      p_period: period,
+      p_limit: 50,
+      p_age_min: ageParams.min,
+      p_age_max: ageParams.max,
+      p_country: countryFilter || null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: IndividualEntry[] = (data || []).map((r: any) => ({
+      userId: r.user_id, name: r.name, avatarUrl: r.avatar_url,
+      metric: "score" as Metric, primaryValue: Number(r.score), secondaryLabel: "pts",
+      baseReps: Number(r.base_reps), dailyMultiplierPts: Number(r.daily_multiplier_pts || 0),
+      dailyMultiplier: Number(r.daily_multiplier || 1), streakBonusPts: Number(r.streak_bonus_pts || 0),
+      teamStreakBonusPts: Number(r.team_streak_bonus_pts || 0), weeklyMultiplierPts: Number(r.weekly_multiplier_pts || 0),
+    }));
+    setIndividualEntries(mapped);
+    resolveUserPinned(mapped, "score");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, period, ageBracket, countryFilter, profile]);
 
-      const top50: LeaderboardEntry[] = (data || []).map(
-        (row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; created_at: string }) => ({
-          userId: row.user_id,
-          name: row.name,
-          avatarUrl: row.avatar_url,
-          count: row.rep_count,
-          createdAt: row.created_at,
-        })
-      );
+  const fetchIndividualStreak = useCallback(async () => {
+    const { data } = await supabase.rpc("get_streak_leaderboard", {
+      p_gender: gender === "all" ? null : gender,
+      p_limit: 50,
+      p_age_min: ageParams.min,
+      p_age_max: ageParams.max,
+      p_country: countryFilter || null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: IndividualEntry[] = (data || []).map((r: any) => ({
+      userId: r.out_user_id, name: r.out_name, avatarUrl: r.out_avatar_url,
+      metric: "streak" as Metric, primaryValue: Number(r.out_longest_streak),
+      secondaryLabel: Number(r.out_longest_streak) === 1 ? "day" : "days",
+      currentStreak: Number(r.out_current_streak),
+    }));
+    setIndividualEntries(mapped);
+    resolveUserPinned(mapped, "streak");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, ageBracket, countryFilter, profile]);
 
-      setEntries(top50);
+  const fetchIndividualSession = useCallback(async () => {
+    const { data } = await supabase.rpc("get_best_session_leaderboard", {
+      p_gender: gender === "all" ? null : gender,
+      p_limit: 50,
+      p_age_min: ageParams.min,
+      p_age_max: ageParams.max,
+      p_country: countryFilter || null,
+      p_period: period,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: IndividualEntry[] = (data || []).map((r: any) => ({
+      userId: r.user_id, name: r.name, avatarUrl: r.avatar_url,
+      metric: "session" as Metric, primaryValue: Number(r.rep_count), secondaryLabel: "repps",
+      durationSeconds: Number(r.duration_seconds),
+    }));
+    setIndividualEntries(mapped);
+    resolveUserPinned(mapped, "session");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, period, ageBracket, countryFilter, profile]);
 
-      if (profile) {
-        const userMatchesFilter = g === "all" || profile.gender === g;
+  // ── Team fetchers ───────────────────────────────────────────
 
-        if (userMatchesFilter) {
-          const userInTop50 = top50.some((e) => e.userId === profile.id);
-          if (!userInTop50) {
-            const [{ data: rankData }, { data: statsData }] = await Promise.all([
-              supabase.rpc("get_user_rank", {
-                p_user_id: profile.id,
-                p_gender: g === "all" ? null : g,
-                p_period: p,
-              }),
-              supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
-            ]);
-            const row = Array.isArray(rankData) ? rankData[0] : rankData;
-            const statsRow = Array.isArray(statsData) ? statsData[0] : statsData;
-            const rank = row?.rank ? Number(row.rank) : top50.length + 1;
-            setUserEntry({
-              rank,
-              entry: {
-                userId: profile.id,
-                name: profile.name,
-                avatarUrl: profile.avatar_url,
-                count: Number(statsRow?.total_reps || 0),
-                createdAt: profile.created_at,
-              },
-            });
-          } else {
-            setUserEntry(null);
-          }
-        } else {
-          setUserEntry(null);
-        }
-      } else {
-        setUserEntry(null);
-      }
+  const fetchTeamScore = useCallback(async () => {
+    const { data } = await supabase.rpc("get_team_score_leaderboard", {
+      p_period: period, p_limit: 50,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: TeamEntry[] = (data || []).map((r: any) => ({
+      teamId: r.team_id, teamName: r.team_name, teamLogoUrl: r.team_logo_url || null,
+      metric: "score" as Metric, primaryValue: Number(r.combined_score), secondaryLabel: "pts",
+      members: (r.member_scores || []).map((m: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps?: number }) => ({
+        user_id: m.user_id, name: m.name, avatar_url: m.avatar_url,
+        value: Number(m.score), secondary: Number(m.base_reps || 0),
+      })),
+    }));
+    setTeamEntries(mapped);
+    resolveTeamPinned(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, gender, ageBracket, profile]);
 
-      setLoading(false);
-    },
-    [profile]
-  );
+  const fetchTeamReps = useCallback(async () => {
+    const { data } = await supabase.rpc("get_team_reps_leaderboard", {
+      p_period: period, p_limit: 50,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: TeamEntry[] = (data || []).map((r: any) => ({
+      teamId: r.team_id, teamName: r.team_name, teamLogoUrl: r.team_logo_url || null,
+      metric: "reps" as Metric, primaryValue: Number(r.combined_reps), secondaryLabel: "repps",
+      members: (r.member_reps || []).map((m: { user_id: string; name: string; avatar_url: string | null; rep_count: number }) => ({
+        user_id: m.user_id, name: m.name, avatar_url: m.avatar_url, value: Number(m.rep_count),
+      })),
+    }));
+    setTeamEntries(mapped);
+    resolveTeamPinned(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, gender, ageBracket, profile]);
 
-  const fetchSessionLeaderboard = useCallback(
-    async (g: GenderFilter) => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_best_session_leaderboard", {
-        p_gender: g === "all" ? null : g,
-        p_limit: 50,
-      });
-      if (error) {
-        console.error("Session leaderboard error:", error);
-        setSessionEntries([]);
-        setUserSessionEntry(null);
-        setLoading(false);
-        return;
-      }
-      const mapped = (data || []).map((row: { user_id: string; name: string; avatar_url: string | null; rep_count: number; duration_seconds: number }) => ({
-        userId: row.user_id,
-        name: row.name,
-        avatarUrl: row.avatar_url,
-        repCount: Number(row.rep_count),
-        durationSeconds: Number(row.duration_seconds),
-      }));
-      setSessionEntries(mapped);
+  const fetchTeamStreak = useCallback(async () => {
+    const { data } = await supabase.rpc("get_team_streak_leaderboard", {
+      p_limit: 50,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: TeamEntry[] = (data || []).map((r: any) => ({
+      teamId: r.out_team_id, teamName: r.out_team_name, teamLogoUrl: r.out_team_logo_url || null,
+      metric: "streak" as Metric, primaryValue: Number(r.out_longest_streak),
+      secondaryLabel: Number(r.out_longest_streak) === 1 ? "day" : "days",
+      currentStreak: Number(r.out_current_streak), members: [],
+    }));
+    setTeamEntries(mapped);
+    resolveTeamPinned(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gender, ageBracket, profile]);
 
-      if (profile) {
-        const userMatchesFilter = g === "all" || profile.gender === g;
-        const userInList = mapped.some((e: SessionEntry) => e.userId === profile.id);
-        if (userMatchesFilter && !userInList) {
-          const { data: stats } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
-          const row = Array.isArray(stats) ? stats[0] : stats;
-          if (row && Number(row.best_session_count) > 0) {
-            setUserSessionEntry({
-              rank: mapped.length + 1,
-              entry: {
-                userId: profile.id,
-                name: profile.name,
-                avatarUrl: profile.avatar_url,
-                repCount: Number(row.best_session_count),
-                durationSeconds: Number(row.best_session_duration),
-              },
-            });
-          } else {
-            setUserSessionEntry(null);
-          }
-        } else {
-          setUserSessionEntry(null);
-        }
-      } else {
-        setUserSessionEntry(null);
-      }
-      setLoading(false);
-    },
-    [profile]
-  );
+  const fetchTeamSession = useCallback(async () => {
+    const { data } = await supabase.rpc("get_team_session_leaderboard", {
+      p_limit: 50, p_period: period,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: TeamEntry[] = (data || []).map((r: any) => ({
+      teamId: r.out_team_id, teamName: r.out_team_name, teamLogoUrl: r.out_team_logo_url || null,
+      metric: "session" as Metric, primaryValue: Number(r.out_rep_count), secondaryLabel: "repps",
+      bestMemberName: r.out_best_member_name, durationSeconds: Number(r.out_duration_seconds || 0), members: [],
+    }));
+    setTeamEntries(mapped);
+    resolveTeamPinned(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, gender, ageBracket, profile]);
 
-  const fetchStreakLeaderboard = useCallback(
-    async (g: GenderFilter) => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_streak_leaderboard", {
-        p_gender: g === "all" ? null : g,
-        p_limit: 50,
-      });
-      if (error) {
-        console.error("Streak leaderboard error:", error);
-        setStreakEntries([]);
-        setUserStreakEntry(null);
-        setLoading(false);
-        return;
-      }
-      const mapped = (data || []).map((row: { out_user_id: string; out_name: string; out_avatar_url: string | null; out_longest_streak: number; out_current_streak: number }) => ({
-        userId: row.out_user_id,
-        name: row.out_name,
-        avatarUrl: row.out_avatar_url,
-        longestStreak: Number(row.out_longest_streak),
-        currentStreak: Number(row.out_current_streak),
-      }));
-      setStreakEntries(mapped);
+  // ── Pinned card resolution ──────────────────────────────────
 
-      if (profile) {
-        const userMatchesFilter = g === "all" || profile.gender === g;
-        const userInList = mapped.some((e: StreakEntry) => e.userId === profile.id);
-        if (userMatchesFilter && !userInList) {
-          const { data: stats } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
-          const row = Array.isArray(stats) ? stats[0] : stats;
-          if (row && (Number(row.longest_streak) > 0 || Number(row.current_streak) > 0)) {
-            setUserStreakEntry({
-              rank: mapped.length + 1,
-              entry: {
-                userId: profile.id,
-                name: profile.name,
-                avatarUrl: profile.avatar_url,
-                longestStreak: Number(row.longest_streak),
-                currentStreak: Number(row.current_streak),
-              },
-            });
-          } else {
-            setUserStreakEntry(null);
-          }
-        } else {
-          setUserStreakEntry(null);
-        }
-      } else {
-        setUserStreakEntry(null);
-      }
-      setLoading(false);
-    },
-    [profile]
-  );
+  const resolveUserPinned = useCallback((entries: IndividualEntry[], m: Metric) => {
+    if (!profile) { setUserPinned(null); return; }
+    const userMatchesFilter = gender === "all" || profile.gender === gender;
+    if (!userMatchesFilter) { setUserPinned(null); return; }
+    const idx = entries.findIndex(e => e.userId === profile.id);
+    if (idx >= 0) { setUserPinned(null); return; } // in list, will use inline highlight
+    // Not in top 50 — fetch user stats for this metric
+    fetchUserPinnedData(m);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, gender]);
 
-  const fetchRepScoreLeaderboard = useCallback(
-    async (g: GenderFilter, p: TimePeriod) => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_rep_score_leaderboard", {
-        p_gender: g === "all" ? null : g,
-        p_period: p,
-        p_limit: 50,
-      });
-      if (error) {
-        console.error("Rep score leaderboard error:", error);
-        setRepScoreEntries([]);
-        setUserRepScoreEntry(null);
-        setLoading(false);
-        return;
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mapped = (data || []).map((row: any) => ({
-        userId: row.user_id,
-        name: row.name,
-        avatarUrl: row.avatar_url,
-        score: Number(row.score),
-        baseReps: Number(row.base_reps),
-        individualStreak: Number(row.individual_streak),
-        teamStreak: Number(row.team_streak),
-        dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
-        streakBonusPts: Number(row.streak_bonus_pts || 0),
-        teamStreakBonusPts: Number(row.team_streak_bonus_pts || 0),
-        weeklyMultiplierPts: Number(row.weekly_multiplier_pts || 0),
-        dailyMultiplier: Number(row.daily_multiplier || 1),
-        hasActiveTeam: Boolean(row.has_active_team),
-      }));
-      setRepScoreEntries(mapped);
+  const fetchUserPinnedData = useCallback(async (m: Metric) => {
+    if (!profile) return;
+    if (m === "reps") {
+      const [{ data: rankData }, { data: statsData }] = await Promise.all([
+        supabase.rpc("get_user_rank", { p_user_id: profile.id, p_gender: gender === "all" ? null : gender, p_period: period }),
+        supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
+      ]);
+      const row = Array.isArray(rankData) ? rankData[0] : rankData;
+      const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+      const count = Number(stats?.total_reps || 0);
+      if (count > 0) {
+        setUserPinned({ rank: Number(row?.rank || 51), entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "reps", primaryValue: count, secondaryLabel: "repps",
+        }});
+      } else setUserPinned(null);
+    } else if (m === "score") {
+      const { data } = await supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: period });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && Number(row.score) > 0) {
+        setUserPinned({ rank: 51, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "score", primaryValue: Number(row.score), secondaryLabel: "pts",
+          baseReps: Number(row.base_reps || 0), dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
+          dailyMultiplier: Number(row.daily_multiplier || 1), streakBonusPts: Number(row.streak_bonus_pts || 0),
+        }});
+      } else setUserPinned(null);
+    } else if (m === "streak") {
+      const { data } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && Number(row.longest_streak) > 0) {
+        setUserPinned({ rank: 51, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "streak", primaryValue: Number(row.longest_streak),
+          secondaryLabel: Number(row.longest_streak) === 1 ? "day" : "days",
+          currentStreak: Number(row.current_streak),
+        }});
+      } else setUserPinned(null);
+    } else if (m === "session") {
+      const { data } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row && Number(row.best_session_count) > 0) {
+        setUserPinned({ rank: 51, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "session", primaryValue: Number(row.best_session_count), secondaryLabel: "repps",
+          durationSeconds: Number(row.best_session_duration),
+        }});
+      } else setUserPinned(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, gender, period]);
 
-      if (profile) {
-        const userMatchesFilter = g === "all" || profile.gender === g;
-        const userInList = mapped.some((e: RepScoreEntry) => e.userId === profile.id);
-        if (userMatchesFilter && !userInList) {
-          const { data: scoreData } = await supabase.rpc("calculate_user_rep_score", {
-            p_user_id: profile.id,
-            p_period: p,
-          });
-          const row = Array.isArray(scoreData) ? scoreData[0] : scoreData;
-          if (row && Number(row.score) > 0) {
-            setUserRepScoreEntry({
-              rank: mapped.length + 1,
-              entry: {
-                userId: profile.id,
-                name: profile.name,
-                avatarUrl: profile.avatar_url,
-                score: Number(row.score),
-                baseReps: Number(row.base_reps || 0),
-                individualStreak: Number(row.individual_streak || 0),
-                teamStreak: Number(row.team_streak || 0),
-                dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
-                streakBonusPts: Number(row.streak_bonus_pts || 0),
-                teamStreakBonusPts: Number(row.team_streak_bonus_pts || 0),
-                weeklyMultiplierPts: Number(row.weekly_multiplier_pts || 0),
-                dailyMultiplier: Number(row.daily_multiplier || 1),
-                hasActiveTeam: Boolean(row.has_active_team),
-              },
-            });
-          } else {
-            setUserRepScoreEntry(null);
-          }
-        } else {
-          setUserRepScoreEntry(null);
-        }
-      } else {
-        setUserRepScoreEntry(null);
-      }
-      setLoading(false);
-    },
-    [profile]
-  );
+  const resolveTeamPinned = useCallback((entries: TeamEntry[]) => {
+    if (!profile?.team_id) { setTeamPinned(null); return; }
+    const idx = entries.findIndex(e => e.teamId === profile.team_id);
+    if (idx >= 0) { setTeamPinned(null); return; }
+    // Team not in top 50 — we don't have a single-team lookup for all metrics yet
+    setTeamPinned(null);
+  }, [profile]);
 
-  const fetchTeamScoreLeaderboard = useCallback(
-    async (p: TimePeriod) => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc("get_team_score_leaderboard", {
-        p_period: p,
-        p_limit: 50,
-      });
-      if (error) {
-        console.error("Team score leaderboard error:", error);
-        setTeamScoreEntries([]);
-        setUserTeamEntry(null);
-        setLoading(false);
-        return;
-      }
-      const mapped = (data || []).map((row: { team_id: string; team_name: string; team_logo_url: string | null; combined_score: number; combined_reps: number; member_scores: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps: number }[] }) => ({
-        teamId: row.team_id,
-        teamName: row.team_name,
-        teamLogoUrl: row.team_logo_url || null,
-        combinedScore: Number(row.combined_score),
-        combinedReps: Number(row.combined_reps || 0),
-        members: (row.member_scores || []).map((m: { user_id: string; name: string; avatar_url: string | null; score: number; base_reps?: number }) => ({
-          ...m,
-          base_reps: Number(m.base_reps || 0),
-        })),
-      }));
-      setTeamScoreEntries(mapped);
+  // ── Computed pinned for in-list users ───────────────────────
 
-      if (profile?.team_id) {
-        const teamInList = mapped.some((e: TeamScoreEntry) => e.teamId === profile.team_id);
-        if (!teamInList) {
-          const { data: teamData } = await supabase
-            .from("teams")
-            .select("id, name, logo_url")
-            .eq("id", profile.team_id)
-            .single();
-          if (teamData) {
-            const { data: members } = await supabase
-              .from("profiles")
-              .select("id, name, avatar_url")
-              .eq("team_id", profile.team_id);
-            let combinedScore = 0;
-            let combinedReps = 0;
-            const memberScores: TeamScoreEntry["members"] = [];
-            for (const m of members || []) {
-              const { data: scoreData } = await supabase.rpc("calculate_user_rep_score", {
-                p_user_id: m.id,
-                p_period: p,
-              });
-              const s = Array.isArray(scoreData) ? scoreData[0] : scoreData;
-              const score = Number(s?.score || 0);
-              const baseReps = Number(s?.base_reps || 0);
-              combinedScore += score;
-              combinedReps += baseReps;
-              memberScores.push({ user_id: m.id, name: m.name, avatar_url: m.avatar_url, score, base_reps: baseReps });
-            }
-            if (combinedScore > 0) {
-              setUserTeamEntry({
-                rank: mapped.length + 1,
-                entry: {
-                  teamId: teamData.id,
-                  teamName: teamData.name,
-                  teamLogoUrl: teamData.logo_url || null,
-                  combinedScore,
-                  combinedReps,
-                  members: memberScores,
-                },
-              });
-            } else {
-              setUserTeamEntry(null);
-            }
-          } else {
-            setUserTeamEntry(null);
-          }
-        } else {
-          setUserTeamEntry(null);
-        }
-      } else {
-        setUserTeamEntry(null);
-      }
-      setLoading(false);
-    },
-    [profile]
-  );
+  const pinnedData = (() => {
+    if (scope === "individual") {
+      if (userPinned) return userPinned;
+      if (!profile) return null;
+      const idx = individualEntries.findIndex(e => e.userId === profile.id);
+      if (idx === -1) return null;
+      return { rank: idx + 1, entry: individualEntries[idx] };
+    }
+    if (scope === "team") {
+      if (teamPinned) return teamPinned;
+      if (!profile?.team_id) return null;
+      const idx = teamEntries.findIndex(e => e.teamId === profile.team_id);
+      if (idx === -1) return null;
+      return { rank: idx + 1, entry: teamEntries[idx] };
+    }
+    return null;
+  })();
+
+  const showPinnedCard = !userRowVisible && !loading && pinnedData !== null;
+
+  // ── Fetch dispatcher ────────────────────────────────────────
+
+  const fetchBoard = useCallback(async () => {
+    setLoading(true);
+    setExpandedTeamId(null);
+
+    if (scope === "individual") {
+      setTeamEntries([]);
+      setTeamPinned(null);
+      if (metric === "reps") await fetchIndividualReps();
+      else if (metric === "score") await fetchIndividualScore();
+      else if (metric === "streak") await fetchIndividualStreak();
+      else if (metric === "session") await fetchIndividualSession();
+    } else if (scope === "team") {
+      setIndividualEntries([]);
+      setUserPinned(null);
+      if (metric === "score") await fetchTeamScore();
+      else if (metric === "reps") await fetchTeamReps();
+      else if (metric === "streak") await fetchTeamStreak();
+      else if (metric === "session") await fetchTeamSession();
+    }
+    // Country scope handled in Phase 2
+
+    setLoading(false);
+  }, [scope, metric, fetchIndividualReps, fetchIndividualScore, fetchIndividualStreak, fetchIndividualSession, fetchTeamScore, fetchTeamReps, fetchTeamStreak, fetchTeamSession]);
 
   useEffect(() => {
     fetchTotalReps();
     fetchLatestReps();
-    if (boardType === "total") {
-      fetchLeaderboard(gender, period);
-    } else if (boardType === "session") {
-      fetchSessionLeaderboard(gender);
-    } else if (boardType === "streak") {
-      fetchStreakLeaderboard(gender);
-    } else if (boardType === "rep_score") {
-      fetchRepScoreLeaderboard(gender, period);
-    } else if (boardType === "team_score") {
-      fetchTeamScoreLeaderboard(period);
-    }
-  }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchTotalReps, fetchLatestReps]);
+    fetchBoard();
+  }, [fetchBoard, fetchTotalReps, fetchLatestReps]);
+
+  // ── Realtime ────────────────────────────────────────────────
 
   useRepsChannel(
     useCallback(() => {
@@ -536,107 +540,244 @@ export default function Leaderboard() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         fetchLatestReps();
-        if (boardType === "total") fetchLeaderboard(gender, period);
-        else if (boardType === "session") fetchSessionLeaderboard(gender);
-        else if (boardType === "streak") fetchStreakLeaderboard(gender);
-        else if (boardType === "rep_score") fetchRepScoreLeaderboard(gender, period);
-        else if (boardType === "team_score") fetchTeamScoreLeaderboard(period);
+        fetchBoard();
       }, 2000);
-    }, [gender, period, boardType, fetchLeaderboard, fetchSessionLeaderboard, fetchStreakLeaderboard, fetchRepScoreLeaderboard, fetchTeamScoreLeaderboard, fetchLatestReps])
+    }, [fetchBoard, fetchLatestReps])
   );
 
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, []);
+
+  // ── IntersectionObserver for pinned card ─────────────────────
 
   useEffect(() => {
     const el = userRowRef.current;
     const root = scrollContainerRef.current;
-    if (!el || !root) {
-      setUserRowVisible(true);
-      return;
-    }
+    if (!el || !root) { setUserRowVisible(true); return; }
     const observer = new IntersectionObserver(
       ([entry]) => setUserRowVisible(entry.isIntersecting),
       { root, threshold: 0.1 }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [boardType, gender, period, loading, entries, sessionEntries, streakEntries, repScoreEntries, teamScoreEntries, userEntry, userSessionEntry, userStreakEntry, userRepScoreEntry, userTeamEntry]);
+  }, [scope, metric, period, gender, ageBracket, countryFilter, loading, individualEntries, teamEntries, userPinned, teamPinned]);
 
   const scrollToUserRow = () => {
     userRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  function formatSessionDuration(seconds: number): string {
-    const m = Math.floor(seconds / 60);
-    const s = Math.round(seconds % 60);
-    if (m === 0) return `${s}s`;
-    return `${m}m ${s}s`;
-  }
+  // ── Scope/metric handlers ───────────────────────────────────
 
-  const isEmpty =
-    boardType === "total"
-      ? entries.length === 0 && !userEntry
-      : boardType === "session"
-        ? sessionEntries.length === 0 && !userSessionEntry
-        : boardType === "streak"
-          ? streakEntries.length === 0 && !userStreakEntry
-          : boardType === "rep_score"
-            ? repScoreEntries.length === 0 && !userRepScoreEntry
-            : teamScoreEntries.length === 0 && !userTeamEntry;
+  const handleScopeChange = (s: Scope) => {
+    setScope(s);
+    setMetric("reps");
+    setExpandedTeamId(null);
+  };
 
-  // Determine the user's pinned card data — either from explicit userEntry (not in top 50)
-  // or derived from their position in the list (in top 50 but scrolled out of view)
-  const pinnedTotal = (() => {
-    if (userEntry) return userEntry;
-    if (!profile || boardType !== "total") return null;
-    const idx = entries.findIndex(e => e.userId === profile.id);
-    if (idx === -1) return null;
-    return { rank: idx + 1, entry: entries[idx] };
-  })();
+  const handleFilterApply = (f: FilterState) => {
+    setPeriod(f.period);
+    setGender(f.gender);
+    setAgeBracket(f.ageBracket);
+    setCountryFilter(f.country);
+  };
 
-  const pinnedSession = (() => {
-    if (userSessionEntry) return userSessionEntry;
-    if (!profile || boardType !== "session") return null;
-    const idx = sessionEntries.findIndex(e => e.userId === profile.id);
-    if (idx === -1) return null;
-    return { rank: idx + 1, entry: sessionEntries[idx] };
-  })();
+  // ── Derived state ───────────────────────────────────────────
 
-  const pinnedStreak = (() => {
-    if (userStreakEntry) return userStreakEntry;
-    if (!profile || boardType !== "streak") return null;
-    const idx = streakEntries.findIndex(e => e.userId === profile.id);
-    if (idx === -1) return null;
-    return { rank: idx + 1, entry: streakEntries[idx] };
-  })();
+  const entries = scope === "individual" ? individualEntries : [];
+  const teams = scope === "team" ? teamEntries : [];
+  const isEmpty = scope === "individual"
+    ? entries.length === 0 && !userPinned
+    : scope === "team"
+      ? teams.length === 0 && !teamPinned
+      : true; // Country scope Phase 2
 
-  const pinnedRepScore = (() => {
-    if (userRepScoreEntry) return userRepScoreEntry;
-    if (!profile || boardType !== "rep_score") return null;
-    const idx = repScoreEntries.findIndex(e => e.userId === profile.id);
-    if (idx === -1) return null;
-    return { rank: idx + 1, entry: repScoreEntries[idx] };
-  })();
+  const isMetricDisabled = (m: Metric) => {
+    if (m === "consistency" && !isConsistencyEnabled) return true;
+    if (scope === "country" && !isCountryEnabled) return true;
+    return false;
+  };
 
-  const pinnedTeam = (() => {
-    if (userTeamEntry) return userTeamEntry;
-    if (!profile?.team_id || boardType !== "team_score") return null;
-    const idx = teamScoreEntries.findIndex(e => e.teamId === profile.team_id);
-    if (idx === -1) return null;
-    return { rank: idx + 1, entry: teamScoreEntries[idx] };
-  })();
+  // ── Render helpers ──────────────────────────────────────────
 
-  const showPinnedCard = !userRowVisible && !loading && (
-    !!pinnedTotal || !!pinnedSession || !!pinnedStreak || !!pinnedRepScore || !!pinnedTeam
+  const renderRankBadge = (i: number) =>
+    i < 3
+      ? <span className="text-body-lg">{MEDALS[i]}</span>
+      : <span className="text-body text-ink-muted">{i + 1}.</span>;
+
+  const renderTeamAvatar = (logoUrl: string | null) =>
+    logoUrl ? (
+      <img src={logoUrl} alt="" referrerPolicy="no-referrer" className="ml-2 w-8 h-8 rounded-full object-cover flex-shrink-0" />
+    ) : (
+      <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+    );
+
+  // ── Individual row ──────────────────────────────────────────
+
+  const renderIndividualRow = (entry: IndividualEntry, i: number, isUserRow: boolean, isPinnedRow: boolean) => {
+    const isMe = profile && entry.userId === profile.id;
+    return (
+      <div key={entry.userId} ref={isMe || isUserRow ? userRowRef : undefined}>
+        <button
+          onClick={isPinnedRow ? scrollToUserRow : () => {
+            if (isMe) navigate("/profile");
+            else navigate(`/user/${entry.userId}`);
+          }}
+          className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMe || isUserRow ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
+        >
+          <span className="w-8 text-center flex-shrink-0">
+            {isUserRow ? (
+              <span className="text-body text-accent font-bold">#{i + 1}</span>
+            ) : renderRankBadge(i)}
+          </span>
+          <div className="ml-2">
+            <Avatar url={entry.avatarUrl} name={entry.name} />
+          </div>
+          <div className="ml-3 flex-1 min-w-0">
+            <span className="text-body text-ink-primary truncate flex items-center gap-1">
+              {entry.name}
+              {ogIds.has(entry.userId) && <OGBadge />}
+            </span>
+            {entry.metric === "score" && entry.baseReps !== undefined && (
+              <div className="flex flex-wrap gap-x-2 gap-y-0">
+                <span className="text-micro text-ink-muted">{formatNumber(entry.baseReps)} base</span>
+                {(entry.dailyMultiplierPts || 0) > 0 && (
+                  <span className="text-micro text-accent">+{formatNumber(entry.dailyMultiplierPts!)} {entry.dailyMultiplier}x</span>
+                )}
+                {(entry.streakBonusPts || 0) > 0 && (
+                  <span className="text-micro text-accent">+{formatNumber(entry.streakBonusPts!)} streak</span>
+                )}
+                {(entry.teamStreakBonusPts || 0) > 0 && (
+                  <span className="text-micro text-accent">+{formatNumber(entry.teamStreakBonusPts!)} team</span>
+                )}
+                {(entry.weeklyMultiplierPts || 0) > 0 && (
+                  <span className="text-micro text-accent">+{formatNumber(entry.weeklyMultiplierPts!)} weekly</span>
+                )}
+              </div>
+            )}
+            {entry.metric === "session" && (entry.durationSeconds || 0) > 0 && (
+              <span className="text-micro text-ink-muted">
+                {formatSessionDuration(entry.durationSeconds!)} · {(entry.primaryValue / (entry.durationSeconds! / 60)).toFixed(1)}/min
+              </span>
+            )}
+            {entry.metric === "streak" && (entry.currentStreak || 0) > 0 && (
+              <span className="text-micro text-accent">{entry.currentStreak}d active</span>
+            )}
+          </div>
+          <div className="text-right ml-2">
+            <span className="text-body text-accent font-bold tabular-nums">
+              {entry.metric === "score" ? formatNumber(entry.primaryValue) : entry.primaryValue}
+            </span>
+            <span className="text-micro text-ink-muted block">{entry.secondaryLabel}</span>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
+  // ── Team row ────────────────────────────────────────────────
+
+  const renderTeamRow = (entry: TeamEntry, i: number, isUserRow: boolean, isPinnedRow: boolean) => {
+    const isMyTeam = profile?.team_id && entry.teamId === profile.team_id;
+    const hasMembers = entry.members.length > 0;
+    return (
+      <div key={entry.teamId} ref={isMyTeam || isUserRow ? userRowRef : undefined}>
+        <button
+          onClick={isPinnedRow ? scrollToUserRow : () => hasMembers && setExpandedTeamId(expandedTeamId === entry.teamId ? null : entry.teamId)}
+          className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMyTeam || isUserRow ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
+        >
+          <span className="w-8 text-center flex-shrink-0">
+            {isUserRow ? (
+              <span className="text-body text-accent font-bold">#{i + 1}</span>
+            ) : renderRankBadge(i)}
+          </span>
+          {renderTeamAvatar(entry.teamLogoUrl)}
+          <div className="ml-3 flex-1 min-w-0">
+            <span className="text-body text-ink-primary truncate block">{entry.teamName}</span>
+            {entry.metric === "session" && entry.bestMemberName && (
+              <span className="text-micro text-ink-muted">by {entry.bestMemberName}</span>
+            )}
+            {entry.metric === "streak" && (entry.currentStreak || 0) > 0 && (
+              <span className="text-micro text-accent">{entry.currentStreak}d active</span>
+            )}
+            {entry.metric !== "session" && entry.metric !== "streak" && (
+              <span className="text-micro text-ink-muted">{entry.members.length} members</span>
+            )}
+          </div>
+          <div className="text-right ml-2 flex items-center gap-2">
+            {entry.metric === "session" && (entry.durationSeconds || 0) > 0 && (
+              <span className="text-micro text-ink-muted">{formatSessionDuration(entry.durationSeconds!)}</span>
+            )}
+            <div className="text-right">
+              <span className="text-body text-accent font-bold tabular-nums">
+                {entry.metric === "score" ? formatNumber(entry.primaryValue) : entry.primaryValue}
+              </span>
+              <span className="text-micro text-ink-muted block">{entry.secondaryLabel}</span>
+            </div>
+            {hasMembers && (
+              <svg
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                className={`text-ink-muted transition-transform duration-200 ${expandedTeamId === entry.teamId ? "rotate-180" : ""}`}
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            )}
+          </div>
+        </button>
+        {expandedTeamId === entry.teamId && entry.members.length > 0 && (
+          <div className="ml-10 mt-1 flex flex-col gap-1">
+            {[...entry.members].sort((a, b) => b.value - a.value).map((m) => (
+              <button
+                key={m.user_id}
+                onClick={() => {
+                  if (profile && m.user_id === profile.id) navigate("/profile");
+                  else navigate(`/user/${m.user_id}`);
+                }}
+                className="w-full flex items-center py-2 px-3 bg-bg-elevated rounded-md text-left"
+              >
+                <Avatar url={m.avatar_url} name={m.name} />
+                <span className="ml-2 text-caption text-ink-primary truncate flex-1 flex items-center gap-1">
+                  {m.name}
+                  {ogIds.has(m.user_id) && <OGBadge size={14} />}
+                </span>
+                {m.secondary !== undefined && (
+                  <span className="text-micro text-ink-secondary tabular-nums ml-2">{formatNumber(m.secondary)}</span>
+                )}
+                <span className="text-caption text-accent font-bold tabular-nums ml-2">{formatNumber(m.value)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Loading skeleton ────────────────────────────────────────
+
+  const renderSkeleton = () => (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center py-3 px-4 rounded-lg bg-bg-surface animate-pulse">
+          <div className="w-8 h-5 bg-bg-input rounded" />
+          <div className="ml-2 w-8 h-8 bg-bg-input rounded-full" />
+          <div className="ml-3 flex-1 h-4 bg-bg-input rounded" />
+          <div className="ml-2 w-12 h-4 bg-bg-input rounded" />
+        </div>
+      ))}
+    </div>
   );
+
+  // ── Main render ─────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
       <div className="flex-shrink-0 bg-bg-base">
+        {/* GBT header */}
         <div className="relative flex flex-col items-center mt-2 mb-4">
           <img
             src={getMascot(theme, "pumped")}
@@ -657,12 +798,8 @@ export default function Leaderboard() {
             </div>
           </button>
           <p className="text-headline text-ink-primary">GBT</p>
-          <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">
-            {formatNumber(totalReps)}
-          </p>
-          <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">
-            Global Burpee Total
-          </p>
+          <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">{formatNumber(totalReps)}</p>
+          <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">Global Burpee Total</p>
         </div>
 
         {/* Latest activity panel */}
@@ -697,669 +834,122 @@ export default function Leaderboard() {
           </div>
         )}
 
-        {/* Board type tabs */}
-        <div className="flex gap-1 mb-3 bg-bg-surface rounded-pill p-1">
-          {BOARD_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setBoardType(tab.value)}
-              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                boardType === tab.value
-                  ? "bg-accent text-ink-inverse font-bold"
-                  : "bg-transparent text-ink-secondary font-medium"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {boardType !== "team_score" && (
-        <div className="flex gap-1 mb-3">
-          {GENDER_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setGender(tab.value)}
-              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                gender === tab.value
-                  ? "bg-accent text-ink-inverse font-bold"
-                  : "bg-transparent text-ink-secondary font-medium"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        )}
-
-        {(boardType === "total" || boardType === "rep_score" || boardType === "team_score") && (
-          <div className="flex gap-1 mb-4">
-            {TIME_TABS.map((tab) => (
+        {/* Scope pills */}
+        <div className="flex gap-1 mb-2 bg-bg-surface rounded-pill p-1">
+          {SCOPE_TABS.map((tab) => {
+            const disabled = tab.value === "country" && !isCountryEnabled;
+            return (
               <button
                 key={tab.value}
-                onClick={() => setPeriod(tab.value)}
+                onClick={() => !disabled && handleScopeChange(tab.value)}
+                disabled={disabled}
                 className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                  period === tab.value
+                  scope === tab.value
                     ? "bg-accent text-ink-inverse font-bold"
-                    : "bg-transparent text-ink-secondary font-medium"
+                    : disabled
+                      ? "bg-transparent text-ink-muted/40"
+                      : "bg-transparent text-ink-secondary font-medium"
                 }`}
               >
                 {tab.label}
               </button>
-            ))}
+            );
+          })}
+        </div>
+
+        {/* Metric pills */}
+        <div className="flex gap-1 mb-2 bg-bg-surface rounded-pill p-1">
+          {METRIC_TABS.map((tab) => {
+            const disabled = isMetricDisabled(tab.value);
+            return (
+              <button
+                key={tab.value}
+                onClick={() => !disabled && setMetric(tab.value)}
+                disabled={disabled}
+                className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                  metric === tab.value
+                    ? "bg-accent text-ink-inverse font-bold"
+                    : disabled
+                      ? "bg-transparent text-ink-muted/40"
+                      : "bg-transparent text-ink-secondary font-medium"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filter line */}
+        <button
+          onClick={() => setFilterSheetOpen(true)}
+          className="flex items-center justify-between w-full px-3 py-2 mb-3 rounded-lg bg-bg-surface"
+        >
+          <div className="flex items-center gap-1.5 text-caption text-ink-secondary overflow-hidden">
+            <span className="truncate">{filterLine.join(" · ")}</span>
+            {nonDefaultFilterCount > 0 && (
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-accent text-ink-inverse text-micro font-bold flex items-center justify-center">
+                {nonDefaultFilterCount}
+              </span>
+            )}
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-muted flex-shrink-0 ml-2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Scrollable list */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
+        {loading ? renderSkeleton() : isEmpty ? (
+          <div className="py-12 text-center">
+            <p className="text-body text-ink-muted">No activity yet. Be the first.</p>
+          </div>
+        ) : scope === "individual" ? (
+          <div className="flex flex-col gap-2">
+            {entries.map((entry, i) => renderIndividualRow(entry, i, false, false))}
+            {userPinned && (
+              <div className="pt-1 mt-1 border-t border-border-default">
+                {renderIndividualRow(userPinned.entry, userPinned.rank - 1, true, false)}
+              </div>
+            )}
+          </div>
+        ) : scope === "team" ? (
+          <div className="flex flex-col gap-2">
+            {teams.map((entry, i) => renderTeamRow(entry, i, false, false))}
+            {teamPinned && (
+              <div className="pt-1 mt-1 border-t border-border-default">
+                {renderTeamRow(teamPinned.entry, teamPinned.rank - 1, true, false)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="py-12 text-center">
+            <p className="text-body text-ink-muted">Country leaderboard coming soon.</p>
           </div>
         )}
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
-      {loading ? (
-        <div className="py-12 text-center">
-          <p className="text-body text-ink-muted">Loading...</p>
-        </div>
-      ) : isEmpty ? (
-        <div className="py-12 text-center">
-          <p className="text-body text-ink-muted">
-            No activity yet in this category. Be the first.
-          </p>
-        </div>
-      ) : boardType === "total" ? (
-        <div className="flex flex-col gap-2">
-          {entries.map((entry, i) => {
-            const isMe = profile && entry.userId === profile.id;
-            return (
-              <div key={entry.userId} ref={isMe ? userRowRef : undefined}>
-                <button
-                  onClick={() => {
-                    if (isMe) navigate("/profile");
-                    else navigate(`/user/${entry.userId}`);
-                  }}
-                  className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMe ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
-                >
-                  <span className="w-8 text-center flex-shrink-0">
-                    {i < 3 ? (
-                      <span className="text-body-lg">{MEDALS[i]}</span>
-                    ) : (
-                      <span className="text-body text-ink-muted">{i + 1}.</span>
-                    )}
-                  </span>
-                  <div className="ml-2">
-                    <Avatar url={entry.avatarUrl} name={entry.name} />
-                  </div>
-                  <span className="ml-3 text-body text-ink-primary truncate flex-1 flex items-center gap-1">
-                    {entry.name}
-                    {ogIds.has(entry.userId) && <OGBadge />}
-                  </span>
-                  <span className="text-body text-accent font-bold tabular-nums ml-2">
-                    {entry.count}
-                  </span>
-                </button>
-              </div>
-            );
-          })}
-          {userEntry && (
-            <div ref={userRowRef} className="pt-1 mt-1 border-t border-border-default">
-              <button
-                onClick={() => navigate("/profile")}
-                className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-              >
-                <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                  #{userEntry.rank}
-                </span>
-                <div className="ml-2">
-                  <Avatar url={userEntry.entry.avatarUrl} name={userEntry.entry.name} />
-                </div>
-                <span className="ml-3 text-body text-ink-primary truncate flex-1 flex items-center gap-1">
-                  {userEntry.entry.name}
-                  {ogIds.has(userEntry.entry.userId) && <OGBadge />}
-                </span>
-                <span className="text-body text-accent font-bold tabular-nums ml-2">
-                  {userEntry.entry.count}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : boardType === "session" ? (
-        <div className="flex flex-col gap-2">
-          {sessionEntries.map((entry, i) => {
-            const isMe = profile && entry.userId === profile.id;
-            return (
-            <div key={entry.userId} ref={isMe ? userRowRef : undefined}>
-            <button
-              onClick={() => {
-                if (isMe) navigate("/profile");
-                else navigate(`/user/${entry.userId}`);
-              }}
-              className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMe ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
-            >
-              <span className="w-8 text-center flex-shrink-0">
-                {i < 3 ? (
-                  <span className="text-body-lg">{MEDALS[i]}</span>
-                ) : (
-                  <span className="text-body text-ink-muted">{i + 1}.</span>
-                )}
-              </span>
-              <div className="ml-2">
-                <Avatar url={entry.avatarUrl} name={entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {entry.name}
-                  {ogIds.has(entry.userId) && <OGBadge />}
-                </span>
-                {entry.durationSeconds > 0 && (
-                  <span className="text-micro text-ink-muted">
-                    {formatSessionDuration(entry.durationSeconds)} · {(entry.repCount / (entry.durationSeconds / 60)).toFixed(1)}/min
-                  </span>
-                )}
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {entry.repCount}
-                </span>
-                <span className="text-micro text-ink-muted block">repps</span>
-              </div>
-            </button>
-            </div>
-            );
-          })}
-          {userSessionEntry && (
-            <div ref={userRowRef} className="pt-1 mt-1 border-t border-border-default">
-              <button
-                onClick={() => navigate("/profile")}
-                className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-              >
-                <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                  #{userSessionEntry.rank}
-                </span>
-                <div className="ml-2">
-                  <Avatar url={userSessionEntry.entry.avatarUrl} name={userSessionEntry.entry.name} />
-                </div>
-                <div className="ml-3 flex-1 min-w-0">
-                  <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                    {userSessionEntry.entry.name}
-                    {ogIds.has(userSessionEntry.entry.userId) && <OGBadge />}
-                  </span>
-                  {userSessionEntry.entry.durationSeconds > 0 && (
-                    <span className="text-micro text-ink-muted">
-                      {formatSessionDuration(userSessionEntry.entry.durationSeconds)} · {(userSessionEntry.entry.repCount / (userSessionEntry.entry.durationSeconds / 60)).toFixed(1)}/min
-                    </span>
-                  )}
-                </div>
-                <div className="text-right ml-2">
-                  <span className="text-body text-accent font-bold tabular-nums">
-                    {userSessionEntry.entry.repCount}
-                  </span>
-                  <span className="text-micro text-ink-muted block">repps</span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : boardType === "streak" ? (
-        <div className="flex flex-col gap-2">
-          {streakEntries.map((entry, i) => {
-            const isMe = profile && entry.userId === profile.id;
-            return (
-            <div key={entry.userId} ref={isMe ? userRowRef : undefined}>
-            <button
-              onClick={() => {
-                if (isMe) navigate("/profile");
-                else navigate(`/user/${entry.userId}`);
-              }}
-              className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMe ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
-            >
-              <span className="w-8 text-center flex-shrink-0">
-                {i < 3 ? (
-                  <span className="text-body-lg">{MEDALS[i]}</span>
-                ) : (
-                  <span className="text-body text-ink-muted">{i + 1}.</span>
-                )}
-              </span>
-              <div className="ml-2">
-                <Avatar url={entry.avatarUrl} name={entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {entry.name}
-                  {ogIds.has(entry.userId) && <OGBadge />}
-                </span>
-                {entry.currentStreak > 0 && (
-                  <span className="text-micro text-accent">
-                    {entry.currentStreak}d active
-                  </span>
-                )}
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {entry.longestStreak}
-                </span>
-                <span className="text-micro text-ink-muted block">
-                  {entry.longestStreak === 1 ? "day" : "days"}
-                </span>
-              </div>
-            </button>
-            </div>
-            );
-          })}
-          {userStreakEntry && (
-            <div ref={userRowRef} className="pt-1 mt-1 border-t border-border-default">
-              <button
-                onClick={() => navigate("/profile")}
-                className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-              >
-                <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                  #{userStreakEntry.rank}
-                </span>
-                <div className="ml-2">
-                  <Avatar url={userStreakEntry.entry.avatarUrl} name={userStreakEntry.entry.name} />
-                </div>
-                <div className="ml-3 flex-1 min-w-0">
-                  <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                    {userStreakEntry.entry.name}
-                    {ogIds.has(userStreakEntry.entry.userId) && <OGBadge />}
-                  </span>
-                  {userStreakEntry.entry.currentStreak > 0 && (
-                    <span className="text-micro text-accent">
-                      {userStreakEntry.entry.currentStreak}d active
-                    </span>
-                  )}
-                </div>
-                <div className="text-right ml-2">
-                  <span className="text-body text-accent font-bold tabular-nums">
-                    {userStreakEntry.entry.longestStreak}
-                  </span>
-                  <span className="text-micro text-ink-muted block">
-                    {userStreakEntry.entry.longestStreak === 1 ? "day" : "days"}
-                  </span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : boardType === "rep_score" ? (
-        <div className="flex flex-col gap-2">
-          {repScoreEntries.map((entry, i) => {
-            const isMe = profile && entry.userId === profile.id;
-            return (
-            <div key={entry.userId} ref={isMe ? userRowRef : undefined}>
-            <button
-              onClick={() => {
-                if (isMe) navigate("/profile");
-                else navigate(`/user/${entry.userId}`);
-              }}
-              className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMe ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
-            >
-              <span className="w-8 text-center flex-shrink-0">
-                {i < 3 ? (
-                  <span className="text-body-lg">{MEDALS[i]}</span>
-                ) : (
-                  <span className="text-body text-ink-muted">{i + 1}.</span>
-                )}
-              </span>
-              <div className="ml-2">
-                <Avatar url={entry.avatarUrl} name={entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {entry.name}
-                  {ogIds.has(entry.userId) && <OGBadge />}
-                </span>
-                <div className="flex flex-wrap gap-x-2 gap-y-0">
-                  <span className="text-micro text-ink-muted">{formatNumber(entry.baseReps)} base</span>
-                  {entry.dailyMultiplierPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(entry.dailyMultiplierPts)} {entry.dailyMultiplier}x</span>
-                  )}
-                  {entry.streakBonusPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(entry.streakBonusPts)} streak</span>
-                  )}
-                  {entry.teamStreakBonusPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(entry.teamStreakBonusPts)} team</span>
-                  )}
-                  {entry.weeklyMultiplierPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(entry.weeklyMultiplierPts)} weekly</span>
-                  )}
-                </div>
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {formatNumber(entry.score)}
-                </span>
-                <span className="text-micro text-ink-muted block">pts</span>
-              </div>
-            </button>
-            </div>
-            );
-          })}
-          {userRepScoreEntry && (
-            <div ref={userRowRef} className="pt-1 mt-1 border-t border-border-default">
-              <button
-                onClick={() => navigate("/profile")}
-                className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-              >
-                <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                  #{userRepScoreEntry.rank}
-                </span>
-                <div className="ml-2">
-                  <Avatar url={userRepScoreEntry.entry.avatarUrl} name={userRepScoreEntry.entry.name} />
-                </div>
-                <div className="ml-3 flex-1 min-w-0">
-                  <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                    {userRepScoreEntry.entry.name}
-                    {ogIds.has(userRepScoreEntry.entry.userId) && <OGBadge />}
-                  </span>
-                  <div className="flex flex-wrap gap-x-2 gap-y-0">
-                    <span className="text-micro text-ink-muted">{formatNumber(userRepScoreEntry.entry.baseReps)} base</span>
-                    {userRepScoreEntry.entry.dailyMultiplierPts > 0 && (
-                      <span className="text-micro text-accent">+{formatNumber(userRepScoreEntry.entry.dailyMultiplierPts)} {userRepScoreEntry.entry.dailyMultiplier}x</span>
-                    )}
-                    {userRepScoreEntry.entry.streakBonusPts > 0 && (
-                      <span className="text-micro text-accent">+{formatNumber(userRepScoreEntry.entry.streakBonusPts)} streak</span>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right ml-2">
-                  <span className="text-body text-accent font-bold tabular-nums">
-                    {formatNumber(userRepScoreEntry.entry.score)}
-                  </span>
-                  <span className="text-micro text-ink-muted block">pts</span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {teamScoreEntries.map((entry, i) => {
-            const isMyTeam = profile?.team_id && entry.teamId === profile.team_id;
-            return (
-            <div key={entry.teamId} ref={isMyTeam ? userRowRef : undefined}>
-              <button
-                onClick={() => setExpandedTeamId(expandedTeamId === entry.teamId ? null : entry.teamId)}
-                className={`w-full flex items-center py-3 px-4 rounded-lg text-left ${isMyTeam ? "bg-bg-elevated border-l-2 border-accent" : "bg-bg-surface"}`}
-              >
-                <span className="w-8 text-center flex-shrink-0">
-                  {i < 3 ? (
-                    <span className="text-body-lg">{MEDALS[i]}</span>
-                  ) : (
-                    <span className="text-body text-ink-muted">{i + 1}.</span>
-                  )}
-                </span>
-                {entry.teamLogoUrl ? (
-                  <img
-                    src={entry.teamLogoUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="ml-2 w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                  </div>
-                )}
-                <div className="ml-3 flex-1 min-w-0">
-                  <span className="text-body text-ink-primary truncate block">
-                    {entry.teamName}
-                  </span>
-                  <span className="text-micro text-ink-muted">
-                    {entry.members.length} members
-                  </span>
-                </div>
-                <div className="text-right ml-2 flex items-center gap-2">
-                  <div className="text-right">
-                    <span className="text-caption text-ink-secondary tabular-nums">
-                      {formatNumber(entry.combinedReps)}
-                    </span>
-                    <span className="text-micro text-ink-muted block">repps</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-body text-accent font-bold tabular-nums">
-                      {formatNumber(entry.combinedScore)}
-                    </span>
-                    <span className="text-micro text-ink-muted block">pts</span>
-                  </div>
-                  <svg
-                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                    className={`text-ink-muted transition-transform duration-200 ${expandedTeamId === entry.teamId ? "rotate-180" : ""}`}
-                  >
-                    <polyline points="6 9 12 15 18 9"/>
-                  </svg>
-                </div>
-              </button>
-              {expandedTeamId === entry.teamId && (
-                <div className="ml-10 mt-1 flex flex-col gap-1">
-                  {[...entry.members]
-                    .sort((a, b) => (b.score || 0) - (a.score || 0))
-                    .map((m) => (
-                    <button
-                      key={m.user_id}
-                      onClick={() => {
-                        if (profile && m.user_id === profile.id) navigate("/profile");
-                        else navigate(`/user/${m.user_id}`);
-                      }}
-                      className="w-full flex items-center py-2 px-3 bg-bg-elevated rounded-md text-left"
-                    >
-                      <Avatar url={m.avatar_url} name={m.name} />
-                      <span className="ml-2 text-caption text-ink-primary truncate flex-1 flex items-center gap-1">
-                        {m.name}
-                        {ogIds.has(m.user_id) && <OGBadge size={14} />}
-                      </span>
-                      <span className="text-micro text-ink-secondary tabular-nums ml-2">
-                        {formatNumber(m.base_reps)}
-                      </span>
-                      <span className="text-caption text-accent font-bold tabular-nums ml-2">
-                        {formatNumber(m.score)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            );
-          })}
-          {userTeamEntry && (
-            <div ref={userRowRef} className="pt-1 mt-1 border-t border-border-default">
-              <button
-                onClick={() => navigate("/team")}
-                className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-              >
-                <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                  #{userTeamEntry.rank}
-                </span>
-                {userTeamEntry.entry.teamLogoUrl ? (
-                  <img src={userTeamEntry.entry.teamLogoUrl} alt="" referrerPolicy="no-referrer" className="ml-2 w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                ) : (
-                  <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                  </div>
-                )}
-                <div className="ml-3 flex-1 min-w-0">
-                  <span className="text-body text-ink-primary truncate block">{userTeamEntry.entry.teamName}</span>
-                  <span className="text-micro text-ink-muted">{userTeamEntry.entry.members.length} members</span>
-                </div>
-                <div className="text-right ml-2 flex items-center gap-2">
-                  <div className="text-right">
-                    <span className="text-caption text-ink-secondary tabular-nums">{formatNumber(userTeamEntry.entry.combinedReps)}</span>
-                    <span className="text-micro text-ink-muted block">repps</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-body text-accent font-bold tabular-nums">{formatNumber(userTeamEntry.entry.combinedScore)}</span>
-                    <span className="text-micro text-ink-muted block">pts</span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      </div>
-
-      {/* Pinned "YOU" card — visible only when user's row is scrolled out of view. Tap to scroll to their position. */}
-      {showPinnedCard && (
+      {/* Pinned "YOU" card */}
+      {showPinnedCard && pinnedData && (
         <div className="flex-shrink-0 pt-2 pb-1 bg-bg-base border-t border-border-default">
-          {pinnedTotal && (
-            <button
-              onClick={scrollToUserRow}
-              className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-            >
-              <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                #{pinnedTotal.rank}
-              </span>
-              <div className="ml-2">
-                <Avatar url={pinnedTotal.entry.avatarUrl} name={pinnedTotal.entry.name} />
-              </div>
-              <span className="ml-3 text-body text-ink-primary truncate flex-1 flex items-center gap-1">
-                {pinnedTotal.entry.name}
-                {ogIds.has(pinnedTotal.entry.userId) && <OGBadge />}
-              </span>
-              <span className="text-body text-accent font-bold tabular-nums ml-2">
-                {pinnedTotal.entry.count}
-              </span>
-            </button>
+          {scope === "individual" && "userId" in pinnedData.entry && (
+            renderIndividualRow(pinnedData.entry as IndividualEntry, pinnedData.rank - 1, true, true)
           )}
-
-          {pinnedSession && (
-            <button
-              onClick={scrollToUserRow}
-              className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-            >
-              <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                #{pinnedSession.rank}
-              </span>
-              <div className="ml-2">
-                <Avatar url={pinnedSession.entry.avatarUrl} name={pinnedSession.entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {pinnedSession.entry.name}
-                  {ogIds.has(pinnedSession.entry.userId) && <OGBadge />}
-                </span>
-                {pinnedSession.entry.durationSeconds > 0 && (
-                  <span className="text-micro text-ink-muted">
-                    {formatSessionDuration(pinnedSession.entry.durationSeconds)} · {(pinnedSession.entry.repCount / (pinnedSession.entry.durationSeconds / 60)).toFixed(1)}/min
-                  </span>
-                )}
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {pinnedSession.entry.repCount}
-                </span>
-                <span className="text-micro text-ink-muted block">repps</span>
-              </div>
-            </button>
-          )}
-
-          {pinnedStreak && (
-            <button
-              onClick={scrollToUserRow}
-              className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-            >
-              <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                #{pinnedStreak.rank}
-              </span>
-              <div className="ml-2">
-                <Avatar url={pinnedStreak.entry.avatarUrl} name={pinnedStreak.entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {pinnedStreak.entry.name}
-                  {ogIds.has(pinnedStreak.entry.userId) && <OGBadge />}
-                </span>
-                {pinnedStreak.entry.currentStreak > 0 && (
-                  <span className="text-micro text-accent">
-                    {pinnedStreak.entry.currentStreak}d active
-                  </span>
-                )}
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {pinnedStreak.entry.longestStreak}
-                </span>
-                <span className="text-micro text-ink-muted block">
-                  {pinnedStreak.entry.longestStreak === 1 ? "day" : "days"}
-                </span>
-              </div>
-            </button>
-          )}
-
-          {pinnedRepScore && (
-            <button
-              onClick={scrollToUserRow}
-              className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-            >
-              <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                #{pinnedRepScore.rank}
-              </span>
-              <div className="ml-2">
-                <Avatar url={pinnedRepScore.entry.avatarUrl} name={pinnedRepScore.entry.name} />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate flex items-center gap-1">
-                  {pinnedRepScore.entry.name}
-                  {ogIds.has(pinnedRepScore.entry.userId) && <OGBadge />}
-                </span>
-                <div className="flex flex-wrap gap-x-2 gap-y-0">
-                  <span className="text-micro text-ink-muted">{formatNumber(pinnedRepScore.entry.baseReps)} base</span>
-                  {pinnedRepScore.entry.dailyMultiplierPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(pinnedRepScore.entry.dailyMultiplierPts)} {pinnedRepScore.entry.dailyMultiplier}x</span>
-                  )}
-                  {pinnedRepScore.entry.streakBonusPts > 0 && (
-                    <span className="text-micro text-accent">+{formatNumber(pinnedRepScore.entry.streakBonusPts)} streak</span>
-                  )}
-                </div>
-              </div>
-              <div className="text-right ml-2">
-                <span className="text-body text-accent font-bold tabular-nums">
-                  {formatNumber(pinnedRepScore.entry.score)}
-                </span>
-                <span className="text-micro text-ink-muted block">pts</span>
-              </div>
-            </button>
-          )}
-
-          {pinnedTeam && (
-            <button
-              onClick={scrollToUserRow}
-              className="w-full flex items-center py-3 px-4 bg-bg-elevated rounded-lg border-l-2 border-accent text-left"
-            >
-              <span className="w-8 text-center flex-shrink-0 text-body text-accent font-bold">
-                #{pinnedTeam.rank}
-              </span>
-              {pinnedTeam.entry.teamLogoUrl ? (
-                <img src={pinnedTeam.entry.teamLogoUrl} alt="" referrerPolicy="no-referrer" className="ml-2 w-8 h-8 rounded-full object-cover flex-shrink-0" />
-              ) : (
-                <div className="ml-2 w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
-                </div>
-              )}
-              <div className="ml-3 flex-1 min-w-0">
-                <span className="text-body text-ink-primary truncate block">{pinnedTeam.entry.teamName}</span>
-                <span className="text-micro text-ink-muted">{pinnedTeam.entry.members.length} members</span>
-              </div>
-              <div className="text-right ml-2 flex items-center gap-2">
-                <div className="text-right">
-                  <span className="text-caption text-ink-secondary tabular-nums">{formatNumber(pinnedTeam.entry.combinedReps)}</span>
-                  <span className="text-micro text-ink-muted block">repps</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-body text-accent font-bold tabular-nums">{formatNumber(pinnedTeam.entry.combinedScore)}</span>
-                  <span className="text-micro text-ink-muted block">pts</span>
-                </div>
-              </div>
-            </button>
+          {scope === "team" && "teamId" in pinnedData.entry && (
+            renderTeamRow(pinnedData.entry as TeamEntry, pinnedData.rank - 1, true, true)
           )}
         </div>
       )}
+
+      {/* Filter sheet */}
+      <FilterSheet
+        open={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        filters={{ period, gender, ageBracket, country: countryFilter }}
+        onApply={handleFilterApply}
+        showCountry={scope === "individual"}
+      />
     </div>
   );
 }

@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { COUNTRIES, type Country } from "../data/countries";
-
-function flagEmoji(code: string): string {
-  return String.fromCodePoint(
-    ...code.toUpperCase().split("").map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
-  );
-}
+import { flagEmoji } from "../lib/flagEmoji";
 
 interface CountryPickerProps {
   value: string | null;
