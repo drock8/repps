@@ -121,6 +121,7 @@ export default function Dab() {
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
   const [congratsMessage, setCongratsMessage] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
   const prevBestSessionRef = useRef(0);
   const prevLongestStreakRef = useRef(0);
 
@@ -848,7 +849,9 @@ export default function Dab() {
 
         if (statsResult.data) {
           const stats = statsResult.data[0] ?? statsResult.data;
-          console.log("[CONGRATS] reps:", repCountRef.current, "stats:", JSON.stringify(stats), "prevBest:", prevBestSessionRef.current, "prevLongest:", prevLongestStreakRef.current);
+          const debugStr = `reps:${repCountRef.current} best:${stats.best_session_count} prevBest:${prevBestSessionRef.current} streak:${stats.current_streak} longest:${stats.longest_streak} prevLongest:${prevLongestStreakRef.current} total:${stats.total_reps} days:${stats.days_active}`;
+          console.log("[CONGRATS]", debugStr);
+          setDebugInfo(debugStr);
           const congrats = pickCongratsMessage(repCountRef.current, {
             total_reps: stats.total_reps ?? 0,
             best_session_count: stats.best_session_count ?? 0,
@@ -982,6 +985,11 @@ export default function Dab() {
         {congratsMessage && (
           <div className="flex-shrink-0 px-4 pt-3 pb-1">
             <p className="text-body text-accent font-semibold text-center">{congratsMessage}</p>
+          </div>
+        )}
+        {debugInfo && (
+          <div className="flex-shrink-0 px-4 pb-1">
+            <p className="text-[9px] text-ink-muted text-center font-mono break-all">{debugInfo}</p>
           </div>
         )}
         {/* Stats row */}
