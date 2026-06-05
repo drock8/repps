@@ -60,6 +60,7 @@ export default function Dab() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tuneMode = searchParams.get("tune") === "1";
+  const competitionId = searchParams.get("comp");
   const queryEngine = searchParams.get("v");
   const [settingsEngine, setSettingsEngine] = useState<EngineVersion>("v3");
   useEffect(() => {
@@ -257,6 +258,9 @@ export default function Dab() {
   const profileRef = useRef(profile);
   profileRef.current = profile;
 
+  const competitionIdRef = useRef(competitionId);
+  competitionIdRef.current = competitionId;
+
   const insertRep = useCallback(
     () => {
       if (profileRef.current) {
@@ -265,6 +269,17 @@ export default function Dab() {
           .then(({ data, error }) => {
             if (error) console.error("Rep insert network error:", error);
             else if (data?.success === false) console.warn("Rep insert rejected:", data.error);
+            else if (data?.rep_id && competitionIdRef.current) {
+              supabase
+                .rpc("record_competition_rep", {
+                  p_competition_id: competitionIdRef.current,
+                  p_rep_id: data.rep_id,
+                  p_qualified: true,
+                })
+                .then(({ error: compErr }) => {
+                  if (compErr) console.error("Competition rep error:", compErr);
+                });
+            }
           });
       } else {
         supabase

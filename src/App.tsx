@@ -20,6 +20,9 @@ import Inbox from "./pages/Inbox";
 import Conversation from "./pages/Conversation";
 import Admin from "./pages/Admin";
 import ReferralJoin from "./pages/ReferralJoin";
+import CreateCompetition from "./pages/CreateCompetition";
+import CompetitionJoin from "./pages/CompetitionJoin";
+import LiveDashboard from "./pages/LiveDashboard";
 
 export default function App() {
   return (
@@ -35,6 +38,10 @@ export default function App() {
               <Route path="home" element={<Home />} />
               <Route path="dab" element={<Dab />} />
             </Route>
+            {/* Full-screen routes (no Layout) */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="live/:competitionId" element={<LiveDashboard />} />
+            </Route>
             {/* Auth-required routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="admin" element={<Admin />} />
@@ -45,6 +52,8 @@ export default function App() {
                 <Route path="team/join/:code" element={<TeamJoin />} />
                 <Route path="events" element={<Events />} />
                 <Route path="events/create" element={<CreateEvent />} />
+                <Route path="competitions/create" element={<CreateCompetition />} />
+                <Route path="compete/:joinCode" element={<CompetitionJoin />} />
                 <Route path="events/join/:code" element={<EventJoin />} />
                 <Route path="events/:id" element={<EventDetail />} />
                 <Route path="user/:id" element={<UserProfile />} />
