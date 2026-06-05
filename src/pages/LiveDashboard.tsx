@@ -626,7 +626,79 @@ export default function LiveDashboard() {
   const isLive = comp.state === "live";
   const isFinished = comp.state === "finished" || comp.state === "results";
   const isPreLobby = !isLive && !isFinished && comp.state !== "countdown";
+  const myReps = profile ? repMap.get(profile.id) || 0 : 0;
+  const myRank = profile ? rankOf(profile.id) : null;
 
+  // ─── Participant mobile view ─────────────────────────────────
+  if (isParticipant && !isOrganizer) {
+    return (
+      <div className="fixed inset-0 bg-bg-base text-ink-primary flex flex-col">
+        {showCountdown && <CountdownOverlay onComplete={handleCountdownComplete} />}
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
+          <h1 className="text-display-md mb-2">{comp.name}</h1>
+
+          {isPreLobby && (
+            <>
+              <p className="text-body-lg text-ink-secondary mb-2">
+                {comp.state === "join_open" || comp.state === "join_closed"
+                  ? "You're in! Waiting for the organizer to start…"
+                  : "Competition starting soon…"}
+              </p>
+              <p className="text-headline text-ink-muted">
+                {participants.length} participant{participants.length !== 1 ? "s" : ""} joined
+              </p>
+            </>
+          )}
+
+          {isLive && (
+            <>
+              <div className="mb-4">
+                <span className="flex items-center justify-center gap-2 text-body font-semibold text-error mb-4">
+                  <span className="w-2.5 h-2.5 rounded-full bg-error animate-pulse" />
+                  LIVE
+                </span>
+                <span className="text-[40px] block">
+                  <Timer comp={comp} />
+                </span>
+              </div>
+              <p className="text-[64px] font-bold text-accent leading-none mb-1">{myReps}</p>
+              <p className="text-body text-ink-muted mb-2">your reps</p>
+              {myRank && (
+                <p className="text-headline text-ink-secondary mb-6">
+                  #{myRank} of {participants.length}
+                </p>
+              )}
+              <button
+                onClick={() => navigate(`/dab?comp=${comp.id}`)}
+                className="w-full max-w-xs py-5 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform"
+              >
+                DO REPS
+              </button>
+            </>
+          )}
+
+          {isFinished && (
+            <>
+              <p className="text-headline text-ink-secondary mb-4">Competition Complete!</p>
+              <p className="text-[64px] font-bold text-accent leading-none mb-1">{myReps}</p>
+              <p className="text-body text-ink-muted mb-2">your reps</p>
+              {myRank && (
+                <p className="text-headline text-ink-secondary">
+                  You placed #{myRank} of {participants.length}
+                </p>
+              )}
+              <p className="text-display-md text-ink-primary mt-6">{animatedTotal}</p>
+              <p className="text-body text-ink-muted">total competition reps</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Spectator / organizer dashboard ─────────────────────────
   return (
     <div className="fixed inset-0 bg-bg-base text-ink-primary overflow-hidden flex flex-col select-none">
       {/* Header */}
@@ -714,7 +786,6 @@ export default function LiveDashboard() {
                   </div>
                 );
               })}
-              {/* Individuals without a team */}
               {(() => {
                 const solos = participants.filter((p) => !p.competition_team_id);
                 if (solos.length === 0) return null;
@@ -756,13 +827,11 @@ export default function LiveDashboard() {
             </p>
           )}
 
-          {/* Participant counter */}
           <p className="text-center text-ink-secondary text-body mt-6">
             {participants.length} participant{participants.length !== 1 ? "s" : ""}
           </p>
         </div>
 
-        {/* Sidebar leaderboard — only during live/finished */}
         {(isLive || isFinished) && (
           <Sidebar
             participants={participants}
@@ -773,7 +842,6 @@ export default function LiveDashboard() {
         )}
       </div>
 
-      {/* Overlays */}
       {showCountdown && <CountdownOverlay onComplete={handleCountdownComplete} />}
       {isFinished && (
         <FinishOverlay
@@ -785,16 +853,6 @@ export default function LiveDashboard() {
         />
       )}
       {isOrganizer && <AdminOverlay comp={comp} onTransition={handleTransition} />}
-
-      {/* Participant: Start Reps button */}
-      {isParticipant && !isFinished && (
-        <button
-          onClick={() => navigate(`/dab?comp=${comp.id}`)}
-          className="fixed bottom-6 right-6 z-50 px-6 py-4 rounded-full bg-accent text-ink-inverse text-body-lg font-bold shadow-lg active:scale-95 transition-transform"
-        >
-          {isLive ? "Do Reps" : "Get Ready"}
-        </button>
-      )}
     </div>
   );
 }
