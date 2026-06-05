@@ -7,6 +7,9 @@ import WeeklyBarChart from "../components/WeeklyBarChart";
 import WeeklyTrendChart from "../components/WeeklyTrendChart";
 import BonusPointsBanner from "../components/BonusPointsBanner";
 import SparksCard from "../components/SparksCard";
+import CountryPicker from "../components/CountryPicker";
+import type { Country } from "../data/countries";
+import { flagEmoji } from "../lib/flagEmoji";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -48,6 +51,14 @@ export default function Profile() {
   const [savingGender, setSavingGender] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [editingDob, setEditingDob] = useState(false);
+  const [dobValue, setDobValue] = useState("");
+  const [dobError, setDobError] = useState("");
+  const [savingDob, setSavingDob] = useState(false);
+  const [editingNationality, setEditingNationality] = useState(false);
+  const [nationalityCode, setNationalityCode] = useState<string | null>(null);
+  const [nationalityName, setNationalityName] = useState<string | null>(null);
+  const [savingNationality, setSavingNationality] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stats, setStats] = useState<{
@@ -209,6 +220,56 @@ export default function Profile() {
     await refreshProfile();
     setSavingGender(false);
     setEditingGender(false);
+  };
+
+  const handleStartEditDob = () => {
+    setDobValue(profile.dob || "");
+    setDobError("");
+    setEditingDob(true);
+  };
+
+  const handleSaveDob = async () => {
+    if (!dobValue) { setDobError("Please enter your date of birth"); return; }
+    const dob = new Date(dobValue + "T00:00:00");
+    if (isNaN(dob.getTime())) { setDobError("Invalid date"); return; }
+    const today = new Date();
+    const age = today.getFullYear() - dob.getFullYear() -
+      (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+    if (age < 13) { setDobError("Must be at least 13 years old"); return; }
+    if (age > 120) { setDobError("Please enter a valid date"); return; }
+    setSavingDob(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ dob: dobValue })
+      .eq("id", profile.id);
+    if (error) { setDobError("Failed to save — try again"); setSavingDob(false); return; }
+    await refreshProfile();
+    setSavingDob(false);
+    setEditingDob(false);
+  };
+
+  const handleStartEditNationality = () => {
+    setNationalityCode(profile.nationality_code);
+    setNationalityName(profile.nationality_name);
+    setEditingNationality(true);
+  };
+
+  const handleSelectCountry = (country: Country) => {
+    setNationalityCode(country.code);
+    setNationalityName(country.name);
+  };
+
+  const handleSaveNationality = async () => {
+    if (!nationalityCode || !nationalityName) return;
+    setSavingNationality(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ nationality_code: nationalityCode, nationality_name: nationalityName })
+      .eq("id", profile.id);
+    if (error) { setSavingNationality(false); return; }
+    await refreshProfile();
+    setSavingNationality(false);
+    setEditingNationality(false);
   };
 
   const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
@@ -420,6 +481,99 @@ export default function Profile() {
               Gender
             </p>
             <p className="text-headline mt-1">{formatGender(profile.gender)}</p>
+          </button>
+        )}
+
+        {/* Date of Birth card */}
+        {editingDob ? (
+          <div className="bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Date of Birth
+            </p>
+            <input
+              type="date"
+              value={dobValue}
+              onChange={(e) => { setDobValue(e.target.value); setDobError(""); }}
+              autoFocus
+              className="w-full mt-2 bg-bg-input text-ink-primary text-headline rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+            />
+            {dobError && (
+              <p className="text-caption text-error mt-2">{dobError}</p>
+            )}
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={handleSaveDob}
+                disabled={savingDob}
+                className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingDob(false)}
+                className="flex-1 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleStartEditDob}
+            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
+          >
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Date of Birth
+            </p>
+            <p className="text-headline mt-1">
+              {profile.dob
+                ? new Date(profile.dob + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                : "Not set"}
+            </p>
+          </button>
+        )}
+
+        {/* Nationality card */}
+        {editingNationality ? (
+          <div className="bg-bg-surface rounded-lg p-4">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Nationality
+            </p>
+            <div className="mt-2">
+              <CountryPicker
+                value={nationalityCode}
+                onChange={handleSelectCountry}
+                disabled={savingNationality}
+              />
+            </div>
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={handleSaveNationality}
+                disabled={savingNationality || !nationalityCode}
+                className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingNationality(false)}
+                className="flex-1 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleStartEditNationality}
+            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
+          >
+            <p className="text-micro text-ink-muted uppercase tracking-wide">
+              Nationality
+            </p>
+            <p className="text-headline mt-1">
+              {profile.nationality_code
+                ? `${flagEmoji(profile.nationality_code)} ${profile.nationality_name}`
+                : "Not set"}
+            </p>
           </button>
         )}
 
