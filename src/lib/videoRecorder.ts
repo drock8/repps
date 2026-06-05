@@ -9,14 +9,14 @@ export interface BrandOverlayConfig {
   accentColor: () => string;
 }
 
-const QR_SIZE = 64;
-const LOGO_HEIGHT = 36;
+const QR_SIZE = 128;
+const LOGO_HEIGHT = 54;
 const SPONSOR_HEIGHT = 28;
-const PADDING = 16;
-const BOTTOM_BAR_HEIGHT = 80;
+const PADDING = 32;
+const BOTTOM_BAR_HEIGHT = 160;
 
 export async function generateQRDataUrl(referralUrl: string, logoSrc?: string): Promise<string> {
-  const size = QR_SIZE * 2;
+  const size = QR_SIZE * 4;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -88,10 +88,17 @@ export function drawBrandOverlay(
     ctx.drawImage(logoImg, PADDING, PADDING, logoW, LOGO_HEIGHT);
   }
 
-  // QR code — bottom right
+  // QR code — bottom right with CTA
   if (config._qrImg) {
     const qrY = h - BOTTOM_BAR_HEIGHT + (BOTTOM_BAR_HEIGHT - QR_SIZE) / 2;
-    ctx.drawImage(config._qrImg, w - QR_SIZE - PADDING, qrY, QR_SIZE, QR_SIZE);
+    const qrX = w - QR_SIZE - PADDING;
+    ctx.drawImage(config._qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
+    const ctaSize = Math.round(h * 0.018);
+    ctx.fillStyle = "#F5F2EA";
+    ctx.font = `bold ${ctaSize}px Inter, system-ui, sans-serif`;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Scan to join →", qrX - 12, h - BOTTOM_BAR_HEIGHT / 2);
   }
 
   // Sponsor logos — top right, stacked vertically
