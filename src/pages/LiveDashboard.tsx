@@ -25,12 +25,6 @@ interface CompTeam {
   created_by: string;
 }
 
-interface RepCount {
-  user_id: string;
-  qualified_reps: number;
-  failed_reps: number;
-}
-
 interface CompState {
   id: string;
   name: string;
