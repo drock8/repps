@@ -4,6 +4,7 @@ interface UserStats {
   current_streak: number;
   longest_streak: number;
   days_active: number;
+  previous_best_session?: number;
 }
 
 interface CongratsResult {
@@ -119,7 +120,8 @@ export function pickCongratsMessage(reps: number, stats: UserStats): CongratsRes
   }
 
   // 2. New personal best
-  if (reps >= stats.best_session_count && reps > 1 && stats.days_active > 1) {
+  const prevBest = stats.previous_best_session ?? stats.best_session_count;
+  if (reps > prevBest && reps > 1 && stats.days_active > 1) {
     const m = pick(MESSAGES["personal-best"]);
     return { message: m.msg, audioFile: m.file };
   }

@@ -82,7 +82,7 @@ function speakGuideForce(key: string) {
 }
 
 export function isGuidePlaying(): boolean {
-  return currentAudio !== null && !currentAudio.paused;
+  return currentAudio !== null && !currentAudio.paused && !currentAudio.ended;
 }
 
 export function stopGuide() {

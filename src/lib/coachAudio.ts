@@ -128,7 +128,7 @@ export function playEncouragement(cleanStreak: number): void {
 }
 
 export function isCoachPlaying(): boolean {
-  return currentAudio !== null && !currentAudio.paused;
+  return currentAudio !== null && !currentAudio.paused && !currentAudio.ended;
 }
 
 export function stopCoachAudio(): void {
