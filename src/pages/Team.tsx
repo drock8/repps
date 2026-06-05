@@ -410,7 +410,7 @@ export default function Team() {
 
   if (!profile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] px-4">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-4">
         <p className="text-headline text-ink-primary mb-2">Teams</p>
         <p className="text-body text-ink-secondary text-center">
           Sign in to create or join a team
@@ -421,7 +421,7 @@ export default function Team() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+      <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -547,7 +547,7 @@ export default function Team() {
   const dailyTarget = 5;
 
   return (
-    <div className="flex flex-col pb-8">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col pb-8">
       {/* Team header */}
       <div className="flex flex-col items-center pt-4 mb-6">
         <div className="flex items-center gap-4">

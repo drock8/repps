@@ -328,7 +328,7 @@ export default function Profile() {
   );
 
   return (
-    <div className="flex flex-col overflow-y-auto pb-8">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col pb-8">
       {/* Sign out icon top-right */}
       <div className="flex justify-end">
         <button

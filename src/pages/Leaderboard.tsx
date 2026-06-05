@@ -906,7 +906,7 @@ export default function Leaderboard() {
   // ── Main render ─────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-shrink-0 bg-bg-base">
         {/* GBT header */}
         <div className="relative flex flex-col items-center mt-2 mb-4">

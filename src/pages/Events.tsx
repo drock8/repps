@@ -309,7 +309,7 @@ export default function Events() {
   }, [fetchEvents]);
 
   return (
-    <div className="flex flex-col gap-4 pt-2">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-4 pt-2 pb-6">
       {/* Create button */}
       {profile && (
         <div className="flex justify-end -mb-2">

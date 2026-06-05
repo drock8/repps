@@ -317,7 +317,7 @@ export default function Home() {
   const milestonePercent = (totalReps / milestoneTarget) * 100;
 
   return (
-    <div className="flex flex-col items-center text-center h-full">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col items-center text-center pb-6">
       {/* Three-stat row */}
       <div className="grid grid-cols-3 gap-2 w-full px-2">
         <div className="text-center">

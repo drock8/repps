@@ -118,7 +118,7 @@ export default function Inbox() {
   }
 
   return (
-    <div className="flex flex-col pb-4">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col pb-4">
       <p className="text-headline text-ink-primary mb-4">Messages</p>
 
       <div className="flex flex-col gap-1">

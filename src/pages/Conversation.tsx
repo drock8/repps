@@ -215,7 +215,7 @@ export default function Conversation() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.24)-theme(spacing.12))]">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex-shrink-0 flex items-center gap-3 pb-3 border-b border-divider">
         <button

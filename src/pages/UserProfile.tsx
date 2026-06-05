@@ -139,7 +139,7 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="flex flex-col pb-8">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col pb-8">
       {/* Back button */}
       <button
         onClick={() => navigate(-1)}

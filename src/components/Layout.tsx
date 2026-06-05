@@ -34,14 +34,13 @@ export default function Layout() {
   const [showQR, setShowQR] = useState(false);
   const showGenderPrompt = profile && profile.gender_set === false && profile.gender === "unspecified";
   const title = getPageTitle(pathname);
-  const scrollable = pathname === "/home" || pathname === "/leaderboard" || pathname === "/profile" || pathname === "/team" || pathname.startsWith("/team/join/") || pathname === "/events" || pathname.startsWith("/events/");
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
     : theme === "yellow" ? "/Repps-Yellow-Logo.png"
     : "/repps-logo.png";
 
   return (
-    <div className={`h-screen bg-bg-base text-ink-primary flex flex-col ${scrollable ? "" : "overflow-hidden"}`}>
-      <header className="sticky top-0 z-40 bg-bg-base flex-shrink-0">
+    <div className="h-screen bg-bg-base text-ink-primary flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 z-40 bg-bg-base">
         <div className="mx-auto max-w-md px-4 pt-2 pb-1">
           <div className="relative flex items-center justify-center h-7">
             <img src={logo} alt="REPPs" className="absolute left-0 h-8" />
@@ -83,7 +82,7 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className={`mx-auto max-w-md w-full px-4 pt-3 flex-1 ${scrollable ? "pb-20 overflow-y-auto" : "pb-[68px] overflow-hidden"}`}>
+      <main className="mx-auto max-w-md w-full px-4 pt-3 flex-1 min-h-0 flex flex-col overflow-hidden">
         <Outlet />
       </main>
       {/* AddToHomeScreen — ready to enable when app is solid */}
