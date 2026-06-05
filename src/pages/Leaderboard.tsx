@@ -100,12 +100,12 @@ const SCOPE_TABS: { label: string; value: Scope }[] = [
   { label: "Country", value: "country" },
 ];
 
-const METRIC_TABS: { label: string; value: Metric }[] = [
-  { label: "Repps", value: "reps" },
-  { label: "Consistency", value: "consistency" },
-  { label: "Score", value: "score" },
-  { label: "Streak", value: "streak" },
-  { label: "Session", value: "session" },
+const METRIC_TABS: { label: string; value: Metric; flex: string }[] = [
+  { label: "Repps", value: "reps", flex: "0.8" },
+  { label: "Consistency", value: "consistency", flex: "1.4" },
+  { label: "Score", value: "score", flex: "0.8" },
+  { label: "Streak", value: "streak", flex: "1" },
+  { label: "Session", value: "session", flex: "1" },
 ];
 
 const TIME_LABELS: Record<TimePeriod, string> = {
@@ -1001,8 +1001,12 @@ export default function Leaderboard() {
           {METRIC_TABS.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setMetric(tab.value)}
-              className={`flex-1 py-2 px-1 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple tracking-tight ${
+              onClick={() => {
+                setMetric(tab.value);
+                if (tab.value === "consistency" && (period === "daily" || period === "weekly")) setPeriod("yearly");
+              }}
+              style={{ flex: tab.flex }}
+              className={`py-2 px-1 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple tracking-tight ${
                 metric === tab.value
                   ? "bg-accent text-ink-inverse font-bold"
                   : "bg-transparent text-ink-secondary font-medium"

@@ -1,5 +1,18 @@
 # Changelog
 
+## Leaderboard v2 complete — all 15 boards + Rhythm Heatmap (2026-06-05)
+
+### Added
+- **Country scope** — countries ranked by any metric (reps/score/streak/session) with flag emojis and member counts. `get_country_leaderboard` RPC branches by metric, aggregates by `nationality_code`.
+- **Consistency metric** — measures sustained effort over time. Qualifying day = daily threshold reps, qualifying week = required qualifying days. Score = avg weekly reps × qualifying weeks. Works across all 3 scopes (individual, team, country). Team consistency requires ALL members to independently qualify each week.
+- **Rhythm Heatmap** — 7×24 punchcard chart (Mon-Sun × 0-23h) accessible via grid icon in header. Global tab (all users, per-user TZ bucketing) and Mine tab (personal). 5-min cache, peak detection summary line, `prefers-reduced-motion` respected.
+- **Admin leaderboard settings** — `consistency_daily_threshold` and `consistency_weekly_days_required` editable in admin panel.
+
+### Changed
+- **Metric pill sizing** — custom flex weights so Consistency fits comfortably without horizontal scroll. Tighter gap and tracking.
+- **Consistency defaults to yearly** — tapping Consistency auto-switches from Today/This Week to This Year since consistency is meaningless on short windows.
+- **Migration 053** — `get_consistency_leaderboard` (individual/team/country), `get_activity_heatmap` (global/personal).
+
 ## Fix referral bonus awarding 100 pts on 1 rep (2026-06-05)
 
 ### Fixed
