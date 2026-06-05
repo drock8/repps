@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber } from "../lib/format";
 import { useRepsChannel } from "../hooks/useRepsChannel";
@@ -39,10 +39,14 @@ let cachedLandingCount: number | null = null;
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const theme = useTheme();
   const [totalReps, setTotalReps] = useState(cachedLandingCount ?? 0);
   const animatedCount = useAnimatedCounter(totalReps);
-  const [showAuth, setShowAuth] = useState<false | "choose" | "signin">(false);
+  const authParam = searchParams.get("auth");
+  const [showAuth, setShowAuth] = useState<false | "choose" | "signin">(
+    authParam === "signup" ? "choose" : false
+  );
   const mountedRef = useRef(true);
   const quote = useMemo(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)], []);
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"

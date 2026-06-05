@@ -1,5 +1,11 @@
 # Changelog
 
+## Gate protected tabs behind sign-up for unauthenticated users (2026-06-05)
+
+### Changed
+- **ProtectedRoute redirects to sign-up** — unauthenticated users clicking Events, Board, Inbox, or Teams are now sent to the landing page with the sign-up form auto-opened, instead of silently redirecting to the bare landing page.
+- **Return path preserved** — the intended destination is stored in sessionStorage so users land on the right page after signing up.
+
 ## New user flow — position card + leaderboard redirect (2026-06-05)
 
 ### Added
