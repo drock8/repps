@@ -22,32 +22,6 @@ function getGainNode(): GainNode {
   return gainNode!;
 }
 
-function playViaWebAudio(buffer: AudioBuffer) {
-  const ctx = getAudioContext();
-  const gain = getGainNode();
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  src.connect(gain);
-  src.start(0);
-}
-
-function playViaHtmlAudio(url: string) {
-  const audio = new Audio(url);
-  audio.volume = 1.0;
-  audio.play().catch(() => {});
-}
-
-function playBuffer(buffer: AudioBuffer | undefined, url: string) {
-  const ctx = getAudioContext();
-  if (buffer && ctx.state === "running") {
-    try {
-      playViaWebAudio(buffer);
-      return;
-    } catch {}
-  }
-  playViaHtmlAudio(url);
-}
-
 export function unlockAudio() {
   if (unlocked) return;
   const ctx = getAudioContext();
@@ -66,8 +40,8 @@ export function unlockAudio() {
 
 export async function ensureAudioReady(): Promise<void> {
   const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    await ctx.resume();
+  if (ctx.state !== "running") {
+    try { await ctx.resume(); } catch {}
   }
   if (!unlocked) unlockAudio();
 }
@@ -76,7 +50,7 @@ export function startHeartbeat() {
   if (heartbeatId) return;
   heartbeatId = setInterval(() => {
     const ctx = getAudioContext();
-    if (ctx.state === "suspended") {
+    if (ctx.state !== "running") {
       ctx.resume().catch(() => {});
     }
   }, 2000);
@@ -110,39 +84,59 @@ export function preloadRepAudio(upTo = 10) {
 }
 
 export function playGoAudio() {
-  if (goBuffer) {
-    playBuffer(goBuffer, "/audio/go.mp3");
+  const ctx = getAudioContext();
+  const gain = getGainNode();
+  if (ctx.state === "running" && goBuffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = goBuffer;
+    src.connect(gain);
+    src.start(0);
   } else {
+    if (ctx.state !== "running") ctx.resume().catch(() => {});
     playViaHtmlAudio("/audio/go.mp3");
-    fetch("/audio/go.mp3")
-      .then((r) => r.arrayBuffer())
-      .then((ab) => getAudioContext().decodeAudioData(ab))
-      .then((buf) => { goBuffer = buf; })
-      .catch(() => {});
   }
 }
 
-export function playRepAudio(repNumber: number) {
-  const url = `/audio/rep-${repNumber}.mp3`;
-  const cached = bufferCache.get(repNumber);
+const htmlAudioCache = new Map<string, HTMLAudioElement>();
 
-  if (cached) {
-    playBuffer(cached, url);
+function playViaHtmlAudio(url: string) {
+  let audio = htmlAudioCache.get(url);
+  if (!audio) {
+    audio = new Audio(url);
+    htmlAudioCache.set(url, audio);
+  }
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+export function playRepAudio(repNumber: number) {
+  const ctx = getAudioContext();
+  const url = `/audio/rep-${repNumber}.mp3`;
+
+  // Try Web Audio first
+  if (ctx.state === "running") {
+    const gain = getGainNode();
+    const cached = bufferCache.get(repNumber);
+    if (cached) {
+      const src = ctx.createBufferSource();
+      src.buffer = cached;
+      src.connect(gain);
+      src.start(0);
+    } else {
+      playViaHtmlAudio(url);
+    }
   } else {
+    // AudioContext suspended/interrupted (common on iOS when HTML Audio plays)
+    ctx.resume().catch(() => {});
     playViaHtmlAudio(url);
-    fetch(url)
-      .then((r) => r.arrayBuffer())
-      .then((ab) => getAudioContext().decodeAudioData(ab))
-      .then((buf) => bufferCache.set(repNumber, buf))
-      .catch(() => {});
   }
 
-  // Prefetch the next few
-  for (let i = repNumber + 1; i <= repNumber + 3; i++) {
+  // Prefetch into Web Audio buffer cache
+  for (let i = repNumber; i <= repNumber + 3; i++) {
     if (!bufferCache.has(i)) {
       fetch(`/audio/rep-${i}.mp3`)
         .then((r) => r.arrayBuffer())
-        .then((ab) => getAudioContext().decodeAudioData(ab))
+        .then((ab) => ctx.decodeAudioData(ab))
         .then((buf) => bufferCache.set(i, buf))
         .catch(() => {});
     }
