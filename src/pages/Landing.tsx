@@ -11,7 +11,7 @@ import AuthForm from "../components/AuthForm";
 const MISSION_HEADLINES = [
   { headline: "1 Million People.\n1 Burpee at a Time.", subtitle: "Micro-effort. Macro momentum." },
   { headline: "Let's Get 1 Million\nSouls Moving.", subtitle: "Not one hour. Every hour." },
-  { headline: "Move a Little.\nAll Day. Every Day.", subtitle: "Join 1 million people proving consistency beats intensity." },
+  { headline: "Move a Little.\nAll Day. Every Day.", subtitle: "Join 1 million people\nproving consistency beats intensity." },
 ];
 
 const TICKER_ITEMS = [
@@ -153,7 +153,7 @@ export default function Landing() {
                 ))}
               </h1>
 
-              <p className="text-body text-ink-secondary">
+              <p className="text-body text-ink-secondary whitespace-pre-line">
                 {mission.subtitle}
               </p>
 
