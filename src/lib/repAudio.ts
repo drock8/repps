@@ -3,6 +3,7 @@ let gainNode: GainNode | null = null;
 const bufferCache = new Map<number, AudioBuffer>();
 let goBuffer: AudioBuffer | null = null;
 let unlocked = false;
+let heartbeatId: ReturnType<typeof setInterval> | null = null;
 
 const VOLUME_GAIN = 3.0;
 
@@ -21,11 +22,30 @@ function getGainNode(): GainNode {
   return gainNode!;
 }
 
-function resumeIfSuspended() {
+function playViaWebAudio(buffer: AudioBuffer) {
   const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    ctx.resume().catch(() => {});
+  const gain = getGainNode();
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(gain);
+  src.start(0);
+}
+
+function playViaHtmlAudio(url: string) {
+  const audio = new Audio(url);
+  audio.volume = 1.0;
+  audio.play().catch(() => {});
+}
+
+function playBuffer(buffer: AudioBuffer | undefined, url: string) {
+  const ctx = getAudioContext();
+  if (buffer && ctx.state === "running") {
+    try {
+      playViaWebAudio(buffer);
+      return;
+    } catch {}
   }
+  playViaHtmlAudio(url);
 }
 
 export function unlockAudio() {
@@ -42,6 +62,31 @@ export function unlockAudio() {
     src.start(0);
   } catch {}
   unlocked = true;
+}
+
+export async function ensureAudioReady(): Promise<void> {
+  const ctx = getAudioContext();
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+  if (!unlocked) unlockAudio();
+}
+
+export function startHeartbeat() {
+  if (heartbeatId) return;
+  heartbeatId = setInterval(() => {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+  }, 2000);
+}
+
+export function stopHeartbeat() {
+  if (heartbeatId) {
+    clearInterval(heartbeatId);
+    heartbeatId = null;
+  }
 }
 
 export function preloadRepAudio(upTo = 10) {
@@ -65,51 +110,30 @@ export function preloadRepAudio(upTo = 10) {
 }
 
 export function playGoAudio() {
-  resumeIfSuspended();
-  const ctx = getAudioContext();
-  const gain = getGainNode();
   if (goBuffer) {
-    const src = ctx.createBufferSource();
-    src.buffer = goBuffer;
-    src.connect(gain);
-    src.start(0);
+    playBuffer(goBuffer, "/audio/go.mp3");
   } else {
+    playViaHtmlAudio("/audio/go.mp3");
     fetch("/audio/go.mp3")
       .then((r) => r.arrayBuffer())
-      .then((ab) => ctx.decodeAudioData(ab))
-      .then((buf) => {
-        goBuffer = buf;
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(gain);
-        src.start(0);
-      })
+      .then((ab) => getAudioContext().decodeAudioData(ab))
+      .then((buf) => { goBuffer = buf; })
       .catch(() => {});
   }
 }
 
 export function playRepAudio(repNumber: number) {
-  resumeIfSuspended();
-  const ctx = getAudioContext();
-  const gain = getGainNode();
-
+  const url = `/audio/rep-${repNumber}.mp3`;
   const cached = bufferCache.get(repNumber);
+
   if (cached) {
-    const src = ctx.createBufferSource();
-    src.buffer = cached;
-    src.connect(gain);
-    src.start(0);
+    playBuffer(cached, url);
   } else {
-    fetch(`/audio/rep-${repNumber}.mp3`)
+    playViaHtmlAudio(url);
+    fetch(url)
       .then((r) => r.arrayBuffer())
-      .then((ab) => ctx.decodeAudioData(ab))
-      .then((buf) => {
-        bufferCache.set(repNumber, buf);
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(gain);
-        src.start(0);
-      })
+      .then((ab) => getAudioContext().decodeAudioData(ab))
+      .then((buf) => bufferCache.set(repNumber, buf))
       .catch(() => {});
   }
 
@@ -118,7 +142,7 @@ export function playRepAudio(repNumber: number) {
     if (!bufferCache.has(i)) {
       fetch(`/audio/rep-${i}.mp3`)
         .then((r) => r.arrayBuffer())
-        .then((ab) => ctx.decodeAudioData(ab))
+        .then((ab) => getAudioContext().decodeAudioData(ab))
         .then((buf) => bufferCache.set(i, buf))
         .catch(() => {});
     }

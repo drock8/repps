@@ -14,7 +14,7 @@ import { DetectionEngineV3 } from "../lib/detectionV3";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
 import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "../lib/detectionV3";
-import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
+import { preloadRepAudio, playRepAudio, playGoAudio, ensureAudioReady, startHeartbeat, stopHeartbeat } from "../lib/repAudio";
 import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
   generateQRDataUrl,
@@ -235,6 +235,7 @@ export default function Dab() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     stopCoachAudio();
+    stopHeartbeat();
   }, []);
 
   const profileRef = useRef(profile);
@@ -551,6 +552,7 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
+                ensureAudioReady().then(() => startHeartbeat());
                 playGoAudio();
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
@@ -621,6 +623,7 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
+                ensureAudioReady().then(() => startHeartbeat());
                 playGoAudio();
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
@@ -696,6 +699,7 @@ export default function Dab() {
                 calibratedRef.current = true;
                 setCalibrated(true);
                 setShowReady(true);
+                ensureAudioReady().then(() => startHeartbeat());
                 playGoAudio();
                 setTimeout(() => setShowReady(false), 1500);
                 accentRef.current = getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
