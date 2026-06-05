@@ -110,6 +110,14 @@ export default function EventDetail() {
   // Organizer controls
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Competitions
+  const [competitions, setCompetitions] = useState<{ id: string; name: string; state: string; join_code: string; duration_seconds: number | null; team_size: number }[]>([]);
+  const [showCreateComp, setShowCreateComp] = useState(false);
+  const [compName, setCompName] = useState("");
+  const [compDuration, setCompDuration] = useState(300);
+  const [compTeamSize, setCompTeamSize] = useState(1);
+  const [compCreating, setCompCreating] = useState(false);
+
   const fetchEvent = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -158,6 +166,14 @@ export default function EventDetail() {
       p_limit: 50,
     });
     if (lbData?.success) setLeaderboard(lbData);
+
+    // Fetch competitions for this event
+    const { data: compData } = await supabase
+      .from("competition_settings")
+      .select("id, name, state, join_code, duration_seconds, team_size")
+      .eq("event_id", id)
+      .order("created_at", { ascending: false });
+    if (compData) setCompetitions(compData);
 
     // Auto-status transitions
     const now = Date.now();
@@ -305,6 +321,25 @@ export default function EventDetail() {
     await supabase.from("events").update({ status: "archived", is_featured: false }).eq("id", event.id);
     await fetchEvent();
     setActionLoading(false);
+  };
+
+  const handleCreateCompetition = async () => {
+    if (!event) return;
+    const trimmed = compName.trim() || event.name;
+    setCompCreating(true);
+    const { data } = await supabase.rpc("add_competition_to_event", {
+      p_event_id: event.id,
+      p_name: trimmed,
+      p_duration_seconds: compDuration,
+      p_team_size: compTeamSize,
+    });
+    if (data?.success) {
+      setShowCreateComp(false);
+      setCompName("");
+      await fetchEvent();
+      navigate(`/live/${data.competition_id}`);
+    }
+    setCompCreating(false);
   };
 
   const fetchTeamMembers = async (teamId: string) => {
@@ -533,6 +568,114 @@ export default function EventDetail() {
             >
               Delete
             </button>
+          )}
+        </div>
+      )}
+
+      {/* Live Competitions */}
+      {(competitions.length > 0 || isOrganizer) && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-micro text-ink-muted uppercase tracking-widest">Live Competitions</p>
+            {isOrganizer && !showCreateComp && (
+              <button
+                onClick={() => setShowCreateComp(true)}
+                className="text-caption text-accent font-semibold"
+              >
+                + Add
+              </button>
+            )}
+          </div>
+
+          {competitions.map((c) => {
+            const stateLabel = c.state.replace(/_/g, " ");
+            const isActive = ["join_open", "join_closed", "countdown", "live"].includes(c.state);
+            const durationLabel = c.duration_seconds
+              ? c.duration_seconds >= 60 ? `${Math.floor(c.duration_seconds / 60)} min` : `${c.duration_seconds}s`
+              : "Target";
+            return (
+              <button
+                key={c.id}
+                onClick={() => navigate(`/live/${c.id}`)}
+                className="w-full flex items-center justify-between py-3 px-4 bg-bg-surface rounded-lg text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-body text-ink-primary font-semibold truncate">{c.name}</p>
+                  <p className="text-caption text-ink-muted">
+                    {durationLabel} · {c.team_size === 1 ? "Solo" : `Teams of ${c.team_size}`}
+                  </p>
+                </div>
+                <span className={`text-micro font-bold uppercase ml-3 px-2 py-1 rounded-pill ${
+                  isActive ? "bg-success/20 text-success" : c.state === "finished" || c.state === "results" ? "bg-accent/20 text-accent" : "bg-ink-muted/20 text-ink-muted"
+                }`}>
+                  {stateLabel}
+                </span>
+              </button>
+            );
+          })}
+
+          {showCreateComp && (
+            <div className="bg-bg-surface rounded-lg p-4 flex flex-col gap-4">
+              <input
+                type="text"
+                value={compName}
+                onChange={(e) => setCompName(e.target.value)}
+                placeholder={event?.name || "Competition name"}
+                maxLength={60}
+                className="w-full bg-bg-input text-ink-primary text-body rounded-md px-3 py-2.5 outline-none focus:ring-2 focus:ring-accent/50 placeholder:text-ink-muted"
+              />
+              <div>
+                <p className="text-micro text-ink-muted uppercase tracking-wider mb-2">Duration</p>
+                <div className="flex gap-2">
+                  {[{ l: "2m", v: 120 }, { l: "3m", v: 180 }, { l: "5m", v: 300 }, { l: "10m", v: 600 }].map((d) => (
+                    <button
+                      key={d.v}
+                      onClick={() => setCompDuration(d.v)}
+                      className={`flex-1 py-2 rounded-md text-caption font-semibold ${
+                        compDuration === d.v ? "bg-accent text-ink-inverse" : "bg-bg-input text-ink-secondary"
+                      }`}
+                    >
+                      {d.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-micro text-ink-muted uppercase tracking-wider mb-2">Team Size</p>
+                <div className="flex gap-2">
+                  {[{ l: "Solo", v: 1 }, { l: "Duo", v: 2 }, { l: "Trio", v: 3 }, { l: "Quad", v: 4 }].map((t) => (
+                    <button
+                      key={t.v}
+                      onClick={() => setCompTeamSize(t.v)}
+                      className={`flex-1 py-2 rounded-md text-caption font-semibold ${
+                        compTeamSize === t.v ? "bg-accent text-ink-inverse" : "bg-bg-input text-ink-secondary"
+                      }`}
+                    >
+                      {t.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCreateComp(false)}
+                  className="flex-1 py-3 rounded-md bg-bg-input text-ink-secondary text-body font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateCompetition}
+                  disabled={compCreating}
+                  className="flex-1 py-3 rounded-md bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+                >
+                  {compCreating ? "Creating…" : "Create"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {competitions.length === 0 && !showCreateComp && isOrganizer && (
+            <p className="text-caption text-ink-muted text-center py-2">No live competitions yet</p>
           )}
         </div>
       )}
