@@ -121,6 +121,7 @@ export default function Dab() {
   const [summaryUserTotal, setSummaryUserTotal] = useState(0);
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
   const [congratsMessage, setCongratsMessage] = useState("");
+  const prevBestSessionRef = useRef(0);
 
   const [alignmentStatus, setAlignmentStatus] = useState<string>("no-pose");
 
@@ -203,6 +204,15 @@ export default function Dab() {
     preloadRepAudio(10);
     preloadCoachAudio();
     preloadCongratsAudio();
+
+    if (profile) {
+      supabase.rpc("get_user_stats_summary", { p_user_id: profile.id })
+        .then(({ data }) => {
+          const stats = data?.[0] ?? data;
+          if (stats) prevBestSessionRef.current = stats.best_session_count ?? 0;
+        })
+        .catch(() => {});
+    }
 
     (async () => {
       try {
@@ -821,30 +831,26 @@ export default function Dab() {
 
     try {
       if (profile) {
-        const [userResult, globalResult, statsResult, sessionsResult] = await Promise.all([
+        const [userResult, globalResult, statsResult] = await Promise.all([
           supabase
             .from("reps")
             .select("*", { count: "exact", head: true })
             .eq("user_id", profile.id),
           supabase.from("reps").select("*", { count: "exact", head: true }),
           supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
-          supabase.rpc("get_user_sessions", { p_user_id: profile.id, p_limit: 10 }),
         ]);
         setSummaryUserTotal(userResult.count ?? 0);
         setSummaryGlobalTotal(globalResult.count ?? 0);
 
         if (statsResult.data) {
           const stats = statsResult.data[0] ?? statsResult.data;
-          const sessions = (sessionsResult.data ?? []) as { rep_count: number }[];
-          const sortedSessions = sessions.map(s => s.rep_count).sort((a, b) => b - a);
-          const previousBest = sortedSessions.length > 1 ? sortedSessions[1] : 0;
           const congrats = pickCongratsMessage(repCountRef.current, {
             total_reps: stats.total_reps ?? 0,
             best_session_count: stats.best_session_count ?? 0,
             current_streak: stats.current_streak ?? 0,
             longest_streak: stats.longest_streak ?? 0,
             days_active: stats.days_active ?? 0,
-            previous_best_session: previousBest,
+            previous_best_session: prevBestSessionRef.current,
           });
           setCongratsMessage(congrats.message);
           playCongratsAudio(congrats.audioFile);
