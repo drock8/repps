@@ -552,7 +552,7 @@ export default function LiveDashboard() {
     generateStyledQRDataUrl(url, 200).then(setQrUrl);
   }, [comp?.join_code]);
 
-  // Realtime: participant changes
+  // Realtime: participant changes (unfiltered — filtered UPDATEs unreliable even with replica identity full)
   useEffect(() => {
     if (!competitionId) return;
     const channel = supabase
@@ -563,9 +563,11 @@ export default function LiveDashboard() {
           event: "*",
           schema: "public",
           table: "competition_participants",
-          filter: `competition_id=eq.${competitionId}`,
         },
-        () => {
+        (payload) => {
+          const row = payload.new as Record<string, unknown> | undefined;
+          if (row && row.competition_id && row.competition_id !== competitionId) return;
+          console.log("[COMP] participant change:", payload.eventType, row?.status);
           loadDashboard();
         }
       )

@@ -211,6 +211,8 @@ export default function Dab() {
     supabase.rpc("update_participant_status", {
       p_competition_id: competitionId,
       p_status: "camera_ready",
+    }).then(({ data, error }) => {
+      console.log("[COMP] update_participant_status →", { data, error });
     });
   }, [competitionId, calibrated]);
 
