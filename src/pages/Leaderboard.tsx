@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatNumber, MEDALS } from "../lib/format";
@@ -11,6 +11,7 @@ import OGBadge from "../components/OGBadge";
 import { useOG100 } from "../hooks/useOG100";
 import FilterSheet from "../components/leaderboard/FilterSheet";
 import type { FilterState } from "../components/leaderboard/FilterSheet";
+import PunchcardChart from "../components/leaderboard/PunchcardChart";
 import { flagEmoji } from "../lib/flagEmoji";
 import { COUNTRIES } from "../data/countries";
 
@@ -63,6 +64,22 @@ interface CountryEntry {
   primaryValue: number;
   secondaryLabel: string;
   memberCount: number;
+}
+
+interface ConsistencyEntry {
+  entityId: string;
+  name: string;
+  avatarUrl: string | null;
+  consistencyScore: number;
+  qualifyingWeeks: number;
+  avgWeeklyReps: number;
+  totalReps: number;
+}
+
+interface HeatmapCell {
+  day: number;
+  hour: number;
+  count: number;
 }
 
 const COUNTRY_MAP = new Map(COUNTRIES.map(c => [c.code, c.name]));
@@ -197,8 +214,15 @@ export default function Leaderboard() {
   const [showLatest, setShowLatest] = useState(false);
   const [hasRecentActivity, setHasRecentActivity] = useState(false);
   const [totalReps, setTotalReps] = useState(0);
+  const [consistencyEntries, setConsistencyEntries] = useState<ConsistencyEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [heatmapOpen, setHeatmapOpen] = useState(false);
+  const [heatmapTab, setHeatmapTab] = useState<"global" | "mine">("global");
+  const [heatmapGlobal, setHeatmapGlobal] = useState<HeatmapCell[]>([]);
+  const [heatmapMine, setHeatmapMine] = useState<HeatmapCell[]>([]);
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
+  const heatmapCacheRef = useRef<{ global?: { data: HeatmapCell[]; at: number }; mine?: { data: HeatmapCell[]; at: number } }>({});
 
   // Pinned card state
   const [userPinned, setUserPinned] = useState<{ rank: number; entry: IndividualEntry } | null>(null);
@@ -208,8 +232,10 @@ export default function Leaderboard() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Phase 3 availability
-  const isConsistencyEnabled = false;
+  const accentColor = useMemo(() => {
+    const el = document.documentElement;
+    return getComputedStyle(el).getPropertyValue("--color-accent").trim() || "#FFD600";
+  }, []);
 
   // ── URL sync ────────────────────────────────────────────────
   useEffect(() => {
@@ -443,6 +469,62 @@ export default function Leaderboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [metric, gender, ageBracket, period]);
 
+  // ── Consistency fetcher ──────────────────────────────────────
+
+  const fetchConsistency = useCallback(async () => {
+    const scopeParam = scope === "country" ? "country" : scope === "team" ? "team" : "individual";
+    const { data } = await supabase.rpc("get_consistency_leaderboard", {
+      p_scope: scopeParam,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+      p_country: scope === "individual" ? (countryFilter || null) : null,
+      p_period: period, p_limit: 50,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: ConsistencyEntry[] = (data || []).map((r: any) => ({
+      entityId: r.out_entity_id,
+      name: scope === "country" ? (COUNTRY_MAP.get(r.out_entity_id) || r.out_entity_id) : r.out_name,
+      avatarUrl: r.out_avatar_url,
+      consistencyScore: Number(r.out_consistency_score),
+      qualifyingWeeks: Number(r.out_qualifying_weeks),
+      avgWeeklyReps: Number(r.out_avg_weekly_reps),
+      totalReps: Number(r.out_total_reps),
+    }));
+    setConsistencyEntries(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, gender, ageBracket, countryFilter, period]);
+
+  // ── Heatmap fetcher ─────────────────────────────────────────
+
+  const fetchHeatmap = useCallback(async (tab: "global" | "mine") => {
+    const cache = heatmapCacheRef.current[tab];
+    if (cache && Date.now() - cache.at < 300_000) {
+      if (tab === "global") setHeatmapGlobal(cache.data);
+      else setHeatmapMine(cache.data);
+      return;
+    }
+    setHeatmapLoading(true);
+    const { data } = await supabase.rpc("get_activity_heatmap", {
+      p_scope: tab === "global" ? "global" : "personal",
+      p_user_id: tab === "mine" && profile ? profile.id : null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cells: HeatmapCell[] = (data || []).map((r: any) => ({
+      day: Number(r.out_day_of_week),
+      hour: Number(r.out_hour),
+      count: Number(r.out_rep_count),
+    }));
+    heatmapCacheRef.current[tab] = { data: cells, at: Date.now() };
+    if (tab === "global") setHeatmapGlobal(cells);
+    else setHeatmapMine(cells);
+    setHeatmapLoading(false);
+  }, [profile]);
+
+  useEffect(() => {
+    if (heatmapOpen) fetchHeatmap(heatmapTab);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heatmapOpen, heatmapTab]);
+
   // ── Pinned card resolution ──────────────────────────────────
 
   const resolveUserPinned = useCallback((entries: IndividualEntry[], m: Metric) => {
@@ -543,8 +625,17 @@ export default function Leaderboard() {
   const fetchBoard = useCallback(async () => {
     setLoading(true);
     setExpandedTeamId(null);
+    setConsistencyEntries([]);
 
-    if (scope === "individual") {
+    if (metric === "consistency") {
+      setIndividualEntries([]); setTeamEntries([]); setCountryEntries([]);
+      setUserPinned(null); setTeamPinned(null);
+      if (period === "daily") {
+        // Consistency requires at least a week — show message, don't fetch
+      } else {
+        await fetchConsistency();
+      }
+    } else if (scope === "individual") {
       setTeamEntries([]); setCountryEntries([]);
       setTeamPinned(null);
       if (metric === "reps") await fetchIndividualReps();
@@ -565,7 +656,7 @@ export default function Leaderboard() {
     }
 
     setLoading(false);
-  }, [scope, metric, fetchIndividualReps, fetchIndividualScore, fetchIndividualStreak, fetchIndividualSession, fetchTeamScore, fetchTeamReps, fetchTeamStreak, fetchTeamSession, fetchCountryLeaderboard]);
+  }, [scope, metric, period, fetchIndividualReps, fetchIndividualScore, fetchIndividualStreak, fetchIndividualSession, fetchTeamScore, fetchTeamReps, fetchTeamStreak, fetchTeamSession, fetchCountryLeaderboard, fetchConsistency]);
 
   useEffect(() => {
     fetchTotalReps();
@@ -629,16 +720,14 @@ export default function Leaderboard() {
   const entries = scope === "individual" ? individualEntries : [];
   const teams = scope === "team" ? teamEntries : [];
   const countries = scope === "country" ? countryEntries : [];
-  const isEmpty = scope === "individual"
-    ? entries.length === 0 && !userPinned
-    : scope === "team"
-      ? teams.length === 0 && !teamPinned
-      : countries.length === 0;
-
-  const isMetricDisabled = (m: Metric) => {
-    if (m === "consistency" && !isConsistencyEnabled) return true;
-    return false;
-  };
+  const isConsistencyToday = metric === "consistency" && period === "daily";
+  const isEmpty = metric === "consistency"
+    ? isConsistencyToday || consistencyEntries.length === 0
+    : scope === "individual"
+      ? entries.length === 0 && !userPinned
+      : scope === "team"
+        ? teams.length === 0 && !teamPinned
+        : countries.length === 0;
 
   // ── Render helpers ──────────────────────────────────────────
 
@@ -826,19 +915,33 @@ export default function Leaderboard() {
             alt=""
             className="absolute w-[4.5rem] left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
           />
-          <button
-            onClick={() => { setShowLatest(!showLatest); setHasRecentActivity(false); }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center"
-          >
-            <div className="relative">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+            <button
+              onClick={() => { setHeatmapOpen(true); setHeatmapTab("global"); }}
+              className="w-10 h-10 flex items-center justify-center"
+            >
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" className="text-ink-secondary">
+                {[0, 1, 2, 3].map(row =>
+                  [0, 1, 2].map(col => (
+                    <circle key={`${row}-${col}`} cx={3 + col * 5} cy={3 + row * 3.5} r={1.5} fill="currentColor" />
+                  ))
+                )}
               </svg>
-              {hasRecentActivity && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
-              )}
-            </div>
-          </button>
+            </button>
+            <button
+              onClick={() => { setShowLatest(!showLatest); setHasRecentActivity(false); }}
+              className="w-10 h-10 flex items-center justify-center"
+            >
+              <div className="relative">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+                {hasRecentActivity && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
+                )}
+              </div>
+            </button>
+          </div>
           <p className="text-headline text-ink-primary">GBT</p>
           <p className="text-display-lg repps-gradient-text mt-1 tabular-nums">{formatNumber(totalReps)}</p>
           <p className="text-micro text-ink-secondary uppercase tracking-wide mt-1">Global Burpee Total</p>
@@ -895,25 +998,19 @@ export default function Leaderboard() {
 
         {/* Metric pills */}
         <div className="flex gap-1 mb-2 bg-bg-surface rounded-pill p-1">
-          {METRIC_TABS.map((tab) => {
-            const disabled = isMetricDisabled(tab.value);
-            return (
-              <button
-                key={tab.value}
-                onClick={() => !disabled && setMetric(tab.value)}
-                disabled={disabled}
-                className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                  metric === tab.value
-                    ? "bg-accent text-ink-inverse font-bold"
-                    : disabled
-                      ? "bg-transparent text-ink-muted/40"
-                      : "bg-transparent text-ink-secondary font-medium"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+          {METRIC_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setMetric(tab.value)}
+              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                metric === tab.value
+                  ? "bg-accent text-ink-inverse font-bold"
+                  : "bg-transparent text-ink-secondary font-medium"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Filter line */}
@@ -940,10 +1037,52 @@ export default function Leaderboard() {
         {loading ? renderSkeleton() : isEmpty ? (
           <div className="py-12 text-center">
             <p className="text-body text-ink-muted">
-              {scope === "country"
-                ? "No countries represented yet. Set your nationality in Profile to put your country on the board."
-                : "No activity yet. Be the first."}
+              {isConsistencyToday
+                ? "Consistency requires at least a week of data. Switch to a longer time period."
+                : metric === "consistency"
+                  ? "No one has hit consistency yet. 30 reps on 5 days in a week qualifies."
+                  : scope === "country"
+                    ? "No countries represented yet. Set your nationality in Profile to put your country on the board."
+                    : "No activity yet. Be the first."}
             </p>
+          </div>
+        ) : metric === "consistency" ? (
+          <div className="flex flex-col gap-2">
+            {consistencyEntries.map((entry, i) => (
+              <button
+                key={entry.entityId}
+                onClick={() => {
+                  if (scope === "country") return;
+                  if (scope === "team") return;
+                  if (profile && entry.entityId === profile.id) navigate("/profile");
+                  else navigate(`/user/${entry.entityId}`);
+                }}
+                className="w-full flex items-center py-3 px-4 rounded-lg bg-bg-surface text-left"
+              >
+                <span className="w-8 text-center flex-shrink-0">
+                  {renderRankBadge(i)}
+                </span>
+                {scope === "country" ? (
+                  <span className="ml-2 text-2xl flex-shrink-0">{flagEmoji(entry.entityId)}</span>
+                ) : (
+                  <div className="ml-2">
+                    <Avatar url={entry.avatarUrl} name={entry.name} />
+                  </div>
+                )}
+                <div className="ml-3 flex-1 min-w-0">
+                  <span className="text-body text-ink-primary truncate block">{entry.name}</span>
+                  <span className="text-micro text-ink-muted">
+                    {entry.qualifyingWeeks}w · {entry.avgWeeklyReps}/wk
+                  </span>
+                </div>
+                <div className="text-right ml-2">
+                  <span className="text-body text-accent font-bold tabular-nums">
+                    {formatNumber(entry.consistencyScore)}
+                  </span>
+                  <span className="text-micro text-ink-muted block">score</span>
+                </div>
+              </button>
+            ))}
           </div>
         ) : scope === "individual" ? (
           <div className="flex flex-col gap-2">
@@ -1009,6 +1148,66 @@ export default function Leaderboard() {
         onApply={handleFilterApply}
         showCountry={scope === "individual"}
       />
+
+      {/* Heatmap bottom sheet */}
+      {heatmapOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" onClick={() => setHeatmapOpen(false)}>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg bg-bg-elevated rounded-t-2xl border-t border-divider overflow-hidden"
+            style={{ animation: "slideUp 0.3s ease-out", maxHeight: "65vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-ink-muted" />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3">
+              <p className="text-body text-ink-primary font-semibold">Rhythm Heatmap</p>
+              <button onClick={() => setHeatmapOpen(false)} className="text-ink-muted p-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex gap-1 mx-5 mb-4 bg-bg-surface rounded-pill p-1">
+              <button
+                onClick={() => setHeatmapTab("global")}
+                className={`flex-1 py-2 rounded-pill text-micro uppercase transition-colors duration-200 ease-apple ${
+                  heatmapTab === "global" ? "bg-accent text-ink-inverse font-bold" : "text-ink-secondary"
+                }`}
+              >
+                Global
+              </button>
+              {profile && (
+                <button
+                  onClick={() => setHeatmapTab("mine")}
+                  className={`flex-1 py-2 rounded-pill text-micro uppercase transition-colors duration-200 ease-apple ${
+                    heatmapTab === "mine" ? "bg-[#60A5FA] text-ink-inverse font-bold" : "text-ink-secondary"
+                  }`}
+                >
+                  Mine
+                </button>
+              )}
+            </div>
+            <div className="px-5 pb-6" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+              {heatmapLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (heatmapTab === "global" ? heatmapGlobal : heatmapMine).length === 0 ? (
+                <p className="text-center text-body text-ink-muted py-8">
+                  No activity data yet. Do some burpees to see your rhythm.
+                </p>
+              ) : (
+                <PunchcardChart
+                  data={heatmapTab === "global" ? heatmapGlobal : heatmapMine}
+                  color={heatmapTab === "global" ? accentColor : "#60A5FA"}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
