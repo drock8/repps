@@ -848,6 +848,7 @@ export default function Dab() {
 
         if (statsResult.data) {
           const stats = statsResult.data[0] ?? statsResult.data;
+          console.log("[CONGRATS] reps:", repCountRef.current, "stats:", JSON.stringify(stats), "prevBest:", prevBestSessionRef.current, "prevLongest:", prevLongestStreakRef.current);
           const congrats = pickCongratsMessage(repCountRef.current, {
             total_reps: stats.total_reps ?? 0,
             best_session_count: stats.best_session_count ?? 0,

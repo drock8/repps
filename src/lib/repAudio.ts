@@ -126,7 +126,12 @@ export function playGoAudio() {
 }
 
 export function playRepAudio(repNumber: number) {
-  if (isCoachPlaying() || isGuidePlaying()) return;
+  const coachBusy = isCoachPlaying();
+  const guideBusy = isGuidePlaying();
+  if (coachBusy || guideBusy) {
+    console.log(`[REP-AUDIO] skipped rep ${repNumber} — coach:${coachBusy} guide:${guideBusy}`);
+    return;
+  }
 
   const url = `/audio/rep-${repNumber}.mp3`;
   const cached = bufferCache.get(repNumber);
