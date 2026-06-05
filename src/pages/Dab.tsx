@@ -188,6 +188,23 @@ export default function Dab() {
         }
       });
 
+    const pollState = () => {
+      supabase
+        .from("competition_settings")
+        .select("state, started_at, duration_seconds")
+        .eq("id", competitionId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setCompState(data.state);
+            setCompStartedAt(data.started_at);
+            setCompDuration(data.duration_seconds);
+            if (data.state === "finished") setCompFinished(true);
+          }
+        });
+    };
+    const pollId = setInterval(pollState, 2000);
+
     const channel = supabase
       .channel(`dab-comp-state-${competitionId}`)
       .on(
@@ -202,7 +219,7 @@ export default function Dab() {
         }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { clearInterval(pollId); supabase.removeChannel(channel); };
   }, [competitionId]);
 
   // Update status to camera_ready when calibrated
