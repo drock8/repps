@@ -1,7 +1,27 @@
-const COLORS = ["#E8913A", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
 const PARTICLE_COUNT = 80;
 const GRAVITY = 0.003;
 const DURATION_MS = 2000;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.substring(0, 2), 16),
+    parseInt(h.substring(2, 4), 16),
+    parseInt(h.substring(4, 6), 16),
+  ];
+}
+
+function generatePalette(accent: string): string[] {
+  const [r, g, b] = hexToRgb(accent);
+  return [
+    `rgba(${r},${g},${b},1)`,
+    `rgba(${r},${g},${b},0.85)`,
+    `rgba(${r},${g},${b},0.65)`,
+    `rgba(${r},${g},${b},0.45)`,
+    `rgba(255,255,255,0.7)`,
+    `rgba(255,255,255,0.4)`,
+  ];
+}
 
 interface Particle {
   x: number;
@@ -15,7 +35,8 @@ interface Particle {
   shape: "rect" | "circle";
 }
 
-function createParticles(_width: number, _height: number): Particle[] {
+function createParticles(_width: number, _height: number, accent?: string): Particle[] {
+  const colors = generatePalette(accent || "#FFD600");
   const particles: Particle[] = [];
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + (i % 3) * 0.2;
@@ -26,7 +47,7 @@ function createParticles(_width: number, _height: number): Particle[] {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 0.012,
       size: 6 + (i % 4) * 4,
-      color: COLORS[i % COLORS.length],
+      color: colors[i % colors.length],
       rotation: (i * 37) % 360,
       rotationSpeed: (i % 2 === 0 ? 1 : -1) * (3 + (i % 5)),
       shape: i % 3 === 0 ? "circle" : "rect",
@@ -38,6 +59,7 @@ function createParticles(_width: number, _height: number): Particle[] {
 export function runConfetti(
   canvas: HTMLCanvasElement,
   onComplete: () => void,
+  accent?: string,
 ): () => void {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
@@ -47,7 +69,7 @@ export function runConfetti(
 
   const cssW = canvas.clientWidth || canvas.width;
   const cssH = canvas.clientHeight || canvas.height;
-  const particles = createParticles(cssW, cssH);
+  const particles = createParticles(cssW, cssH, accent);
   const startTime = performance.now();
   let animId = 0;
   let cancelled = false;

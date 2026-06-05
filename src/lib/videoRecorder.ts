@@ -92,7 +92,13 @@ export function drawBrandOverlay(
   if (config._qrImg) {
     const qrY = h - BOTTOM_BAR_HEIGHT + (BOTTOM_BAR_HEIGHT - QR_SIZE) / 2;
     const qrX = w - QR_SIZE - PADDING;
+    const qrR = QR_SIZE * 0.1;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(qrX, qrY, QR_SIZE, QR_SIZE, qrR);
+    ctx.clip();
     ctx.drawImage(config._qrImg, qrX, qrY, QR_SIZE, QR_SIZE);
+    ctx.restore();
     const ctaSize = Math.round(h * 0.018);
     ctx.fillStyle = "#F5F2EA";
     ctx.font = `bold ${ctaSize}px Inter, system-ui, sans-serif`;

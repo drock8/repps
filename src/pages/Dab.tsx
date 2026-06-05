@@ -856,7 +856,8 @@ export default function Dab() {
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       const rctx = recCanvas.getContext("2d");
-      const particles = createParticles(vw, vh);
+      const recAccent = accentRef.current || getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+      const particles = createParticles(vw, vh, recAccent);
       const startTime = performance.now();
 
       const drawRecordingFrame = (now: number) => {
@@ -901,7 +902,8 @@ export default function Dab() {
 
     // Run visible confetti and transition after it finishes
     if (confettiCanvas) {
-      runConfetti(confettiCanvas, () => finishSession());
+      const accent = accentRef.current || getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim();
+      runConfetti(confettiCanvas, () => finishSession(), accent);
     } else {
       setTimeout(() => finishSession(), CONFETTI_DURATION);
     }
@@ -937,7 +939,7 @@ export default function Dab() {
 
   if (screen === "summary") {
     return (
-      <div className="flex flex-col -mx-4" style={{ height: "calc(100dvh - 44px - 68px)" }}>
+      <div className="flex flex-col -mx-4 overflow-hidden" style={{ height: "calc(100dvh - 44px - 68px)" }}>
         {/* Stats row */}
         <div className="flex items-baseline justify-center gap-4 px-4 pt-2 pb-1 flex-shrink-0">
           <div className="text-center">
