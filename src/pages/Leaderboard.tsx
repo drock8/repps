@@ -997,12 +997,12 @@ export default function Leaderboard() {
         </div>
 
         {/* Metric pills */}
-        <div className="flex gap-1 mb-2 bg-bg-surface rounded-pill p-1">
+        <div className="flex gap-0 mb-2 bg-bg-surface rounded-pill p-1">
           {METRIC_TABS.map((tab) => (
             <button
               key={tab.value}
               onClick={() => setMetric(tab.value)}
-              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+              className={`flex-1 py-2 px-1 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple tracking-tight ${
                 metric === tab.value
                   ? "bg-accent text-ink-inverse font-bold"
                   : "bg-transparent text-ink-secondary font-medium"

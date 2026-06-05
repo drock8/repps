@@ -3,8 +3,9 @@
 --
 -- 1. get_consistency_leaderboard — individual, team, country
 -- 2. get_activity_heatmap — global (per-user TZ) and personal
--- 3. Update get_country_leaderboard to handle consistency metric
 -- ============================================================
+
+drop function if exists get_consistency_leaderboard(text, text, int, int, text, text, int);
 
 -- ============================================================
 -- 1. Consistency leaderboard
@@ -36,7 +37,7 @@ declare
   v_user record;
   v_tz text;
   v_week_start date;
-  v_day date;
+  v_day_rec record;
   v_day_count int;
   v_week_reps int;
   v_qual_weeks int;
@@ -44,7 +45,6 @@ declare
   v_total_weekly_reps bigint;
   v_score bigint;
   v_period_start timestamptz;
-  -- team vars
   v_team record;
   v_member record;
   v_all_qualify boolean;
@@ -56,7 +56,6 @@ begin
   v_threshold := coalesce((select value::int from settings where key = 'consistency_daily_threshold'), 30);
   v_days_required := coalesce((select value::int from settings where key = 'consistency_weekly_days_required'), 5);
 
-  -- Period start
   v_period_start := case p_period
     when 'daily'   then now() - interval '1 day'
     when 'weekly'  then now() - interval '7 days'
@@ -99,18 +98,16 @@ begin
       loop
         v_day_count := 0;
         v_week_reps := 0;
-        for v_day in
-          select d, cnt from (
-            select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
-            from reps r
-            where r.user_id = v_user.uid
-              and (r.validated_at at time zone v_tz)::date >= v_week_start
-              and (r.validated_at at time zone v_tz)::date < v_week_start + 7
-            group by 1
-          ) sub
+        for v_day_rec in
+          select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
+          from reps r
+          where r.user_id = v_user.uid
+            and (r.validated_at at time zone v_tz)::date >= v_week_start
+            and (r.validated_at at time zone v_tz)::date < v_week_start + 7
+          group by 1
         loop
-          v_week_reps := v_week_reps + v_day.cnt;
-          if v_day.cnt >= v_threshold then
+          v_week_reps := v_week_reps + v_day_rec.cnt;
+          if v_day_rec.cnt >= v_threshold then
             v_day_count := v_day_count + 1;
           end if;
         end loop;
@@ -148,7 +145,6 @@ begin
       v_team_total_reps := 0;
       v_team_total_weekly := 0;
 
-      -- Get all weeks where any team member had reps
       for v_week_start in
         select distinct date_trunc('week', (r.validated_at at time zone coalesce(nullif(trim(p.timezone), ''), 'UTC'))::date)::date
         from reps r
@@ -168,18 +164,16 @@ begin
           v_day_count := 0;
           v_week_reps := 0;
 
-          for v_day in
-            select d, cnt from (
-              select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
-              from reps r
-              where r.user_id = v_member.uid
-                and (r.validated_at at time zone v_tz)::date >= v_week_start
-                and (r.validated_at at time zone v_tz)::date < v_week_start + 7
-              group by 1
-            ) sub
+          for v_day_rec in
+            select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
+            from reps r
+            where r.user_id = v_member.uid
+              and (r.validated_at at time zone v_tz)::date >= v_week_start
+              and (r.validated_at at time zone v_tz)::date < v_week_start + 7
+            group by 1
           loop
-            v_week_reps := v_week_reps + v_day.cnt;
-            if v_day.cnt >= v_threshold then
+            v_week_reps := v_week_reps + v_day_rec.cnt;
+            if v_day_rec.cnt >= v_threshold then
               v_day_count := v_day_count + 1;
             end if;
           end loop;
@@ -207,8 +201,6 @@ begin
     end loop;
 
   elsif p_scope = 'country' then
-    -- Average individual consistency scores per country
-    -- First compute individual scores into temp, then average by nationality
     for v_user in
       select p.id as uid, p.nationality_code as nc, p.timezone as utz
       from profiles p
@@ -231,18 +223,16 @@ begin
       loop
         v_day_count := 0;
         v_week_reps := 0;
-        for v_day in
-          select d, cnt from (
-            select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
-            from reps r
-            where r.user_id = v_user.uid
-              and (r.validated_at at time zone v_tz)::date >= v_week_start
-              and (r.validated_at at time zone v_tz)::date < v_week_start + 7
-            group by 1
-          ) sub
+        for v_day_rec in
+          select (r.validated_at at time zone v_tz)::date as d, count(*) as cnt
+          from reps r
+          where r.user_id = v_user.uid
+            and (r.validated_at at time zone v_tz)::date >= v_week_start
+            and (r.validated_at at time zone v_tz)::date < v_week_start + 7
+          group by 1
         loop
-          v_week_reps := v_week_reps + v_day.cnt;
-          if v_day.cnt >= v_threshold then
+          v_week_reps := v_week_reps + v_day_rec.cnt;
+          if v_day_rec.cnt >= v_threshold then
             v_day_count := v_day_count + 1;
           end if;
         end loop;
@@ -256,12 +246,11 @@ begin
 
       if v_qual_weeks > 0 then
         v_score := (v_total_weekly_reps / v_qual_weeks) * v_qual_weeks;
-        -- Upsert: accumulate for averaging
         if exists (select 1 from _consistency_results cr where cr.entity_id = v_user.nc) then
           update _consistency_results
             set consistency_score = consistency_score + v_score,
                 qualifying_weeks = qualifying_weeks + v_qual_weeks,
-                avg_weekly_reps = avg_weekly_reps + 1,  -- reuse as member_count
+                avg_weekly_reps = avg_weekly_reps + 1,
                 total_reps = total_reps + v_total_reps
             where entity_id = v_user.nc;
         else
@@ -273,11 +262,9 @@ begin
       end if;
     end loop;
 
-    -- Now average: consistency_score / member_count, qualifying_weeks / member_count
     update _consistency_results
       set consistency_score = consistency_score / greatest(avg_weekly_reps, 1),
           qualifying_weeks = qualifying_weeks / greatest(avg_weekly_reps, 1);
-    -- avg_weekly_reps was used as member_count; recalc as total_reps / qualifying_weeks
     update _consistency_results
       set avg_weekly_reps = case when qualifying_weeks > 0 then (total_reps / qualifying_weeks)::int else 0 end;
   end if;
@@ -310,7 +297,7 @@ as $$
   select
     extract(isodow from (r.validated_at at time zone coalesce(
       nullif(trim(p.timezone), ''), 'UTC'
-    )))::int - 1 as day_of_week,  -- 0=Mon, 6=Sun
+    )))::int - 1 as day_of_week,
     extract(hour from (r.validated_at at time zone coalesce(
       nullif(trim(p.timezone), ''), 'UTC'
     )))::int as hour,

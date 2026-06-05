@@ -123,6 +123,8 @@ export default function Admin() {
   const [globalTarget, setGlobalTarget] = useState("2000");
   const [globalTargetDate, setGlobalTargetDate] = useState("2026-06-06");
   const [globalTargetLabel, setGlobalTargetLabel] = useState("2,000 burpees by June 6, 2026");
+  const [consistencyThreshold, setConsistencyThreshold] = useState("30");
+  const [consistencyDaysRequired, setConsistencyDaysRequired] = useState("5");
 
   function switchTab(tab: AdminTab) {
     setActiveTab(tab);
@@ -146,7 +148,7 @@ export default function Admin() {
     const { data } = await supabase
       .from("settings")
       .select("key, value")
-      .in("key", ["detection_engine", "theme", "global_target", "target_date", "target_label"]);
+      .in("key", ["detection_engine", "theme", "global_target", "target_date", "target_label", "consistency_daily_threshold", "consistency_weekly_days_required"]);
     if (data) {
       for (const row of data) {
         if (row.key === "detection_engine") setActiveEngine(row.value as EngineVersion);
@@ -154,6 +156,8 @@ export default function Admin() {
         if (row.key === "global_target") setGlobalTarget(row.value);
         if (row.key === "target_date") setGlobalTargetDate(row.value);
         if (row.key === "target_label") setGlobalTargetLabel(row.value);
+        if (row.key === "consistency_daily_threshold") setConsistencyThreshold(row.value);
+        if (row.key === "consistency_weekly_days_required") setConsistencyDaysRequired(row.value);
       }
     }
   }, []);
@@ -358,6 +362,45 @@ export default function Admin() {
                   <span className="text-xs text-ink-muted tabular-nums whitespace-nowrap">
                     {stats.totalReps.toLocaleString()} / {Number(globalTarget).toLocaleString()}
                   </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Leaderboard Settings */}
+            <section>
+              <div className="mb-4">
+                <h2 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">
+                  Leaderboard
+                </h2>
+                <p className="text-xs text-ink-muted mt-1">
+                  Consistency metric thresholds. A qualifying day needs at least the daily threshold reps.
+                  A qualifying week needs at least the required number of qualifying days.
+                </p>
+              </div>
+              <div className="bg-bg-surface rounded-2xl border border-divider p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-ink-secondary block mb-1.5">
+                    Daily Threshold (reps per day to count)
+                  </label>
+                  <input
+                    type="number"
+                    value={consistencyThreshold}
+                    onChange={(e) => setConsistencyThreshold(e.target.value)}
+                    onBlur={() => upsertSetting("consistency_daily_threshold", consistencyThreshold)}
+                    className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-ink-secondary block mb-1.5">
+                    Weekly Days Required (qualifying days per week)
+                  </label>
+                  <input
+                    type="number"
+                    value={consistencyDaysRequired}
+                    onChange={(e) => setConsistencyDaysRequired(e.target.value)}
+                    onBlur={() => upsertSetting("consistency_weekly_days_required", consistencyDaysRequired)}
+                    className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
+                  />
                 </div>
               </div>
             </section>
