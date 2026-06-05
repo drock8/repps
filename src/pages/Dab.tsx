@@ -124,7 +124,6 @@ export default function Dab() {
   const [congratsMessage, setCongratsMessage] = useState("");
   const [debugInfo, setDebugInfo] = useState("");
   const [claimRank, setClaimRank] = useState<number | null>(null);
-  const [claimTotal, setClaimTotal] = useState(0);
   const prevBestSessionRef = useRef(0);
   const prevLongestStreakRef = useRef(0);
 
@@ -964,7 +963,6 @@ export default function Dab() {
     supabase.rpc("get_leaderboard", { p_period: "daily", p_limit: 50 }).then(({ data }) => {
       if (!data) return;
       const counts = (data as { rep_count: number }[]).map(r => Number(r.rep_count));
-      setClaimTotal(counts.length + 1);
       const rank = counts.findIndex(c => reps >= c);
       setClaimRank(rank === -1 ? counts.length + 1 : rank + 1);
     });
