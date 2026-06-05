@@ -847,6 +847,7 @@ export default function Dab() {
         setSummaryUserTotal(userResult.count ?? 0);
         setSummaryGlobalTotal(globalResult.count ?? 0);
 
+        setDebugInfo(`statsData:${!!statsResult.data} statsErr:${statsResult.error?.message ?? 'none'} reps:${repCountRef.current} prevBest:${prevBestSessionRef.current} prevLongest:${prevLongestStreakRef.current}`);
         if (statsResult.data) {
           const stats = statsResult.data[0] ?? statsResult.data;
           const debugStr = `reps:${repCountRef.current} best:${stats.best_session_count} prevBest:${prevBestSessionRef.current} streak:${stats.current_streak} longest:${stats.longest_streak} prevLongest:${prevLongestStreakRef.current} total:${stats.total_reps} days:${stats.days_active}`;
