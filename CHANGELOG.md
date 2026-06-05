@@ -1,5 +1,12 @@
 # Changelog
 
+## Update landing page copy and sign-in quotes (2026-06-05)
+
+### Changed
+- **Mission headline** — "Let's Get 1 Million Moving for Good." → "1 Million People. 1 Burpee at a Time." with subtitle "Micro-effort. Macro momentum."
+- **Motivational quotes** — added 8 new consistency-themed quotes to sign-in rotation (e.g. "Not one hour. Every hour.", "Move a little. All day. Every day.")
+- **AuthForm back button** — moved into AuthForm via `onBack` prop instead of external button in Landing
+
 ## Gate protected tabs behind sign-up for unauthenticated users (2026-06-05)
 
 ### Changed

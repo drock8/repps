@@ -6,7 +6,7 @@ import GoogleIcon from "./GoogleIcon";
 
 type AuthMode = "choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent";
 
-export default function AuthForm({ initialMode = "choose" }: { initialMode?: AuthMode }) {
+export default function AuthForm({ initialMode = "choose", onBack }: { initialMode?: AuthMode; onBack?: () => void }) {
   const { signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword } = useAuth();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [name, setName] = useState("");
@@ -96,6 +96,14 @@ export default function AuthForm({ initialMode = "choose" }: { initialMode?: Aut
         >
           Already have an account? Sign in
         </button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="w-full py-2 text-caption text-ink-muted text-center"
+          >
+            Back
+          </button>
+        )}
       </div>
     );
   }

@@ -33,6 +33,14 @@ const MOTIVATIONAL_QUOTES = [
   "Fall seven times, stand up eight.",
   "Champions are made when nobody is watching.",
   "Your only limit is you.",
+  "Micro-effort. Macro momentum.",
+  "1 rep beats 0. Every single time.",
+  "Not one hour. Every hour.",
+  "Your body doesn't need an hour. It needs right now.",
+  "Move a little. All day. Every day.",
+  "One rep changes nothing. One rep every day changes everything.",
+  "Small reps. Big ripple.",
+  "Exercise isn't a session. It's a habit.",
 ];
 
 let cachedLandingCount: number | null = null;
@@ -122,13 +130,7 @@ export default function Landing() {
             <div className="text-center">
               <p className="text-body text-ink-secondary italic">"{quote}"</p>
             </div>
-            <AuthForm initialMode={showAuth} />
-            <button
-              onClick={() => setShowAuth(false)}
-              className="mt-2 text-caption text-ink-muted"
-            >
-              Back
-            </button>
+            <AuthForm initialMode={showAuth} onBack={() => setShowAuth(false)} />
           </div>
         ) : (
           <>
@@ -139,8 +141,12 @@ export default function Landing() {
               </p>
 
               <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
-                Let's Get 1 Million<br />Moving for Good.
+                1 Million People.<br />1 Burpee at a Time.
               </h1>
+
+              <p className="text-body text-ink-secondary">
+                Micro-effort. Macro momentum.
+              </p>
 
               <div>
                 <p className="text-micro text-ink-muted uppercase tracking-wide">Global Verified Burpees</p>
