@@ -48,10 +48,14 @@ interface EventInfo {
 // ─── Admin Panel ─────────────────────────────────────────────────
 function AdminOverlay({
   comp,
+  siblingComps,
   onTransition,
+  onNavigateComp,
 }: {
   comp: CompState;
+  siblingComps: { id: string; name: string; state: string }[];
   onTransition: (state: string) => void;
+  onNavigateComp: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -123,6 +127,33 @@ function AdminOverlay({
               </button>
             ))}
           </div>
+          {siblingComps.length > 1 && (
+            <>
+              <div className="border-t border-divider my-2" />
+              <p className="text-micro text-ink-muted uppercase tracking-widest mb-1">Competitions</p>
+              <div className="flex flex-col gap-1">
+                {siblingComps.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => c.id !== comp.id && onNavigateComp(c.id)}
+                    className={`py-2 px-3 rounded-md text-caption text-left flex items-center justify-between ${
+                      c.id === comp.id
+                        ? "bg-accent/20 text-accent font-semibold"
+                        : "text-ink-secondary hover:bg-bg-surface"
+                    }`}
+                  >
+                    <span className="truncate">{c.name}</span>
+                    <span className={`text-micro uppercase ml-2 ${
+                      ["live", "countdown"].includes(c.state) ? "text-success" :
+                      ["finished", "results"].includes(c.state) ? "text-ink-muted" : "text-ink-secondary"
+                    }`}>
+                      {c.state.replace(/_/g, " ")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </>
@@ -358,6 +389,9 @@ function FinishOverlay({
   totalReps,
   teamSize,
   eventId,
+  siblingComps,
+  currentCompId,
+  onNavigateComp,
   onDismiss,
 }: {
   participants: Participant[];
@@ -366,6 +400,9 @@ function FinishOverlay({
   totalReps: number;
   teamSize: number;
   eventId: string | null;
+  siblingComps: { id: string; name: string; state: string }[];
+  currentCompId: string;
+  onNavigateComp: (id: string) => void;
   onDismiss: () => void;
 }) {
   const ranked = useMemo(() => {
@@ -417,12 +454,30 @@ function FinishOverlay({
           ))}
         </div>
 
-        <button
-          onClick={onDismiss}
-          className="mt-10 py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
-        >
-          {eventId ? "Back to Event" : "Done"}
-        </button>
+        {(() => {
+          const others = siblingComps.filter((c) => c.id !== currentCompId);
+          const next = others.find((c) => !["finished", "results"].includes(c.state));
+          return (
+            <div className="mt-10 flex flex-col items-center gap-3">
+              {next && (
+                <button
+                  onClick={() => onNavigateComp(next.id)}
+                  className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
+                >
+                  Next: {next.name}
+                </button>
+              )}
+              <button
+                onClick={onDismiss}
+                className={`py-3 px-8 rounded-pill text-body font-semibold active:scale-95 transition-transform ${
+                  next ? "bg-bg-surface text-ink-secondary" : "bg-accent text-ink-inverse"
+                }`}
+              >
+                {eventId ? "Back to Event" : "Done"}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -443,6 +498,7 @@ export default function LiveDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCountdown, setShowCountdown] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [siblingComps, setSiblingComps] = useState<{ id: string; name: string; state: string }[]>([]);
   const repMapRef = useRef(repMap);
   repMapRef.current = repMap;
 
@@ -471,6 +527,15 @@ export default function LiveDashboard() {
 
     if (data.competition.state === "countdown") {
       setShowCountdown(true);
+    }
+
+    if (data.event?.id) {
+      const { data: siblings } = await supabase
+        .from("competition_settings")
+        .select("id, name, state")
+        .eq("event_id", data.event.id)
+        .order("created_at", { ascending: true });
+      if (siblings) setSiblingComps(siblings);
     }
 
     setLoading(false);
@@ -539,6 +604,32 @@ export default function LiveDashboard() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [competitionId]);
+
+  // Realtime: sibling competition changes (new competitions created, state changes)
+  useEffect(() => {
+    if (!event?.id) return;
+    const channel = supabase
+      .channel(`comp-siblings-${event.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "competition_settings",
+          filter: `event_id=eq.${event.id}`,
+        },
+        async () => {
+          const { data: siblings } = await supabase
+            .from("competition_settings")
+            .select("id, name, state")
+            .eq("event_id", event.id)
+            .order("created_at", { ascending: true });
+          if (siblings) setSiblingComps(siblings);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [event?.id]);
 
   // Realtime: competition reps (the critical hot path)
   useEffect(() => {
@@ -904,6 +995,9 @@ export default function LiveDashboard() {
           totalReps={totalReps}
           teamSize={comp.team_size}
           eventId={event?.id || null}
+          siblingComps={siblingComps}
+          currentCompId={comp.id}
+          onNavigateComp={(id) => navigate(`/live/${id}`)}
           onDismiss={() => {
             if (event?.id) {
               navigate(`/events/${event.id}`);
@@ -913,7 +1007,14 @@ export default function LiveDashboard() {
           }}
         />
       )}
-      {isOrganizer && <AdminOverlay comp={comp} onTransition={handleTransition} />}
+      {isOrganizer && (
+        <AdminOverlay
+          comp={comp}
+          siblingComps={siblingComps}
+          onTransition={handleTransition}
+          onNavigateComp={(id) => navigate(`/live/${id}`)}
+        />
+      )}
     </div>
   );
 }
