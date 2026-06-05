@@ -8,6 +8,12 @@ import { useTheme } from "../contexts/ThemeContext";
 import ActivityFeed from "../components/ActivityFeed";
 import AuthForm from "../components/AuthForm";
 
+const MISSION_HEADLINES = [
+  { headline: "1 Million People.\n1 Burpee at a Time.", subtitle: "Micro-effort. Macro momentum." },
+  { headline: "Let's Get 1 Million\nSouls Moving.", subtitle: "Not one hour. Every hour." },
+  { headline: "Move a Little.\nAll Day. Every Day.", subtitle: "Join 1 million people proving consistency beats intensity." },
+];
+
 const TICKER_ITEMS = [
   "CV-VERIFIED",
   "TRIBAL COMPETITION",
@@ -57,6 +63,7 @@ export default function Landing() {
   );
   const mountedRef = useRef(true);
   const quote = useMemo(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)], []);
+  const mission = useMemo(() => MISSION_HEADLINES[Math.floor(Math.random() * MISSION_HEADLINES.length)], []);
   const logo = theme === "blue" ? "/Repps-Blue-Logo.png"
     : theme === "yellow" ? "/Repps-Yellow-Logo.png"
     : "/repps-logo.png";
@@ -141,11 +148,13 @@ export default function Landing() {
               </p>
 
               <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
-                1 Million People.<br />1 Burpee at a Time.
+                {mission.headline.split("\n").map((line, i, arr) => (
+                  <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
+                ))}
               </h1>
 
               <p className="text-body text-ink-secondary">
-                Micro-effort. Macro momentum.
+                {mission.subtitle}
               </p>
 
               <div>
