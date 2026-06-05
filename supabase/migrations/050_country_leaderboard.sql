@@ -6,6 +6,8 @@
 -- metric_value, member_count. Country names resolved client-side.
 -- ============================================================
 
+drop function if exists get_country_leaderboard(text, text, int, int, text, int);
+
 create or replace function get_country_leaderboard(
   p_metric text default 'reps',
   p_gender text default null,
@@ -19,7 +21,7 @@ returns table (
   out_metric_value bigint,
   out_member_count bigint
 )
-language plpgsql stable security definer
+language plpgsql security definer
 as $$
 declare
   v_row record;
@@ -29,16 +31,8 @@ declare
   v_run int;
   v_longest int;
 begin
-  -- Temp table to collect results for all metric types
-  create temp table if not exists _country_results (
-    country_code text,
-    metric_value bigint,
-    member_count bigint
-  );
-  truncate _country_results;
-
   if p_metric = 'reps' then
-    insert into _country_results
+    return query
     select
       p.nationality_code,
       count(*)::bigint,
@@ -62,10 +56,13 @@ begin
           end
         )
       )
-    group by p.nationality_code;
+    group by p.nationality_code
+    having count(*) > 0
+    order by count(*) desc
+    limit p_limit;
 
   elsif p_metric = 'score' then
-    insert into _country_results
+    return query
     select
       p.nationality_code,
       sum(rs.score)::bigint,
@@ -80,10 +77,21 @@ begin
         p_age_min is null
         or (p.dob is not null and extract(year from age(current_date, p.dob)) between p_age_min and coalesce(p_age_max, 200))
       )
-    group by p.nationality_code;
+    group by p.nationality_code
+    having sum(rs.score) > 0
+    order by sum(rs.score) desc
+    limit p_limit;
 
   elsif p_metric = 'streak' then
     -- Per-user streak calculation, then MAX per country
+    -- Use temp table (function is volatile, not stable)
+    create temp table if not exists _country_streak (
+      country_code text,
+      best_streak bigint,
+      member_count bigint
+    );
+    truncate _country_streak;
+
     for v_row in
       select p.id as uid, p.nationality_code as nc, p.timezone as utz
       from profiles p
@@ -117,21 +125,26 @@ begin
       end loop;
 
       if v_longest > 0 then
-        -- Upsert: keep the MAX streak per country
-        if exists (select 1 from _country_results cr where cr.country_code = v_row.nc) then
-          update _country_results
-            set metric_value = greatest(metric_value, v_longest::bigint),
+        if exists (select 1 from _country_streak cs where cs.country_code = v_row.nc) then
+          update _country_streak
+            set best_streak = greatest(best_streak, v_longest::bigint),
                 member_count = member_count + 1
             where country_code = v_row.nc;
         else
-          insert into _country_results values (v_row.nc, v_longest::bigint, 1);
+          insert into _country_streak values (v_row.nc, v_longest::bigint, 1);
         end if;
       end if;
     end loop;
 
+    return query
+    select cs.country_code, cs.best_streak, cs.member_count
+    from _country_streak cs
+    where cs.best_streak > 0
+    order by cs.best_streak desc
+    limit p_limit;
+
   elsif p_metric = 'session' then
-    -- Best individual session per user, then MAX per country
-    insert into _country_results
+    return query
     select
       sub.nationality_code,
       max(sub.best_reps)::bigint,
@@ -177,15 +190,11 @@ begin
         and exists (select 1 from reps r where r.user_id = p.id)
     ) sub
     where sub.best_reps is not null
-    group by sub.nationality_code;
+    group by sub.nationality_code
+    having max(sub.best_reps) > 0
+    order by max(sub.best_reps) desc
+    limit p_limit;
 
   end if;
-
-  return query
-    select cr.country_code, cr.metric_value, cr.member_count
-    from _country_results cr
-    where cr.metric_value > 0
-    order by cr.metric_value desc
-    limit p_limit;
 end;
 $$;
