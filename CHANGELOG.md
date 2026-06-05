@@ -1,5 +1,20 @@
 # Changelog
 
+## Leaderboard v2 Phase 1 — Scope × Metric system (2026-06-05)
+
+### Added
+- **3-dimension leaderboard architecture** — Scope (Individual/Team/Country) × Metric (Repps/Score/Streak/Session) × Filters, replacing the old monolithic 5-board pill system.
+- **FilterSheet bottom sheet** — collapsible filter panel with Time, Gender, Age bracket (scrollable pills), and Country search (Individual scope only). Apply + Reset controls.
+- **3 new team RPCs** — `get_team_reps_leaderboard` (combined raw reps), `get_team_streak_leaderboard` (team streak rankings), `get_team_session_leaderboard` (best session per team).
+- **Age and country filtering** — all 5 existing RPCs extended with `p_age_min`, `p_age_max`, `p_country` params. Team RPCs use EXISTS subquery (team appears if ANY member matches filter).
+- **URL deep linking** — `?scope=team&metric=streak&time=week&gender=female&age=30-39` via `replaceState`. Invalid params silently corrected to defaults.
+- **`flagEmoji` utility** — extracted from CountryPicker into `src/lib/flagEmoji.ts` for shared use.
+
+### Changed
+- **Leaderboard.tsx rewritten** — 1,365 → 955 lines. Scope + Metric pills replace old BoardType pills. Generalized pinned card works for both Individual and Team scopes.
+- **Country scope and Consistency metric dimmed** — visible but disabled, reserved for Phase 2 and Phase 3.
+- **Migration 049** — indexes on `profiles.nationality_code` and `profiles.dob`, `consistency_daily_threshold` and `consistency_weekly_days_required` settings seeded.
+
 ## Referral Sparks system (2026-06-04)
 
 ### Added
