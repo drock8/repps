@@ -138,6 +138,14 @@ export default function Landing() {
               <p className="text-body text-ink-secondary italic">"{quote}"</p>
             </div>
             <AuthForm initialMode={showAuth} onBack={() => setShowAuth(false)} />
+            <a
+              href="/about.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 text-caption text-ink-muted transition-colors duration-200 ease-apple active:text-accent"
+            >
+              About REPPs
+            </a>
           </div>
         ) : (
           <>
@@ -178,6 +186,14 @@ export default function Landing() {
                 Join the Movement
               </button>
               <p className="mt-2 text-micro text-ink-muted">No sign-up required</p>
+              <a
+                href="/about.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 text-caption text-ink-muted transition-colors duration-200 ease-apple active:text-accent"
+              >
+                About REPPs
+              </a>
             </div>
           </>
         )}
