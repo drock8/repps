@@ -265,8 +265,66 @@
   .engine-card:hover { transform: translateY(-4px); }
 
   .engine-icon {
-    font-size: 32px;
     margin-bottom: 16px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: rgba(255,214,0,0.1);
+  }
+
+  .engine-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .icon-box {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(255,214,0,0.1);
+    flex-shrink: 0;
+  }
+
+  .icon-box svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .comp-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(255,214,0,0.1);
+    margin: 0 auto 8px;
+  }
+
+  .comp-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: var(--accent);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .engine-card h3 {
@@ -372,7 +430,7 @@
     text-align: center;
   }
 
-  .comp-step .icon { font-size: 28px; margin-bottom: 8px; }
+  .comp-step .icon { display: contents; }
   .comp-step .text { font-size: 14px; font-weight: 600; }
 
   .comp-arrow {
@@ -433,7 +491,7 @@
     gap: 10px;
   }
 
-  .feature h3 span { font-size: 20px; }
+  .comp-step .icon { margin-bottom: 8px; }
   .feature p { font-size: 14px; color: var(--ink-secondary); line-height: 1.5; }
 
   /* ── FINAL CTA ── */
@@ -595,19 +653,19 @@
 
   <div class="engines">
     <div class="engine-card">
-      <div class="engine-icon">&#128064;</div>
+      <div class="engine-icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
       <h3>AI Verification</h3>
       <p>33 skeletal landmarks. 7-state detection. 9 rejection conditions. Runs entirely on your phone &mdash; no cloud GPU, no server cost per rep. This is proof of work, not self-reporting.</p>
       <span class="engine-tag">Trust</span>
     </div>
     <div class="engine-card">
-      <div class="engine-icon">&#128101;</div>
+      <div class="engine-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
       <h3>Tribal Accountability</h3>
       <p>Teams of 2&ndash;3 where everyone's score depends on everyone else. If one person skips, nobody gets the multiplier. Small enough that absence is impossible to hide.</p>
       <span class="engine-tag">Obligation</span>
     </div>
     <div class="engine-card">
-      <div class="engine-icon">&#128200;</div>
+      <div class="engine-icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
       <h3>Compounding Incentives</h3>
       <p>Four multipliers stack daily. Individual effort earns linear returns. Coordinated consistency earns exponential returns. Breaking the chain costs months of compound value.</p>
       <span class="engine-tag">Reward</span>
@@ -682,27 +740,27 @@
 
   <div class="comp-flow">
     <div class="comp-step">
-      <div class="icon">&#128250;</div>
+      <div class="icon"><div class="comp-icon"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/></svg></div></div>
       <div class="text">QR on Screen</div>
     </div>
     <div class="comp-arrow">&rarr;</div>
     <div class="comp-step">
-      <div class="icon">&#128241;</div>
+      <div class="icon"><div class="comp-icon"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div></div>
       <div class="text">Scan &amp; Join</div>
     </div>
     <div class="comp-arrow">&rarr;</div>
     <div class="comp-step">
-      <div class="icon">&#9201;</div>
+      <div class="icon"><div class="comp-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
       <div class="text">Countdown</div>
     </div>
     <div class="comp-arrow">&rarr;</div>
     <div class="comp-step">
-      <div class="icon">&#127942;</div>
+      <div class="icon"><div class="comp-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div></div>
       <div class="text">Compete Live</div>
     </div>
     <div class="comp-arrow">&rarr;</div>
     <div class="comp-step">
-      <div class="icon">&#127941;</div>
+      <div class="icon"><div class="comp-icon"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 17 7 17 7"/><rect x="6" y="9" width="12" height="8" rx="1"/><path d="M10 17v4"/><path d="M14 17v4"/><path d="M8 21h8"/></svg></div></div>
       <div class="text">Podium</div>
     </div>
   </div>
@@ -724,39 +782,39 @@
 
   <div class="features">
     <div class="feature">
-      <h3><span>&#128064;</span> AI Rep Detection</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div> AI Rep Detection</h3>
       <p>33 skeletal landmarks tracked in real time. 7-state detection validates every rep. Audio coaching guides your form.</p>
     </div>
     <div class="feature">
-      <h3><span>&#128101;</span> Teams</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div> Teams</h3>
       <p>Create or join a team of 2&ndash;3. Everyone's score depends on everyone. Small enough to matter.</p>
     </div>
     <div class="feature">
-      <h3><span>&#128200;</span> Rep Score</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div> Rep Score</h3>
       <p>Four stacking multipliers reward coordinated consistency. Your score compounds every day you show up.</p>
     </div>
     <div class="feature">
-      <h3><span>&#127942;</span> Leaderboards</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 17 7 17 7"/><rect x="6" y="9" width="12" height="8" rx="1"/><path d="M10 17v4"/><path d="M14 17v4"/><path d="M8 21h8"/></svg></div> Leaderboards</h3>
       <p>Individual and team rankings across daily, weekly, monthly, yearly, and all-time periods.</p>
     </div>
     <div class="feature">
-      <h3><span>&#128293;</span> Streaks</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div> Streaks</h3>
       <p>Individual and team streaks that escalate in value every 10 days. Breaking the chain costs compound value.</p>
     </div>
     <div class="feature">
-      <h3><span>&#128172;</span> Team Chat &amp; Nudges</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div> Team Chat &amp; Nudges</h3>
       <p>Quick preset messages to hype up your teammates. Daily nudges to bring lapsed members back.</p>
     </div>
     <div class="feature">
-      <h3><span>&#127775;</span> Events &amp; Competitions</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div> Events &amp; Competitions</h3>
       <p>Create or join timed challenges. Solo, team, or open competitions with 6 scoring modes.</p>
     </div>
     <div class="feature">
-      <h3><span>&#9889;</span> Referral Sparks</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div> Referral Sparks</h3>
       <p>Share your personal link. Earn 11 points when they do their first rep. 15 if they hit daily target day one.</p>
     </div>
     <div class="feature">
-      <h3><span>&#127760;</span> No Download Required</h3>
+      <h3><div class="icon-box"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div> No Download Required</h3>
       <p>Browser-first PWA. Open the URL on any phone. Works on Safari, Chrome, Firefox. Instant access.</p>
     </div>
   </div>
