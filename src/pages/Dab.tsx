@@ -14,7 +14,7 @@ import { DetectionEngineV3 } from "../lib/detectionV3";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
 import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "../lib/detectionV3";
-import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
+import { preloadRepAudio, playRepAudio, playGoAudio, unlockAudio } from "../lib/repAudio";
 import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
   generateQRDataUrl,
@@ -198,8 +198,9 @@ export default function Dab() {
     coachingCueTimeoutRef.current = setTimeout(() => setCoachingCueText(null), 1500);
   }, []);
 
-  // Preload rep audio clips, coach audio, and brand assets
+  // Unlock audio context + preload clips
   useEffect(() => {
+    unlockAudio();
     preloadRepAudio(10);
     preloadCoachAudio();
     preloadCongratsAudio();
@@ -569,6 +570,8 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
+                stopGuide();
+                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
@@ -637,6 +640,8 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
+                stopGuide();
+                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 if (!tuneMode) insertRep();
@@ -717,6 +722,8 @@ export default function Dab() {
                 lastRepCount = frame.repCount;
                 repCountRef.current = frame.repCount;
                 setReps(frame.repCount);
+                stopGuide();
+                stopCoachAudio();
                 playRepAudio(frame.repCount);
                 navigator.vibrate?.(100);
                 consecutiveRejectionRef.current = { reason: "", count: 0 };

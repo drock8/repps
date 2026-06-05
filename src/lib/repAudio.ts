@@ -21,14 +21,20 @@ function getGainNode(): GainNode {
   return gainNode!;
 }
 
-// Call this during a user gesture (tap/click) to unlock iOS audio
+async function ensureRunning(): Promise<AudioContext> {
+  const ctx = getAudioContext();
+  if (ctx.state === "suspended") {
+    await ctx.resume();
+  }
+  return ctx;
+}
+
 export function unlockAudio() {
   if (unlocked) return;
   const ctx = getAudioContext();
   if (ctx.state === "suspended") {
     ctx.resume();
   }
-  // Play a silent buffer to fully unlock on iOS
   const buf = ctx.createBuffer(1, 1, 22050);
   const src = ctx.createBufferSource();
   src.buffer = buf;
@@ -57,11 +63,8 @@ export function preloadRepAudio(upTo = 10) {
   }
 }
 
-export function playGoAudio() {
-  const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    ctx.resume();
-  }
+export async function playGoAudio() {
+  const ctx = await ensureRunning();
   const gain = getGainNode();
   if (goBuffer) {
     const src = ctx.createBufferSource();
@@ -83,13 +86,10 @@ export function playGoAudio() {
   }
 }
 
-export function playRepAudio(repNumber: number) {
-  const ctx = getAudioContext();
-  if (ctx.state === "suspended") {
-    ctx.resume();
-  }
-
+export async function playRepAudio(repNumber: number) {
+  const ctx = await ensureRunning();
   const gain = getGainNode();
+
   const cached = bufferCache.get(repNumber);
   if (cached) {
     const src = ctx.createBufferSource();
