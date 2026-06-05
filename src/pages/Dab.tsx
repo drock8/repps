@@ -160,6 +160,73 @@ export default function Dab() {
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cleanStreakRef = useRef(0);
 
+  // Competition state
+  const [compState, setCompState] = useState<string | null>(null);
+  const [compStartedAt, setCompStartedAt] = useState<string | null>(null);
+  const [compDuration, setCompDuration] = useState<number | null>(null);
+  const [compTimeRemaining, setCompTimeRemaining] = useState<number | null>(null);
+  const [compFinished, setCompFinished] = useState(false);
+  const compStateRef = useRef(compState);
+  compStateRef.current = compState;
+
+  // Load competition state and subscribe to changes
+  useEffect(() => {
+    if (!competitionId) return;
+    supabase
+      .from("competition_settings")
+      .select("state, started_at, duration_seconds")
+      .eq("id", competitionId)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setCompState(data.state);
+          setCompStartedAt(data.started_at);
+          setCompDuration(data.duration_seconds);
+        }
+      });
+
+    const channel = supabase
+      .channel(`dab-comp-state-${competitionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "competition_settings", filter: `id=eq.${competitionId}` },
+        (payload) => {
+          const row = payload.new as any;
+          setCompState(row.state);
+          setCompStartedAt(row.started_at);
+          setCompDuration(row.duration_seconds);
+          if (row.state === "finished") setCompFinished(true);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [competitionId]);
+
+  // Update status to camera_ready when calibrated
+  useEffect(() => {
+    if (!competitionId || !calibrated || !profileRef.current) return;
+    supabase.rpc("update_participant_status", {
+      p_competition_id: competitionId,
+      p_status: "camera_ready",
+    });
+  }, [competitionId, calibrated]);
+
+  // Competition timer countdown
+  useEffect(() => {
+    if (!competitionId || compState !== "live" || !compStartedAt || !compDuration) return;
+    const startMs = new Date(compStartedAt).getTime();
+    const endMs = startMs + compDuration * 1000;
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+      setCompTimeRemaining(remaining);
+      if (remaining <= 0) setCompFinished(true);
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [competitionId, compState, compStartedAt, compDuration]);
+
   const showRejection = useCallback((reason: RejectionReason) => {
     if (reason === "jitter") return;
     const now = Date.now();
@@ -263,6 +330,8 @@ export default function Dab() {
 
   const insertRep = useCallback(
     () => {
+      if (competitionIdRef.current && compStateRef.current !== "live") return;
+
       if (profileRef.current) {
         supabase
           .rpc("insert_rep", { p_exercise_type: "burpee" })
@@ -1396,8 +1465,40 @@ export default function Dab() {
         />
       </div>
 
-      {/* Finish button — fixed above bottom nav */}
-      {calibrated && !celebrating && (
+      {/* Competition overlay — waiting for GO / timer / time's up */}
+      {competitionId && calibrated && compState && compState !== "live" && !compFinished && (
+        <div className="fixed inset-0 z-[55] bg-bg-base/80 flex flex-col items-center justify-center text-center px-6">
+          <p className="text-micro text-success uppercase tracking-widest mb-2 font-bold">Camera Ready</p>
+          <p className="text-display-md text-ink-primary mb-2">Waiting for GO…</p>
+          <p className="text-body text-ink-secondary">The organizer will start the competition.</p>
+          <div className="mt-6 w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      {competitionId && compState === "live" && compTimeRemaining !== null && !compFinished && (
+        <div className="fixed top-0 left-0 right-0 z-[55] flex justify-center pt-2 pointer-events-none">
+          <div className={`px-5 py-2 rounded-pill font-bold tabular-nums text-[20px] ${
+            compTimeRemaining <= 10 ? "bg-error text-white" : compTimeRemaining <= 60 ? "bg-[#FFC857] text-bg-base" : "bg-bg-surface/90 text-ink-primary"
+          }`}>
+            {String(Math.floor(compTimeRemaining / 60)).padStart(2, "0")}:{String(compTimeRemaining % 60).padStart(2, "0")}
+          </div>
+        </div>
+      )}
+      {competitionId && compFinished && (
+        <div className="fixed inset-0 z-[55] bg-bg-base/90 flex flex-col items-center justify-center text-center px-6">
+          <p className="text-display-md text-ink-primary mb-2">Time's Up!</p>
+          <p className="text-[64px] font-bold text-accent leading-none mb-1">{reps}</p>
+          <p className="text-body text-ink-muted mb-6">repps completed</p>
+          <button
+            onClick={() => navigate(`/live/${competitionId}`)}
+            className="py-4 px-8 rounded-pill bg-accent text-ink-inverse text-body-lg font-bold active:scale-95 transition-transform"
+          >
+            View Results
+          </button>
+        </div>
+      )}
+
+      {/* Finish button — fixed above bottom nav (hide during competition) */}
+      {calibrated && !celebrating && !competitionId && (
         <div className="fixed bottom-[76px] left-0 right-0 z-50 px-4 pb-2">
           <button
             onClick={handleStop}

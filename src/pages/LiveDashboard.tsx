@@ -629,6 +629,9 @@ export default function LiveDashboard() {
   const myReps = profile ? repMap.get(profile.id) || 0 : 0;
   const myRank = profile ? rankOf(profile.id) : null;
 
+  const readyCount = participants.filter((p) => p.status === "camera_ready" || p.status === "live").length;
+  const myStatus = profile ? participants.find((p) => p.user_id === profile.id)?.status : null;
+
   // ─── Participant mobile view ─────────────────────────────────
   if (isParticipant && !isOrganizer) {
     return (
@@ -639,15 +642,33 @@ export default function LiveDashboard() {
           <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
           <h1 className="text-display-md mb-2">{comp.name}</h1>
 
-          {isPreLobby && (
+          {isPreLobby && myStatus === "joined" && (
             <>
               <p className="text-body-lg text-ink-secondary mb-2">
-                {comp.state === "join_open" || comp.state === "join_closed"
-                  ? "You're in! Waiting for the organizer to start…"
-                  : "Competition starting soon…"}
+                Set up your camera so you're ready when it's go time.
               </p>
-              <p className="text-headline text-ink-muted">
-                {participants.length} participant{participants.length !== 1 ? "s" : ""} joined
+              <p className="text-body text-ink-muted mb-6">
+                {readyCount} of {participants.length} ready
+              </p>
+              <button
+                onClick={() => navigate(`/dab?comp=${comp.id}`)}
+                className="w-full max-w-xs py-5 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform"
+              >
+                Get Ready
+              </button>
+            </>
+          )}
+
+          {isPreLobby && myStatus === "camera_ready" && (
+            <>
+              <p className="text-body-lg text-success font-semibold mb-2">
+                You're ready!
+              </p>
+              <p className="text-body text-ink-secondary mb-4">
+                Waiting for the organizer to start the competition…
+              </p>
+              <p className="text-body text-ink-muted">
+                {readyCount} of {participants.length} ready
               </p>
             </>
           )}
@@ -670,12 +691,6 @@ export default function LiveDashboard() {
                   #{myRank} of {participants.length}
                 </p>
               )}
-              <button
-                onClick={() => navigate(`/dab?comp=${comp.id}`)}
-                className="w-full max-w-xs py-5 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform"
-              >
-                DO REPS
-              </button>
             </>
           )}
 
@@ -827,9 +842,30 @@ export default function LiveDashboard() {
             </p>
           )}
 
-          <p className="text-center text-ink-secondary text-body mt-6">
-            {participants.length} participant{participants.length !== 1 ? "s" : ""}
-          </p>
+          {/* Ready progress */}
+          {isPreLobby && participants.length > 0 && (
+            <div className="flex flex-col items-center mt-6 gap-2">
+              <p className="text-body text-ink-secondary">
+                <span className="text-accent font-bold">{readyCount}</span> of{" "}
+                <span className="font-semibold">{participants.length}</span> ready
+              </p>
+              <div className="w-64 h-2 bg-bg-surface rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-success rounded-full transition-all duration-500 ease-apple"
+                  style={{ width: `${participants.length > 0 ? (readyCount / participants.length) * 100 : 0}%` }}
+                />
+              </div>
+              {readyCount === participants.length && participants.length > 0 && (
+                <p className="text-success text-caption font-semibold mt-1">All participants ready!</p>
+              )}
+            </div>
+          )}
+
+          {(isLive || isFinished) && (
+            <p className="text-center text-ink-secondary text-body mt-6">
+              {participants.length} participant{participants.length !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
 
         {(isLive || isFinished) && (
