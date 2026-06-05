@@ -27,6 +27,7 @@ import { runConfetti, createParticles, drawConfettiFrame, DURATION_MS as CONFETT
 import type { BrandOverlayConfig, RecorderHandle } from "../lib/videoRecorder";
 import { addGuestRep } from "../lib/guestSession";
 import AuthForm from "../components/AuthForm";
+import { MEDALS } from "../lib/format";
 import { speakGuide, speakReady, stopGuide, preloadGuideClips } from "../lib/voiceGuide";
 import { pickCongratsMessage, playCongratsAudio, preloadCongratsAudio } from "../lib/congratsAudio";
 type Screen = "detecting" | "summary" | "claim-spot";
@@ -122,6 +123,8 @@ export default function Dab() {
   const [summaryGlobalTotal, setSummaryGlobalTotal] = useState(0);
   const [congratsMessage, setCongratsMessage] = useState("");
   const [debugInfo, setDebugInfo] = useState("");
+  const [claimRank, setClaimRank] = useState<number | null>(null);
+  const [claimTotal, setClaimTotal] = useState(0);
   const prevBestSessionRef = useRef(0);
   const prevLongestStreakRef = useRef(0);
 
@@ -956,24 +959,64 @@ export default function Dab() {
     </div>
   );
 
+  useEffect(() => {
+    if (screen !== "claim-spot" || reps === 0) return;
+    supabase.rpc("get_leaderboard", { p_period: "daily", p_limit: 50 }).then(({ data }) => {
+      if (!data) return;
+      const counts = (data as { rep_count: number }[]).map(r => Number(r.rep_count));
+      setClaimTotal(counts.length + 1);
+      const rank = counts.findIndex(c => reps >= c);
+      setClaimRank(rank === -1 ? counts.length + 1 : rank + 1);
+    });
+  }, [screen, reps]);
+
   if (screen === "claim-spot") {
     if (profile) {
       navigate("/leaderboard");
       return null;
     }
 
-    // Pre-set auth return so OAuth redirect lands on leaderboard, not /dab
     try { sessionStorage.setItem("repps_auth_return", "/leaderboard"); } catch { /* ignore */ }
+
+    const rankLabel = claimRank !== null
+      ? claimRank <= 3 ? MEDALS[claimRank - 1] : `#${claimRank}`
+      : "—";
 
     return (
       <div className="flex flex-col items-center justify-center h-[100dvh] -mx-4 -mt-6 px-4">
-        <div className="w-full max-w-sm text-center">
-          <p className="text-display-md text-accent tabular-nums">+{reps}</p>
-          <p className="text-display-md text-ink-primary mt-2">Lock in your spot</p>
-          <p className="text-body text-ink-secondary mt-3">
-            Sign up to claim your rank on the leaderboard
+        <div className="w-full max-w-sm">
+          {/* Position card */}
+          <div className="bg-bg-elevated border border-accent/30 rounded-2xl p-5 text-center mb-6">
+            <p className="text-micro text-ink-muted uppercase tracking-wide">Your position today</p>
+            <p className="text-[2.5rem] font-bold mt-1 leading-none">{rankLabel}</p>
+            <div className="flex items-center justify-center gap-6 mt-4">
+              <div>
+                <p className="text-display-sm text-accent tabular-nums font-bold">{reps}</p>
+                <p className="text-micro text-ink-muted">{reps === 1 ? "repp" : "repps"}</p>
+              </div>
+              <div className="w-px h-8 bg-divider" />
+              <div>
+                <p className="text-display-sm text-ink-primary tabular-nums font-bold">{reps}</p>
+                <p className="text-micro text-ink-muted">pts</p>
+              </div>
+            </div>
+            {claimRank !== null && claimRank <= 3 && (
+              <p className="text-body text-accent font-semibold mt-3 animate-pulse">
+                You're in the top 3!
+              </p>
+            )}
+            {claimRank !== null && claimRank > 3 && claimRank <= 10 && (
+              <p className="text-body text-accent font-semibold mt-3">
+                Top 10 — one session away from the podium
+              </p>
+            )}
+          </div>
+
+          <p className="text-display-sm text-ink-primary text-center font-bold">Claim your spot</p>
+          <p className="text-body text-ink-secondary text-center mt-2">
+            Sign up to lock in your rank
           </p>
-          <div className="mt-8">
+          <div className="mt-6">
             <AuthForm />
           </div>
         </div>
