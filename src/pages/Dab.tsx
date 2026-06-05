@@ -215,8 +215,7 @@ export default function Dab() {
             prevBestSessionRef.current = stats.best_session_count ?? 0;
             prevLongestStreakRef.current = stats.longest_streak ?? 0;
           }
-        })
-        .catch(() => {});
+        }, () => {});
     }
 
     (async () => {
