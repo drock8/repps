@@ -51,6 +51,7 @@ export default function Profile() {
   const [savingGender, setSavingGender] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [profileExpanded, setProfileExpanded] = useState(false);
   const [editingDob, setEditingDob] = useState(false);
   const [dobValue, setDobValue] = useState("");
   const [dobError, setDobError] = useState("");
@@ -395,187 +396,132 @@ export default function Profile() {
         {/* Sparks — referral stats */}
         <SparksCard />
 
-        {/* Name card */}
-        {editingName ? (
-          <div className="bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Name
-            </p>
-            <input
-              type="text"
-              value={nameValue}
-              onChange={(e) => {
-                setNameValue(e.target.value);
-                setNameError("");
-              }}
-              maxLength={50}
-              autoFocus
-              className="w-full mt-2 bg-bg-input text-ink-primary text-headline rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            {nameError && (
-              <p className="text-caption text-error mt-2">{nameError}</p>
-            )}
-            <div className="flex gap-3 mt-3">
-              <button
-                onClick={handleSaveName}
-                disabled={savingName}
-                className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingName(false)}
-                className="flex-1 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
+        {/* Profile details — collapsible */}
+        <div className="bg-bg-surface rounded-lg overflow-hidden">
+          {/* Header — name always visible */}
           <button
-            onClick={handleStartEditName}
-            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
+            onClick={() => setProfileExpanded(!profileExpanded)}
+            className="w-full p-4 flex items-center justify-between"
           >
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Name
-            </p>
-            <p className="text-headline mt-1">{profile.name}</p>
-          </button>
-        )}
-
-        {/* Gender card */}
-        {editingGender ? (
-          <div className="bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Gender
-            </p>
-            <div className="flex flex-col gap-2 mt-3">
-              {genderOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  disabled={savingGender}
-                  onClick={() => handleSelectGender(opt.value)}
-                  className={`w-full py-3 px-4 rounded-pill text-body-lg font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50 ${
-                    profile.gender === opt.value
-                      ? "bg-accent text-ink-inverse"
-                      : "bg-bg-elevated text-ink-primary hover:bg-bg-elevated/80"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div>
+              <p className="text-micro text-ink-muted uppercase tracking-wide">Profile</p>
+              <p className="text-headline mt-1">{profile.name}</p>
             </div>
-            <button
-              onClick={() => setEditingGender(false)}
-              className="w-full mt-3 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
+            <svg
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`text-ink-muted transition-transform duration-200 ${profileExpanded ? "rotate-180" : ""}`}
             >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setEditingGender(true)}
-            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
-          >
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Gender
-            </p>
-            <p className="text-headline mt-1">{formatGender(profile.gender)}</p>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
-        )}
 
-        {/* Date of Birth card */}
-        {editingDob ? (
-          <div className="bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Date of Birth
-            </p>
-            <input
-              type="date"
-              value={dobValue}
-              onChange={(e) => { setDobValue(e.target.value); setDobError(""); }}
-              autoFocus
-              className="w-full mt-2 bg-bg-input text-ink-primary text-headline rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
-            />
-            {dobError && (
-              <p className="text-caption text-error mt-2">{dobError}</p>
-            )}
-            <div className="flex gap-3 mt-3">
-              <button
-                onClick={handleSaveDob}
-                disabled={savingDob}
-                className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingDob(false)}
-                className="flex-1 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleStartEditDob}
-            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
-          >
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Date of Birth
-            </p>
-            <p className="text-headline mt-1">
-              {profile.dob
-                ? new Date(profile.dob + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-                : "Not set"}
-            </p>
-          </button>
-        )}
+          {profileExpanded && (
+            <div className="px-4 pb-4 flex flex-col gap-2">
+              {/* Name */}
+              {editingName ? (
+                <div className="bg-bg-elevated rounded-lg p-3">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Name</p>
+                  <input
+                    type="text"
+                    value={nameValue}
+                    onChange={(e) => { setNameValue(e.target.value); setNameError(""); }}
+                    maxLength={50}
+                    autoFocus
+                    className="w-full mt-2 bg-bg-input text-ink-primary text-headline rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  {nameError && <p className="text-caption text-error mt-2">{nameError}</p>}
+                  <div className="flex gap-3 mt-3">
+                    <button onClick={handleSaveName} disabled={savingName} className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50">Save</button>
+                    <button onClick={() => setEditingName(false)} className="flex-1 bg-bg-surface text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={handleStartEditName} className="w-full text-left bg-bg-elevated rounded-lg p-3 transition-colors duration-200 ease-apple active:bg-bg-elevated/70">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Name</p>
+                  <p className="text-body mt-1">{profile.name}</p>
+                </button>
+              )}
 
-        {/* Nationality card */}
-        {editingNationality ? (
-          <div className="bg-bg-surface rounded-lg p-4">
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Nationality
-            </p>
-            <div className="mt-2">
-              <CountryPicker
-                value={nationalityCode}
-                onChange={handleSelectCountry}
-                disabled={savingNationality}
-              />
+              {/* Gender */}
+              {editingGender ? (
+                <div className="bg-bg-elevated rounded-lg p-3">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Gender</p>
+                  <div className="flex flex-col gap-2 mt-3">
+                    {genderOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        disabled={savingGender}
+                        onClick={() => handleSelectGender(opt.value)}
+                        className={`w-full py-3 px-4 rounded-pill text-body-lg font-semibold transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50 ${
+                          profile.gender === opt.value ? "bg-accent text-ink-inverse" : "bg-bg-surface text-ink-primary"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setEditingGender(false)} className="w-full mt-3 bg-bg-surface text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingGender(true)} className="w-full text-left bg-bg-elevated rounded-lg p-3 transition-colors duration-200 ease-apple active:bg-bg-elevated/70">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Gender</p>
+                  <p className="text-body mt-1">{formatGender(profile.gender)}</p>
+                </button>
+              )}
+
+              {/* Date of Birth */}
+              {editingDob ? (
+                <div className="bg-bg-elevated rounded-lg p-3">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Date of Birth</p>
+                  <input
+                    type="date"
+                    value={dobValue}
+                    onChange={(e) => { setDobValue(e.target.value); setDobError(""); }}
+                    autoFocus
+                    className="w-full mt-2 bg-bg-input text-ink-primary text-headline rounded-md px-4 py-3 outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  {dobError && <p className="text-caption text-error mt-2">{dobError}</p>}
+                  <div className="flex gap-3 mt-3">
+                    <button onClick={handleSaveDob} disabled={savingDob} className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50">Save</button>
+                    <button onClick={() => setEditingDob(false)} className="flex-1 bg-bg-surface text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={handleStartEditDob} className="w-full text-left bg-bg-elevated rounded-lg p-3 transition-colors duration-200 ease-apple active:bg-bg-elevated/70">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Date of Birth</p>
+                  <p className="text-body mt-1">
+                    {profile.dob
+                      ? new Date(profile.dob + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                      : "Not set"}
+                  </p>
+                </button>
+              )}
+
+              {/* Nationality */}
+              {editingNationality ? (
+                <div className="bg-bg-elevated rounded-lg p-3">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Nationality</p>
+                  <div className="mt-2">
+                    <CountryPicker value={nationalityCode} onChange={handleSelectCountry} disabled={savingNationality} />
+                  </div>
+                  <div className="flex gap-3 mt-3">
+                    <button onClick={handleSaveNationality} disabled={savingNationality || !nationalityCode} className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50">Save</button>
+                    <button onClick={() => setEditingNationality(false)} className="flex-1 bg-bg-surface text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={handleStartEditNationality} className="w-full text-left bg-bg-elevated rounded-lg p-3 transition-colors duration-200 ease-apple active:bg-bg-elevated/70">
+                  <p className="text-micro text-ink-muted uppercase tracking-wide">Nationality</p>
+                  <p className="text-body mt-1">
+                    {profile.nationality_code
+                      ? `${flagEmoji(profile.nationality_code)} ${profile.nationality_name}`
+                      : "Not set"}
+                  </p>
+                </button>
+              )}
             </div>
-            <div className="flex gap-3 mt-3">
-              <button
-                onClick={handleSaveNationality}
-                disabled={savingNationality || !nationalityCode}
-                className="flex-1 bg-accent text-ink-inverse font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditingNationality(false)}
-                className="flex-1 bg-bg-elevated text-ink-secondary font-semibold text-body rounded-pill py-3 transition-all duration-200 ease-apple active:scale-95"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleStartEditNationality}
-            className="w-full text-left bg-bg-surface rounded-lg p-4 transition-colors duration-200 ease-apple active:bg-bg-elevated"
-          >
-            <p className="text-micro text-ink-muted uppercase tracking-wide">
-              Nationality
-            </p>
-            <p className="text-headline mt-1">
-              {profile.nationality_code
-                ? `${flagEmoji(profile.nationality_code)} ${profile.nationality_name}`
-                : "Not set"}
-            </p>
-          </button>
-        )}
+          )}
+        </div>
 
         {/* Repp Score — Today + All Time */}
         <div className="bg-bg-surface rounded-lg p-4">
