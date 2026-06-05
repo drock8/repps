@@ -11,6 +11,8 @@ import OGBadge from "../components/OGBadge";
 import { useOG100 } from "../hooks/useOG100";
 import FilterSheet from "../components/leaderboard/FilterSheet";
 import type { FilterState } from "../components/leaderboard/FilterSheet";
+import { flagEmoji } from "../lib/flagEmoji";
+import { COUNTRIES } from "../data/countries";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -53,6 +55,17 @@ interface TeamEntry {
   // Streak extra
   currentStreak?: number;
 }
+
+interface CountryEntry {
+  countryCode: string;
+  countryName: string;
+  metric: Metric;
+  primaryValue: number;
+  secondaryLabel: string;
+  memberCount: number;
+}
+
+const COUNTRY_MAP = new Map(COUNTRIES.map(c => [c.code, c.name]));
 
 interface LatestRepEntry {
   userId: string;
@@ -178,6 +191,7 @@ export default function Leaderboard() {
 
   const [individualEntries, setIndividualEntries] = useState<IndividualEntry[]>([]);
   const [teamEntries, setTeamEntries] = useState<TeamEntry[]>([]);
+  const [countryEntries, setCountryEntries] = useState<CountryEntry[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [latestReps, setLatestReps] = useState<LatestRepEntry[]>([]);
   const [showLatest, setShowLatest] = useState(false);
@@ -194,8 +208,7 @@ export default function Leaderboard() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Phase 2/3 availability
-  const isCountryEnabled = false;
+  // Phase 3 availability
   const isConsistencyEnabled = false;
 
   // ── URL sync ────────────────────────────────────────────────
@@ -404,6 +417,32 @@ export default function Leaderboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, gender, ageBracket, profile]);
 
+  // ── Country fetcher ──────────────────────────────────────────
+
+  const fetchCountryLeaderboard = useCallback(async () => {
+    const metricParam = metric === "consistency" ? "reps" : metric;
+    const { data } = await supabase.rpc("get_country_leaderboard", {
+      p_metric: metricParam,
+      p_gender: gender === "all" ? null : gender,
+      p_age_min: ageParams.min, p_age_max: ageParams.max,
+      p_period: period, p_limit: 50,
+    });
+    const secondaryLabels: Record<string, string> = {
+      reps: "repps", score: "pts", streak: "days", session: "repps",
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped: CountryEntry[] = (data || []).map((r: any) => ({
+      countryCode: r.out_country_code,
+      countryName: COUNTRY_MAP.get(r.out_country_code) || r.out_country_code,
+      metric: metricParam as Metric,
+      primaryValue: Number(r.out_metric_value),
+      secondaryLabel: secondaryLabels[metricParam] || "pts",
+      memberCount: Number(r.out_member_count),
+    }));
+    setCountryEntries(mapped);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metric, gender, ageBracket, period]);
+
   // ── Pinned card resolution ──────────────────────────────────
 
   const resolveUserPinned = useCallback((entries: IndividualEntry[], m: Metric) => {
@@ -506,24 +545,27 @@ export default function Leaderboard() {
     setExpandedTeamId(null);
 
     if (scope === "individual") {
-      setTeamEntries([]);
+      setTeamEntries([]); setCountryEntries([]);
       setTeamPinned(null);
       if (metric === "reps") await fetchIndividualReps();
       else if (metric === "score") await fetchIndividualScore();
       else if (metric === "streak") await fetchIndividualStreak();
       else if (metric === "session") await fetchIndividualSession();
     } else if (scope === "team") {
-      setIndividualEntries([]);
+      setIndividualEntries([]); setCountryEntries([]);
       setUserPinned(null);
       if (metric === "score") await fetchTeamScore();
       else if (metric === "reps") await fetchTeamReps();
       else if (metric === "streak") await fetchTeamStreak();
       else if (metric === "session") await fetchTeamSession();
+    } else if (scope === "country") {
+      setIndividualEntries([]); setTeamEntries([]);
+      setUserPinned(null); setTeamPinned(null);
+      await fetchCountryLeaderboard();
     }
-    // Country scope handled in Phase 2
 
     setLoading(false);
-  }, [scope, metric, fetchIndividualReps, fetchIndividualScore, fetchIndividualStreak, fetchIndividualSession, fetchTeamScore, fetchTeamReps, fetchTeamStreak, fetchTeamSession]);
+  }, [scope, metric, fetchIndividualReps, fetchIndividualScore, fetchIndividualStreak, fetchIndividualSession, fetchTeamScore, fetchTeamReps, fetchTeamStreak, fetchTeamSession, fetchCountryLeaderboard]);
 
   useEffect(() => {
     fetchTotalReps();
@@ -586,15 +628,15 @@ export default function Leaderboard() {
 
   const entries = scope === "individual" ? individualEntries : [];
   const teams = scope === "team" ? teamEntries : [];
+  const countries = scope === "country" ? countryEntries : [];
   const isEmpty = scope === "individual"
     ? entries.length === 0 && !userPinned
     : scope === "team"
       ? teams.length === 0 && !teamPinned
-      : true; // Country scope Phase 2
+      : countries.length === 0;
 
   const isMetricDisabled = (m: Metric) => {
     if (m === "consistency" && !isConsistencyEnabled) return true;
-    if (scope === "country" && !isCountryEnabled) return true;
     return false;
   };
 
@@ -836,25 +878,19 @@ export default function Leaderboard() {
 
         {/* Scope pills */}
         <div className="flex gap-1 mb-2 bg-bg-surface rounded-pill p-1">
-          {SCOPE_TABS.map((tab) => {
-            const disabled = tab.value === "country" && !isCountryEnabled;
-            return (
-              <button
-                key={tab.value}
-                onClick={() => !disabled && handleScopeChange(tab.value)}
-                disabled={disabled}
-                className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
-                  scope === tab.value
-                    ? "bg-accent text-ink-inverse font-bold"
-                    : disabled
-                      ? "bg-transparent text-ink-muted/40"
-                      : "bg-transparent text-ink-secondary font-medium"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+          {SCOPE_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => handleScopeChange(tab.value)}
+              className={`flex-1 py-2 rounded-pill text-micro uppercase whitespace-nowrap transition-colors duration-200 ease-apple ${
+                scope === tab.value
+                  ? "bg-accent text-ink-inverse font-bold"
+                  : "bg-transparent text-ink-secondary font-medium"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Metric pills */}
@@ -903,7 +939,11 @@ export default function Leaderboard() {
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0">
         {loading ? renderSkeleton() : isEmpty ? (
           <div className="py-12 text-center">
-            <p className="text-body text-ink-muted">No activity yet. Be the first.</p>
+            <p className="text-body text-ink-muted">
+              {scope === "country"
+                ? "No countries represented yet. Set your nationality in Profile to put your country on the board."
+                : "No activity yet. Be the first."}
+            </p>
           </div>
         ) : scope === "individual" ? (
           <div className="flex flex-col gap-2">
@@ -924,8 +964,27 @@ export default function Leaderboard() {
             )}
           </div>
         ) : (
-          <div className="py-12 text-center">
-            <p className="text-body text-ink-muted">Country leaderboard coming soon.</p>
+          <div className="flex flex-col gap-2">
+            {countries.map((entry, i) => (
+              <div key={entry.countryCode} className="flex items-center py-3 px-4 rounded-lg bg-bg-surface">
+                <span className="w-8 text-center flex-shrink-0">
+                  {renderRankBadge(i)}
+                </span>
+                <span className="ml-2 text-2xl flex-shrink-0">{flagEmoji(entry.countryCode)}</span>
+                <div className="ml-3 flex-1 min-w-0">
+                  <span className="text-body text-ink-primary truncate block">{entry.countryName}</span>
+                  <span className="text-micro text-ink-muted">
+                    {entry.memberCount} {entry.memberCount === 1 ? "member" : "members"}
+                  </span>
+                </div>
+                <div className="text-right ml-2">
+                  <span className="text-body text-accent font-bold tabular-nums">
+                    {metric === "score" ? formatNumber(entry.primaryValue) : entry.primaryValue}
+                  </span>
+                  <span className="text-micro text-ink-muted block">{entry.secondaryLabel}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
