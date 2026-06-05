@@ -962,6 +962,9 @@ export default function Dab() {
       return null;
     }
 
+    // Pre-set auth return so OAuth redirect lands on leaderboard, not /dab
+    try { sessionStorage.setItem("repps_auth_return", "/leaderboard"); } catch { /* ignore */ }
+
     return (
       <div className="flex flex-col items-center justify-center h-[100dvh] -mx-4 -mt-6 px-4">
         <div className="w-full max-w-sm text-center">

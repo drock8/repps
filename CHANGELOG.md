@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix guest claim-spot redirecting to DAB page instead of leaderboard (2026-06-05)
+
+### Fixed
+- **Post-signup redirect** — guest users completing reps and signing up from the "Lock in your spot" screen were redirected back to the burpee camera page instead of the leaderboard. Claim-spot now pre-sets the auth return path to `/leaderboard`, and Google OAuth no longer overwrites an already-set return path.
+
 ## Fixed scroll — header and bottom nav always pinned (2026-06-05)
 
 ### Changed
