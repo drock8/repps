@@ -27,12 +27,21 @@
   --color-accent-glow-secondary: 255, 232, 87;
 }
 
-body {
+html, body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
   background: #111315;
   color: #F5F2EA;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 .repps-gradient {

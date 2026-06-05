@@ -39,8 +39,8 @@ export default function Layout() {
     : "/repps-logo.png";
 
   return (
-    <div className="h-screen bg-bg-base text-ink-primary flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 z-40 bg-bg-base">
+    <div className="fixed inset-0 bg-bg-base text-ink-primary flex flex-col overflow-hidden">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-bg-base" style={{ paddingTop: "env(safe-area-inset-top)" }}>
         <div className="mx-auto max-w-md px-4 pt-2 pb-1">
           <div className="relative flex items-center justify-center h-7">
             <img src={logo} alt="REPPs" className="absolute left-0 h-8" />
@@ -82,7 +82,9 @@ export default function Layout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-md w-full px-4 pt-3 flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="mx-auto max-w-md w-full px-4 flex-1 min-h-0 flex flex-col overflow-hidden pt-[60px] pb-[68px]"
+        style={{ paddingTop: "calc(48px + 12px + env(safe-area-inset-top))", paddingBottom: "calc(68px + env(safe-area-inset-bottom))" }}
+      >
         <Outlet />
       </main>
       {/* AddToHomeScreen — ready to enable when app is solid */}

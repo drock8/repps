@@ -3,10 +3,12 @@
 ## Fixed scroll — header and bottom nav always pinned (2026-06-05)
 
 ### Changed
-- **Layout rewrite** — `<main>` is now a non-scrolling flex container (`flex-1 min-h-0 overflow-hidden`). Each page owns its own scroll region via `overflow-y-auto overscroll-contain`. Header and bottom nav never move on any page.
-- **All pages updated** — Home, Leaderboard, Profile, Team, Events, EventDetail, CreateEvent, Inbox, Conversation, UserProfile all use the new `flex-1 min-h-0 overflow-y-auto overscroll-contain` pattern.
+- **Header now `fixed top-0`** — matches BottomNav's `fixed bottom-0` pattern. Both are physically locked to viewport edges on all mobile browsers.
+- **Layout rewrite** — `<main>` is now a non-scrolling flex container with fixed top/bottom padding to sit between the pinned header and nav. Each page owns its own scroll region via `flex-1 min-h-0 overflow-y-auto overscroll-contain`.
+- **Global scroll lock** — `html`, `body`, and `#root` all set `overflow: hidden` + `overscroll-behavior: none` to prevent viewport-level rubber banding on iOS/Android.
+- **All pages updated** — Home, Leaderboard, Profile, Team, Events, EventDetail, CreateEvent, Inbox, Conversation, UserProfile all use the new scroll pattern.
 - **Removed brittle height calcs** — Leaderboard and Conversation no longer use `h-[calc(100vh-...)]`; they flex-fill the available space instead.
-- **`overscroll-contain`** — prevents scroll chaining / rubber-band bounce from propagating to the body on iOS and Android.
+- **Safe area support** — header respects `env(safe-area-inset-top)`, main padding accounts for both safe area insets.
 
 ## Leaderboard v2 complete — all 15 boards + Rhythm Heatmap (2026-06-05)
 
