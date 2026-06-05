@@ -38,10 +38,8 @@ export default function App() {
               <Route path="home" element={<Home />} />
               <Route path="dab" element={<Dab />} />
             </Route>
-            {/* Full-screen routes (no Layout) */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="live/:competitionId" element={<LiveDashboard />} />
-            </Route>
+            {/* Full-screen routes (no Layout, public) */}
+            <Route path="live/:competitionId" element={<LiveDashboard />} />
             {/* Auth-required routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="admin" element={<Admin />} />
