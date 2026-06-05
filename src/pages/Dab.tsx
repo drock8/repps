@@ -207,14 +207,14 @@ export default function Dab() {
 
   // Update status to camera_ready when calibrated
   useEffect(() => {
-    if (!competitionId || !calibrated || !profileRef.current) return;
+    if (!competitionId || !calibrated || !profile) return;
     supabase.rpc("update_participant_status", {
       p_competition_id: competitionId,
       p_status: "camera_ready",
     }).then(({ data, error }) => {
       console.log("[COMP] update_participant_status →", { data, error });
     });
-  }, [competitionId, calibrated]);
+  }, [competitionId, calibrated, profile]);
 
   // Start audio + recording when competition goes live (deferred from calibration)
   useEffect(() => {
