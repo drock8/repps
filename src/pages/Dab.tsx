@@ -1101,9 +1101,13 @@ export default function Dab() {
       <div className="relative w-full" style={{ aspectRatio: "3/4" }}>
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-bg-base/80">
-            <div className="bg-bg-base/85 backdrop-blur-sm rounded-xl px-8 py-6 text-center max-w-xs">
-              <p className="text-micro text-ink-muted mb-5">🔊 Turn sound on for voice feedback</p>
-              <p className="text-body text-ink-secondary mb-4">{loadStage}</p>
+            <div className="bg-accent rounded-2xl px-8 py-6 text-center mx-6">
+              <p className="text-display-md text-ink-inverse font-bold">🔊</p>
+              <p className="text-body-lg text-ink-inverse font-semibold mt-2">Turn sound on</p>
+              <p className="text-caption text-ink-inverse/70 mt-1">Voice feedback guides your form</p>
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-body text-ink-secondary mb-3">{loadStage}</p>
               <div className="w-48 h-1 bg-bg-input rounded-pill overflow-hidden mx-auto">
                 <div
                   className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
