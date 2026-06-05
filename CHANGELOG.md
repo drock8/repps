@@ -1,5 +1,18 @@
 # Changelog
 
+## Pitch deck, promo website, epic page, and About links (2026-06-06)
+
+### Added
+- **Pitch deck** (`pitch-deck.html`, `/pitch.html`) — 14-slide presentation with real QR codes for repps.pro, LinkedIn, and X. Arrow key navigation, fullscreen mode.
+- **Promotional website** (`/about.html`) — scroll-based promo page for end users covering problem, science, how it works, three engines, scoring math, live competitions, features, and social proof. Brand-colored SVG icons throughout.
+- **Epic page** (`/epic.html`) — demo submission page with intro video, pitch deck link, pitch video, and Join the Movement CTA.
+- **About REPPs links** — info icon in app header (all users), "About REPPs" text links on landing welcome view and sign-in view.
+- **YouTube thumbnail** — 1280x720 PNG generated from brand design system.
+
+### Changed
+- **Info icon visibility** — moved outside `profile` auth check so it shows for all users, not just logged-in.
+- **Patent slide removed** — from active pitch deck (original preserved in gitignored backup).
+
 ## Update landing page copy and sign-in quotes (2026-06-05)
 
 ### Changed
