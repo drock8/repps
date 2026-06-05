@@ -982,7 +982,7 @@ export default function Dab() {
         </div>
 
         {/* Action bar */}
-        <div className="flex-shrink-0 px-4 pb-2">
+        <div className="flex-shrink-0 px-4 pb-3">
           <button
             onClick={async () => {
               if (recordedBlob) {
@@ -1010,7 +1010,7 @@ export default function Dab() {
                 navigate("/home");
               }
             }}
-            className="w-full max-w-md mx-auto block py-3 bg-bg-elevated rounded-xl text-accent font-bold text-caption transition-all duration-200 ease-apple active:scale-95"
+            className="w-full max-w-md mx-auto block py-4 bg-accent text-ink-inverse font-bold text-body-lg rounded-pill transition-all duration-200 ease-apple active:scale-95"
           >
             {reps > 0 ? "Save / Share" : "Done"}
           </button>
@@ -1101,12 +1101,15 @@ export default function Dab() {
       <div className="relative w-full" style={{ aspectRatio: "3/4" }}>
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-bg-base/80">
-            <p className="text-body text-ink-secondary mb-4">{loadStage}</p>
-            <div className="w-48 h-1 bg-bg-input rounded-pill overflow-hidden">
-              <div
-                className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
-                style={{ width: `${loadProgress}%` }}
-              />
+            <div className="bg-bg-base/85 backdrop-blur-sm rounded-xl px-8 py-6 text-center max-w-xs">
+              <p className="text-micro text-ink-muted mb-5">🔊 Turn sound on for voice feedback</p>
+              <p className="text-body text-ink-secondary mb-4">{loadStage}</p>
+              <div className="w-48 h-1 bg-bg-input rounded-pill overflow-hidden mx-auto">
+                <div
+                  className="h-full bg-accent rounded-pill transition-all duration-300 ease-apple"
+                  style={{ width: `${loadProgress}%` }}
+                />
+              </div>
             </div>
           </div>
         )}
