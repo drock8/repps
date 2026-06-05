@@ -81,6 +81,10 @@ function speakGuideForce(key: string) {
   lastKey = key;
 }
 
+export function isGuidePlaying(): boolean {
+  return currentAudio !== null && !currentAudio.paused;
+}
+
 export function stopGuide() {
   if (currentAudio) {
     currentAudio.pause();
