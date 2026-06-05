@@ -545,6 +545,13 @@ export default function LiveDashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
+  // Poll fallback — Realtime can be unreliable, poll every 3s when pre-live
+  useEffect(() => {
+    if (!competitionId) return;
+    const id = setInterval(loadDashboard, 3000);
+    return () => clearInterval(id);
+  }, [competitionId, loadDashboard]);
+
   // Generate QR code for join
   useEffect(() => {
     if (!comp?.join_code) return;
