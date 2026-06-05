@@ -357,12 +357,16 @@ function FinishOverlay({
   repMap,
   totalReps,
   teamSize,
+  eventId,
+  onDismiss,
 }: {
   participants: Participant[];
   teams: CompTeam[];
   repMap: Map<string, number>;
   totalReps: number;
   teamSize: number;
+  eventId: string | null;
+  onDismiss: () => void;
 }) {
   const ranked = useMemo(() => {
     return [...participants]
@@ -412,6 +416,13 @@ function FinishOverlay({
             </div>
           ))}
         </div>
+
+        <button
+          onClick={onDismiss}
+          className="mt-10 py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
+        >
+          {eventId ? "Back to Event" : "Done"}
+        </button>
       </div>
     </div>
   );
@@ -705,7 +716,13 @@ export default function LiveDashboard() {
                 </p>
               )}
               <p className="text-display-md text-ink-primary mt-6">{animatedTotal}</p>
-              <p className="text-body text-ink-muted">total competition reps</p>
+              <p className="text-body text-ink-muted mb-8">total competition reps</p>
+              <button
+                onClick={() => event?.id ? navigate(`/events/${event.id}`) : navigate("/")}
+                className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
+              >
+                {event?.id ? "Back to Event" : "Done"}
+              </button>
             </>
           )}
         </div>
@@ -886,6 +903,14 @@ export default function LiveDashboard() {
           repMap={repMap}
           totalReps={totalReps}
           teamSize={comp.team_size}
+          eventId={event?.id || null}
+          onDismiss={() => {
+            if (event?.id) {
+              navigate(`/events/${event.id}`);
+            } else {
+              navigate("/");
+            }
+          }}
         />
       )}
       {isOrganizer && <AdminOverlay comp={comp} onTransition={handleTransition} />}
