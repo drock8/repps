@@ -21,25 +21,26 @@ function getGainNode(): GainNode {
   return gainNode!;
 }
 
-async function ensureRunning(): Promise<AudioContext> {
+function resumeIfSuspended() {
   const ctx = getAudioContext();
   if (ctx.state === "suspended") {
-    await ctx.resume();
+    ctx.resume().catch(() => {});
   }
-  return ctx;
 }
 
 export function unlockAudio() {
   if (unlocked) return;
   const ctx = getAudioContext();
   if (ctx.state === "suspended") {
-    ctx.resume();
+    ctx.resume().catch(() => {});
   }
-  const buf = ctx.createBuffer(1, 1, 22050);
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.connect(ctx.destination);
-  src.start(0);
+  try {
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch {}
   unlocked = true;
 }
 
@@ -63,8 +64,9 @@ export function preloadRepAudio(upTo = 10) {
   }
 }
 
-export async function playGoAudio() {
-  const ctx = await ensureRunning();
+export function playGoAudio() {
+  resumeIfSuspended();
+  const ctx = getAudioContext();
   const gain = getGainNode();
   if (goBuffer) {
     const src = ctx.createBufferSource();
@@ -86,8 +88,9 @@ export async function playGoAudio() {
   }
 }
 
-export async function playRepAudio(repNumber: number) {
-  const ctx = await ensureRunning();
+export function playRepAudio(repNumber: number) {
+  resumeIfSuspended();
+  const ctx = getAudioContext();
   const gain = getGainNode();
 
   const cached = bufferCache.get(repNumber);

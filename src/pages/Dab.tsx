@@ -14,7 +14,7 @@ import { DetectionEngineV3 } from "../lib/detectionV3";
 import type { Landmark } from "../lib/detectionV1";
 import type { CameraAngle, StabilityStatus } from "../lib/detectionV2";
 import type { DifficultyLevel, RejectionReason, CoachingCue, CyclePhase } from "../lib/detectionV3";
-import { preloadRepAudio, playRepAudio, playGoAudio, unlockAudio } from "../lib/repAudio";
+import { preloadRepAudio, playRepAudio, playGoAudio } from "../lib/repAudio";
 import { preloadCoachAudio, playRejectionCue, playCoachingCue, playEncouragement, stopCoachAudio } from "../lib/coachAudio";
 import {
   generateQRDataUrl,
@@ -200,7 +200,6 @@ export default function Dab() {
 
   // Unlock audio context + preload clips
   useEffect(() => {
-    unlockAudio();
     preloadRepAudio(10);
     preloadCoachAudio();
     preloadCongratsAudio();
