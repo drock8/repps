@@ -2,6 +2,8 @@
 -- 051_sparks_first_day_reps.sql — Add first_day_reps to get_my_sparks
 -- ============================================================
 
+drop function if exists get_my_sparks();
+
 create or replace function get_my_sparks()
 returns table (
   referred_id uuid,
