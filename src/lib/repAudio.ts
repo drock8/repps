@@ -1,6 +1,3 @@
-import { isCoachPlaying } from "./coachAudio";
-import { isGuidePlaying } from "./voiceGuide";
-
 let audioCtx: AudioContext | null = null;
 let gainNode: GainNode | null = null;
 const bufferCache = new Map<number, AudioBuffer>();
@@ -126,13 +123,6 @@ export function playGoAudio() {
 }
 
 export function playRepAudio(repNumber: number) {
-  const coachBusy = isCoachPlaying();
-  const guideBusy = isGuidePlaying();
-  if (coachBusy || guideBusy) {
-    console.log(`[REP-AUDIO] skipped rep ${repNumber} — coach:${coachBusy} guide:${guideBusy}`);
-    return;
-  }
-
   const url = `/audio/rep-${repNumber}.mp3`;
   const cached = bufferCache.get(repNumber);
 
