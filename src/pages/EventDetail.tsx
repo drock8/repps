@@ -113,6 +113,7 @@ export default function EventDetail() {
   // Competitions
   const [competitions, setCompetitions] = useState<{ id: string; name: string; state: string; join_code: string; duration_seconds: number | null; team_size: number }[]>([]);
   const [showCreateComp, setShowCreateComp] = useState(false);
+  const [showCompList, setShowCompList] = useState(true);
   const [compName, setCompName] = useState("");
   const [compDuration, setCompDuration] = useState(300);
   const [compTeamSize, setCompTeamSize] = useState(1);
@@ -574,44 +575,16 @@ export default function EventDetail() {
       {/* Live Competitions */}
       {(competitions.length > 0 || isOrganizer) && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-micro text-ink-muted uppercase tracking-widest">Live Competitions</p>
-            {isOrganizer && !showCreateComp && (
-              <button
-                onClick={() => setShowCreateComp(true)}
-                className="text-caption text-accent font-semibold"
-              >
-                + Add
-              </button>
-            )}
-          </div>
+          <p className="text-micro text-ink-muted uppercase tracking-widest">Live Competitions</p>
 
-          {competitions.map((c) => {
-            const stateLabel = c.state.replace(/_/g, " ");
-            const isActive = ["join_open", "join_closed", "countdown", "live"].includes(c.state);
-            const durationLabel = c.duration_seconds
-              ? c.duration_seconds >= 60 ? `${Math.floor(c.duration_seconds / 60)} min` : `${c.duration_seconds}s`
-              : "Target";
-            return (
-              <button
-                key={c.id}
-                onClick={() => navigate(`/live/${c.id}`)}
-                className="w-full flex items-center justify-between py-3 px-4 bg-bg-surface rounded-lg text-left"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-body text-ink-primary font-semibold truncate">{c.name}</p>
-                  <p className="text-caption text-ink-muted">
-                    {durationLabel} · {c.team_size === 1 ? "Solo" : `Teams of ${c.team_size}`}
-                  </p>
-                </div>
-                <span className={`text-micro font-bold uppercase ml-3 px-2 py-1 rounded-pill ${
-                  isActive ? "bg-success/20 text-success" : c.state === "finished" || c.state === "results" ? "bg-accent/20 text-accent" : "bg-ink-muted/20 text-ink-muted"
-                }`}>
-                  {stateLabel}
-                </span>
-              </button>
-            );
-          })}
+          {isOrganizer && !showCreateComp && (
+            <button
+              onClick={() => setShowCreateComp(true)}
+              className="w-full py-3 rounded-lg border border-dashed border-accent/40 text-accent text-body font-semibold active:scale-[0.98] transition-transform"
+            >
+              + Add Competition
+            </button>
+          )}
 
           {showCreateComp && (
             <div className="bg-bg-surface rounded-lg p-4 flex flex-col gap-4">
@@ -673,17 +646,57 @@ export default function EventDetail() {
             </div>
           )}
 
-          {competitions.length === 0 && !showCreateComp && isOrganizer && (
-            <p className="text-caption text-ink-muted text-center py-2">No live competitions yet</p>
+          {competitions.length > 0 && (
+            <>
+              <button
+                onClick={() => setShowCompList(!showCompList)}
+                className="flex items-center justify-between w-full py-1"
+              >
+                <p className="text-caption text-ink-secondary font-semibold">
+                  {competitions.length} competition{competitions.length !== 1 ? "s" : ""}
+                </p>
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  className={`text-ink-muted transition-transform duration-200 ${showCompList ? "rotate-180" : ""}`}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              {showCompList && (
+                <div className="flex flex-col gap-2">
+                  {competitions.map((c) => {
+                    const stateLabel = c.state.replace(/_/g, " ");
+                    const isActive = ["join_open", "join_closed", "countdown", "live"].includes(c.state);
+                    const durationLabel = c.duration_seconds
+                      ? c.duration_seconds >= 60 ? `${Math.floor(c.duration_seconds / 60)} min` : `${c.duration_seconds}s`
+                      : "Target";
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => navigate(`/live/${c.id}`)}
+                        className="w-full flex items-center justify-between py-3 px-4 bg-bg-surface rounded-lg text-left"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-body text-ink-primary font-semibold truncate">{c.name}</p>
+                          <p className="text-caption text-ink-muted">
+                            {durationLabel} · {c.team_size === 1 ? "Solo" : `Teams of ${c.team_size}`}
+                          </p>
+                        </div>
+                        <span className={`text-micro font-bold uppercase ml-3 px-2 py-1 rounded-pill ${
+                          isActive ? "bg-success/20 text-success" : c.state === "finished" || c.state === "results" ? "bg-accent/20 text-accent" : "bg-ink-muted/20 text-ink-muted"
+                        }`}>
+                          {stateLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
 
-          {isOrganizer && !showCreateComp && competitions.length > 0 && (
-            <button
-              onClick={() => setShowCreateComp(true)}
-              className="w-full py-3 rounded-lg border border-dashed border-accent/40 text-accent text-body font-semibold active:scale-[0.98] transition-transform"
-            >
-              + Add Competition
-            </button>
+          {competitions.length === 0 && !showCreateComp && isOrganizer && (
+            <p className="text-caption text-ink-muted text-center py-2">No live competitions yet</p>
           )}
         </div>
       )}
