@@ -1,5 +1,13 @@
 # Changelog
 
+## New user flow — position card + leaderboard redirect (2026-06-05)
+
+### Added
+- **Position card on claim-spot screen** — after completing reps, guests see their estimated daily rank, rep count, and points in a styled card above the sign-up form. Motivational messages for top 3 and top 10 placements.
+
+### Fixed
+- **Post-signup redirect** — new and returning users signing up from claim-spot now land on the leaderboard instead of the burpee camera page.
+
 ## Fix guest claim-spot redirecting to DAB page instead of leaderboard (2026-06-05)
 
 ### Fixed
