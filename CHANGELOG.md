@@ -1,5 +1,10 @@
 # Changelog
 
+## Fix referral bonus awarding 100 pts on 1 rep (2026-06-05)
+
+### Fixed
+- **Spark bonus no longer fires on first rep** — `process_referral_activation` was using `individual_daily_target` (=1) as the MDR threshold, so the 50 pt bonus always awarded instantly alongside the 50 pt base. Now uses a dedicated `referral_mdr` setting (=5). Incorrectly-awarded bonuses revoked retroactively.
+
 ## Profile — persistent DOB and nationality fields (2026-06-05)
 
 ### Fixed
