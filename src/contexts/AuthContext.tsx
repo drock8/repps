@@ -133,6 +133,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   const loadProfile = useCallback(async (user: User) => {
+    try {
+      if (user.email) localStorage.setItem("repps_login_email", user.email);
+      const provider = user.app_metadata?.provider;
+      if (provider === "google" || provider === "email") localStorage.setItem("repps_login_method", provider);
+    } catch { /* ignore */ }
+
     let p = await fetchProfile(user.id);
     if (!p) {
       p = await ensureProfile(user);
@@ -287,7 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { full_name: name } },
     });
     if (error) throw error;
-    try { localStorage.setItem("repps_login_method", "email"); } catch { /* ignore */ }
+    try { localStorage.setItem("repps_login_method", "email"); localStorage.setItem("repps_login_email", email); } catch { /* ignore */ }
     if (data.session && data.user) {
       await ensureProfile({ ...data.user, user_metadata: { ...data.user.user_metadata, full_name: name } } as User);
       await claimGuestReps(data.user.id);
@@ -299,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    try { localStorage.setItem("repps_login_method", "email"); } catch { /* ignore */ }
+    try { localStorage.setItem("repps_login_method", "email"); localStorage.setItem("repps_login_email", email); } catch { /* ignore */ }
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {

@@ -11,6 +11,7 @@ import CountryPicker from "../components/CountryPicker";
 import type { Country } from "../data/countries";
 import { flagEmoji } from "../lib/flagEmoji";
 import GoogleIcon from "../components/GoogleIcon";
+import PasswordInput from "../components/PasswordInput";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -38,7 +39,7 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
-  const { profile, session, signOut, refreshProfile } = useAuth();
+  const { profile, session, signOut, refreshProfile, updatePassword } = useAuth();
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -61,6 +62,11 @@ export default function Profile() {
   const [nationalityCode, setNationalityCode] = useState<string | null>(null);
   const [nationalityName, setNationalityName] = useState<string | null>(null);
   const [savingNationality, setSavingNationality] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stats, setStats] = useState<{
@@ -525,6 +531,23 @@ export default function Profile() {
               {(() => {
                 const provider = session?.user?.app_metadata?.provider;
                 const isGoogle = provider === "google";
+                const userEmail = session?.user?.email;
+
+                const handleChangePassword = async () => {
+                  if (!newPassword.trim()) { setPasswordError("Password is required"); return; }
+                  if (newPassword.length < 6) { setPasswordError("Must be at least 6 characters"); return; }
+                  setSavingPassword(true); setPasswordError("");
+                  try {
+                    await updatePassword(newPassword);
+                    setPasswordSuccess(true);
+                    setNewPassword("");
+                    setTimeout(() => { setChangingPassword(false); setPasswordSuccess(false); }, 2000);
+                  } catch (e) {
+                    setPasswordError((e as Error).message);
+                  }
+                  setSavingPassword(false);
+                };
+
                 return (
                   <div className="w-full text-left bg-bg-elevated rounded-lg p-3">
                     <p className="text-micro text-ink-muted uppercase tracking-wide">Signed in with</p>
@@ -536,6 +559,42 @@ export default function Profile() {
                       )}
                       <p className="text-body">{isGoogle ? "Google" : "Email"}</p>
                     </div>
+                    {userEmail && (
+                      <p className="text-caption text-ink-secondary mt-1">{userEmail}</p>
+                    )}
+                    {!isGoogle && (
+                      <div className="mt-2">
+                        {changingPassword ? (
+                          passwordSuccess ? (
+                            <p className="text-caption text-success">Password updated!</p>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <PasswordInput
+                                placeholder="New password (min 6 characters)"
+                                value={newPassword}
+                                onChange={(val) => { setNewPassword(val); setPasswordError(""); }}
+                              />
+                              {passwordError && <p className="text-caption text-error">{passwordError}</p>}
+                              <div className="flex gap-2">
+                                <button onClick={handleChangePassword} disabled={savingPassword} className="flex-1 bg-accent text-ink-inverse font-semibold text-caption rounded-pill py-2 transition-all duration-200 ease-apple active:scale-95 disabled:opacity-50">
+                                  {savingPassword ? "Saving..." : "Save"}
+                                </button>
+                                <button onClick={() => { setChangingPassword(false); setNewPassword(""); setPasswordError(""); }} className="flex-1 bg-bg-surface text-ink-secondary font-semibold text-caption rounded-pill py-2 transition-all duration-200 ease-apple active:scale-95">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        ) : (
+                          <button
+                            onClick={() => setChangingPassword(true)}
+                            className="text-caption text-accent"
+                          >
+                            Change password
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}

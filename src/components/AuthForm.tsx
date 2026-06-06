@@ -6,12 +6,22 @@ import GoogleIcon from "./GoogleIcon";
 
 type AuthMode = "choose" | "signup" | "signin" | "check-email" | "forgot" | "reset-sent";
 
-function getLastLoginMethod(): "google" | "email" | null {
+function getLastLogin(): { method: "google" | "email"; email?: string } | null {
   try {
     const v = localStorage.getItem("repps_login_method");
-    if (v === "google" || v === "email") return v;
+    if (v === "google" || v === "email") {
+      const e = localStorage.getItem("repps_login_email") || undefined;
+      return { method: v, email: e };
+    }
   } catch { /* ignore */ }
   return null;
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  if (local.length <= 2) return local.charAt(0) + "***@" + domain;
+  return local.charAt(0) + "***" + local.charAt(local.length - 1) + "@" + domain;
 }
 
 export default function AuthForm({ initialMode = "choose", onBack }: { initialMode?: AuthMode; onBack?: () => void }) {
@@ -23,7 +33,7 @@ export default function AuthForm({ initialMode = "choose", onBack }: { initialMo
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { cooldown: resetCooldown, startCooldown: startResetCooldown } = useResetCooldown();
-  const lastMethod = getLastLoginMethod();
+  const lastLogin = getLastLogin();
 
   const handleSignup = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -82,15 +92,15 @@ export default function AuthForm({ initialMode = "choose", onBack }: { initialMo
   if (mode === "choose") {
     return (
       <div className="w-full max-w-sm flex flex-col gap-3">
-        {lastMethod && (
+        {lastLogin && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bg-elevated/60">
-            {lastMethod === "google" ? <GoogleIcon size={16} /> : (
+            {lastLogin.method === "google" ? <GoogleIcon size={16} /> : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
                 <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
               </svg>
             )}
             <p className="text-caption text-ink-secondary">
-              You last signed in with {lastMethod === "google" ? "Google" : "Email"}
+              You last signed in with {lastLogin.method === "google" ? "Google" : "Email"}{lastLogin.email ? ` as ${maskEmail(lastLogin.email)}` : ""}
             </p>
           </div>
         )}
@@ -180,15 +190,15 @@ export default function AuthForm({ initialMode = "choose", onBack }: { initialMo
   if (mode === "signin") {
     return (
       <div className="w-full max-w-sm flex flex-col gap-3">
-        {lastMethod && (
+        {lastLogin && (
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bg-elevated/60">
-            {lastMethod === "google" ? <GoogleIcon size={16} /> : (
+            {lastLogin.method === "google" ? <GoogleIcon size={16} /> : (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
                 <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
               </svg>
             )}
             <p className="text-caption text-ink-secondary">
-              You last signed in with {lastMethod === "google" ? "Google" : "Email"}
+              You last signed in with {lastLogin.method === "google" ? "Google" : "Email"}{lastLogin.email ? ` as ${maskEmail(lastLogin.email)}` : ""}
             </p>
           </div>
         )}
