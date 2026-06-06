@@ -263,10 +263,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfile]);
 
   const signInWithGoogle = useCallback(async () => {
-    // Store current path so we can return after OAuth redirect (don't overwrite if already set, e.g. claim-spot → leaderboard)
     try {
-      if (!sessionStorage.getItem("repps_auth_return")) {
+      if (!sessionStorage.getItem("repps_auth_return") && !localStorage.getItem("repps_auth_return")) {
         sessionStorage.setItem("repps_auth_return", window.location.pathname);
+        localStorage.setItem("repps_auth_return", window.location.pathname);
       }
     } catch { /* ignore */ }
     try { localStorage.setItem("repps_login_method", "google"); } catch { /* ignore */ }

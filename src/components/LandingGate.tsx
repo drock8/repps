@@ -15,11 +15,12 @@ export default function LandingGate() {
   if (profile) {
     let returnTo = "/home";
     try {
-      const stored = sessionStorage.getItem("repps_auth_return");
+      const stored = sessionStorage.getItem("repps_auth_return") || localStorage.getItem("repps_auth_return");
       if (stored && stored !== "/") {
         returnTo = stored;
-        sessionStorage.removeItem("repps_auth_return");
       }
+      sessionStorage.removeItem("repps_auth_return");
+      localStorage.removeItem("repps_auth_return");
     } catch { /* ignore */ }
     return <Navigate to={returnTo} replace />;
   }

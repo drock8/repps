@@ -7,7 +7,10 @@ export default function ProtectedRoute() {
 
   if (loading) return null;
   if (!profile) {
-    try { sessionStorage.setItem("repps_auth_return", location.pathname); } catch { /* ignore */ }
+    try {
+      sessionStorage.setItem("repps_auth_return", location.pathname);
+      localStorage.setItem("repps_auth_return", location.pathname);
+    } catch { /* ignore */ }
     return <Navigate to="/?auth=signup" replace />;
   }
   return <Outlet />;
