@@ -14,9 +14,9 @@ export default function ReferralQRModal({ open, onClose }: { open: boolean; onCl
   const handleScanResult = useCallback((value: string) => {
     setScanning(false);
     onClose();
-    const compMatch = value.match(/\/compete\/([A-Za-z0-9]+)/);
+    const compMatch = value.match(/\/compete\/([A-Za-z0-9]+)(\?.*)?/);
     if (compMatch) {
-      navigate(`/compete/${compMatch[1]}`);
+      navigate(`/compete/${compMatch[1]}${compMatch[2] || ""}`);
       return;
     }
     const teamMatch = value.match(/\/team\/join\/([A-Za-z0-9]+)/);
