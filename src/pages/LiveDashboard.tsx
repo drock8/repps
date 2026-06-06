@@ -53,14 +53,22 @@ function AdminOverlay({
   siblingComps,
   onTransition,
   onNavigateComp,
+  onRename,
+  onDelete,
 }: {
   comp: CompState;
   siblingComps: { id: string; name: string; state: string }[];
   onTransition: (state: string) => void;
   onNavigateComp: (id: string) => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameName, setRenameName] = useState(comp.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const canDelete = !["live", "countdown"].includes(comp.state);
 
   const actions: { label: string; state: string; danger?: boolean }[] = (() => {
     switch (comp.state) {
@@ -129,6 +137,54 @@ function AdminOverlay({
               </button>
             ))}
           </div>
+          <div className="border-t border-divider my-2" />
+          {renaming ? (
+            <div className="flex gap-2">
+              <input
+                autoFocus
+                value={renameName}
+                onChange={(e) => setRenameName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && renameName.trim()) {
+                    onRename(renameName.trim());
+                    setRenaming(false);
+                  }
+                  if (e.key === "Escape") setRenaming(false);
+                }}
+                className="flex-1 py-2 px-3 rounded-md bg-bg-base text-ink-primary text-body border border-divider"
+                maxLength={60}
+              />
+              <button
+                onClick={() => { if (renameName.trim()) { onRename(renameName.trim()); setRenaming(false); } }}
+                className="py-2 px-3 rounded-md bg-accent text-ink-inverse text-caption font-semibold"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setRenameName(comp.name); setRenaming(true); }}
+                className="flex-1 py-2.5 px-3 rounded-md bg-bg-surface text-ink-secondary text-caption font-semibold text-left"
+              >
+                Rename
+              </button>
+              {canDelete && (
+                <button
+                  onClick={() => {
+                    if (confirmDelete) { onDelete(); }
+                    else { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000); }
+                  }}
+                  className={`py-2.5 px-3 rounded-md text-caption font-semibold ${
+                    confirmDelete ? "bg-error text-white" : "bg-error/20 text-error"
+                  }`}
+                >
+                  {confirmDelete ? "Confirm?" : "Delete"}
+                </button>
+              )}
+            </div>
+          )}
+
           {siblingComps.length > 1 && (
             <>
               <div className="border-t border-divider my-2" />
@@ -1328,6 +1384,25 @@ export default function LiveDashboard() {
           siblingComps={siblingComps}
           onTransition={handleTransition}
           onNavigateComp={(id) => navigate(`/live/${id}`)}
+          onRename={async (name) => {
+            const { data } = await supabase.rpc("rename_competition", {
+              p_competition_id: comp.id,
+              p_name: name,
+            });
+            if (data?.success) {
+              setComp((prev) => prev ? { ...prev, name } : prev);
+            }
+          }}
+          onDelete={async () => {
+            const { data } = await supabase.rpc("delete_competition", {
+              p_competition_id: comp.id,
+            });
+            if (data?.success) {
+              const eventId = event?.id;
+              if (eventId) navigate(`/events/${eventId}`);
+              else navigate("/");
+            }
+          }}
         />
       )}
     </div>
