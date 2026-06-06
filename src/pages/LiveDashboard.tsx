@@ -1131,9 +1131,12 @@ export default function LiveDashboard() {
                   0
                 );
                 return (
-                  <div key={team.id} className="bg-bg-elevated/50 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-[22px] font-semibold">{team.name}</h2>
+                  <div key={team.id} className="bg-bg-surface border border-divider rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-micro text-accent uppercase tracking-widest font-bold bg-accent/10 px-2.5 py-1 rounded-full">Team</span>
+                        <h2 className="text-[22px] font-bold text-ink-primary">{team.name}</h2>
+                      </div>
                       {isLive && (
                         <span className="text-[22px] font-bold text-accent">
                           {teamTotal} reps
