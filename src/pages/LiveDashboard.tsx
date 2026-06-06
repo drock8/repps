@@ -1121,7 +1121,7 @@ export default function LiveDashboard() {
 
           {/* Participant grid */}
           {comp.team_size > 1 && teams.length > 0 ? (
-            <div className="flex flex-wrap gap-4 justify-center">
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {teams.map((team) => {
                 const members = participants.filter(
                   (p) => p.competition_team_id === team.id
@@ -1131,10 +1131,10 @@ export default function LiveDashboard() {
                   0
                 );
                 return (
-                  <div key={team.id} className="bg-bg-surface border border-divider rounded-2xl p-4">
+                  <div key={team.id} className="bg-bg-surface border border-divider rounded-2xl p-4 flex flex-col">
                     <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-micro text-accent uppercase tracking-widest font-bold bg-accent/10 px-2 py-0.5 rounded-full">Team</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-micro text-accent uppercase tracking-widest font-bold bg-accent/10 px-2 py-0.5 rounded-full shrink-0">Team</span>
                         <h2 className="text-body-lg font-bold text-ink-primary truncate">{team.name}</h2>
                       </div>
                       {isLive && (
@@ -1143,7 +1143,7 @@ export default function LiveDashboard() {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="flex gap-3 flex-wrap flex-1">
                       {members.map((p) => (
                         <ParticipantCard
                           key={p.user_id}
