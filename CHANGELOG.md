@@ -1,5 +1,12 @@
 # Changelog
 
+## Login method hint + profile indicator (2026-06-06)
+
+### Added
+- **Login screen hint** — returning users see "You last signed in with Google" or "You last signed in with Email" on the choose and sign-in screens, with matching icon. Stored in localStorage on each successful sign-in.
+- **Profile sign-in method** — expandable profile details now show a "Signed in with" row displaying Google or Email with icon, derived from the Supabase session provider.
+- **GoogleIcon size prop** — component now accepts an optional `size` for smaller inline usage.
+
 ## Pitch deck, promo website, epic page, and About links (2026-06-06)
 
 ### Added

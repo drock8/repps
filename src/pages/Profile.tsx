@@ -10,6 +10,7 @@ import SparksCard from "../components/SparksCard";
 import CountryPicker from "../components/CountryPicker";
 import type { Country } from "../data/countries";
 import { flagEmoji } from "../lib/flagEmoji";
+import GoogleIcon from "../components/GoogleIcon";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -37,7 +38,7 @@ function formatGender(gender: Gender): string {
 }
 
 export default function Profile() {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, session, signOut, refreshProfile } = useAuth();
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -519,6 +520,25 @@ export default function Profile() {
                   </p>
                 </button>
               )}
+
+              {/* Sign-in method */}
+              {(() => {
+                const provider = session?.user?.app_metadata?.provider;
+                const isGoogle = provider === "google";
+                return (
+                  <div className="w-full text-left bg-bg-elevated rounded-lg p-3">
+                    <p className="text-micro text-ink-muted uppercase tracking-wide">Signed in with</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {isGoogle ? <GoogleIcon size={16} /> : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-secondary">
+                          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        </svg>
+                      )}
+                      <p className="text-body">{isGoogle ? "Google" : "Email"}</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
