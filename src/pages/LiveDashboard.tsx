@@ -1121,7 +1121,7 @@ export default function LiveDashboard() {
 
           {/* Participant grid */}
           {comp.team_size > 1 && teams.length > 0 ? (
-            <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {teams.map((team) => {
                 const members = participants.filter(
                   (p) => p.competition_team_id === team.id
@@ -1131,19 +1131,19 @@ export default function LiveDashboard() {
                   0
                 );
                 return (
-                  <div key={team.id} className="bg-bg-surface border border-divider rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-4">
+                  <div key={team.id} className="bg-bg-surface border border-divider rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-micro text-accent uppercase tracking-widest font-bold bg-accent/10 px-2.5 py-1 rounded-full">Team</span>
-                        <h2 className="text-[22px] font-bold text-ink-primary">{team.name}</h2>
+                        <span className="text-micro text-accent uppercase tracking-widest font-bold bg-accent/10 px-2 py-0.5 rounded-full">Team</span>
+                        <h2 className="text-body-lg font-bold text-ink-primary truncate">{team.name}</h2>
                       </div>
                       {isLive && (
-                        <span className="text-[22px] font-bold text-accent">
-                          {teamTotal} reps
+                        <span className="text-body-lg font-bold text-accent whitespace-nowrap ml-2">
+                          {teamTotal}
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-4 flex-wrap">
+                    <div className="flex gap-3 flex-wrap">
                       {members.map((p) => (
                         <ParticipantCard
                           key={p.user_id}
@@ -1160,22 +1160,19 @@ export default function LiveDashboard() {
               {(() => {
                 const solos = participants.filter((p) => !p.competition_team_id);
                 if (solos.length === 0) return null;
-                return (
-                  <div className="bg-bg-elevated/50 rounded-xl p-4">
-                    <h2 className="text-[22px] font-semibold mb-3">Individuals</h2>
-                    <div className="flex gap-4 flex-wrap">
-                      {solos.map((p) => (
-                        <ParticipantCard
-                          key={p.user_id}
-                          p={p}
-                          reps={repMap.get(p.user_id) || 0}
-                          rank={rankOf(p.user_id)}
-                          live={isLive || isFinished}
-                        />
-                      ))}
+                return solos.map((p) => (
+                  <div key={p.user_id} className="bg-bg-elevated/50 border border-divider rounded-2xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-micro text-ink-muted uppercase tracking-widest font-bold bg-ink-muted/10 px-2 py-0.5 rounded-full">Solo</span>
                     </div>
+                    <ParticipantCard
+                      p={p}
+                      reps={repMap.get(p.user_id) || 0}
+                      rank={rankOf(p.user_id)}
+                      live={isLive || isFinished}
+                    />
                   </div>
-                );
+                ));
               })()}
             </div>
           ) : (
