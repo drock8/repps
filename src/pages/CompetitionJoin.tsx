@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import ProfileGate from "../components/ProfileGate";
 
 interface CompInfo {
   id: string;
@@ -25,6 +26,7 @@ export default function CompetitionJoin() {
   const [teamName, setTeamName] = useState("");
   const [entryType, setEntryType] = useState<"individual" | "new_team">("individual");
   const [alreadyJoined, setAlreadyJoined] = useState(false);
+  const [showProfileGate, setShowProfileGate] = useState(false);
 
   useEffect(() => {
     if (!joinCode) return;
@@ -67,7 +69,17 @@ export default function CompetitionJoin() {
     setLoading(false);
   }
 
-  async function handleJoin() {
+  function handleJoinClick() {
+    if (!profile || !comp) return;
+    const needsProfile = !profile.dob || !profile.nationality_code;
+    if (needsProfile) {
+      setShowProfileGate(true);
+      return;
+    }
+    doJoin();
+  }
+
+  async function doJoin() {
     if (!profile || !comp) return;
     setJoining(true);
     setError("");
@@ -205,13 +217,26 @@ export default function CompetitionJoin() {
           {error && <p className="text-error text-caption mb-4">{error}</p>}
 
           <button
-            onClick={handleJoin}
+            onClick={handleJoinClick}
             disabled={joining || (entryType === "new_team" && teamName.trim().length < 2)}
             className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40 transition-opacity"
           >
             {joining ? "Joining…" : "Join Competition"}
           </button>
         </>
+      )}
+
+      {showProfileGate && (
+        <ProfileGate
+          onComplete={() => {
+            setShowProfileGate(false);
+            doJoin();
+          }}
+          onSkip={() => {
+            setShowProfileGate(false);
+            doJoin();
+          }}
+        />
       )}
     </div>
   );

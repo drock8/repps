@@ -18,12 +18,18 @@ const TEAM_SIZES = [
   { label: "Fives", value: 5 },
 ];
 
+const STYLES = [
+  { label: "Standard", value: "standard" },
+  { label: "Olympics", value: "olympics" },
+];
+
 export default function CreateCompetition() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [duration, setDuration] = useState(300);
   const [teamSize, setTeamSize] = useState(1);
+  const [style, setStyle] = useState("standard");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,10 +43,15 @@ export default function CreateCompetition() {
     setSubmitting(true);
     setError("");
 
+    const winnerCategories = style === "olympics"
+      ? ["most_reps", "highest_avg"]
+      : ["overall"];
+
     const { data, error: rpcError } = await supabase.rpc("create_competition", {
       p_name: trimmed,
       p_duration_seconds: duration,
       p_team_size: teamSize,
+      p_winner_categories: winnerCategories,
     });
 
     if (rpcError || !data?.success) {
@@ -93,7 +104,7 @@ export default function CreateCompetition() {
       <label className="block text-caption text-ink-secondary uppercase tracking-wider mb-3">
         Team Size
       </label>
-      <div className="flex gap-2 mb-8">
+      <div className="flex gap-2 mb-6">
         {TEAM_SIZES.map((t) => (
           <button
             key={t.value}
@@ -108,6 +119,30 @@ export default function CreateCompetition() {
           </button>
         ))}
       </div>
+
+      <label className="block text-caption text-ink-secondary uppercase tracking-wider mb-3">
+        Style
+      </label>
+      <div className="flex gap-2 mb-8">
+        {STYLES.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => setStyle(s.value)}
+            className={`flex-1 py-3 px-2 rounded-md text-body font-semibold transition-colors ${
+              style === s.value
+                ? "bg-accent text-ink-inverse"
+                : "bg-bg-surface text-ink-secondary"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {style === "olympics" && (
+        <p className="text-caption text-ink-secondary -mt-6 mb-8">
+          Two podiums: most total reps + highest average per country. Participants need DOB & nationality set.
+        </p>
+      )}
 
       {error && (
         <p className="text-error text-caption mb-4">{error}</p>

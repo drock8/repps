@@ -117,6 +117,7 @@ export default function EventDetail() {
   const [compName, setCompName] = useState("");
   const [compDuration, setCompDuration] = useState(300);
   const [compTeamSize, setCompTeamSize] = useState(1);
+  const [compStyle, setCompStyle] = useState("standard");
   const [compCreating, setCompCreating] = useState(false);
 
   const fetchEvent = useCallback(async () => {
@@ -328,11 +329,15 @@ export default function EventDetail() {
     if (!event) return;
     const trimmed = compName.trim() || event.name;
     setCompCreating(true);
+    const winnerCategories = compStyle === "olympics"
+      ? ["most_reps", "highest_avg"]
+      : ["overall"];
     const { data } = await supabase.rpc("add_competition_to_event", {
       p_event_id: event.id,
       p_name: trimmed,
       p_duration_seconds: compDuration,
       p_team_size: compTeamSize,
+      p_winner_categories: winnerCategories,
     });
     if (data?.success) {
       setShowCreateComp(false);
@@ -627,6 +632,25 @@ export default function EventDetail() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <p className="text-micro text-ink-muted uppercase tracking-wider mb-2">Style</p>
+                <div className="flex gap-2">
+                  {[{ l: "Standard", v: "standard" }, { l: "Olympics", v: "olympics" }].map((s) => (
+                    <button
+                      key={s.v}
+                      onClick={() => setCompStyle(s.v)}
+                      className={`flex-1 py-2 rounded-md text-caption font-semibold ${
+                        compStyle === s.v ? "bg-accent text-ink-inverse" : "bg-bg-input text-ink-secondary"
+                      }`}
+                    >
+                      {s.l}
+                    </button>
+                  ))}
+                </div>
+                {compStyle === "olympics" && (
+                  <p className="text-[10px] text-ink-muted mt-1">Two podiums: most reps + highest avg by country</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
