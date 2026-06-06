@@ -109,13 +109,13 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* Main content — fills remaining space */}
-      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md mx-auto pt-[4vh]" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+      {/* Main content — fills remaining space, wider on desktop */}
+      <div className="flex-1 min-h-0 flex flex-col items-center text-center px-5 w-full max-w-md md:max-w-3xl mx-auto pt-[4vh]" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)" }}>
         {/* Logo + HQ badge + Sign In */}
         <div className="w-full flex flex-col items-center flex-shrink-0">
           <div className="w-full flex items-center justify-between">
             <div className="w-16" />
-            <img src={logo} alt="REPPs" className="h-10" />
+            <img src={logo} alt="REPPs" className="h-10 md:h-14" />
             {!showAuth ? (
               <button
                 onClick={() => setShowAuth("signin")}
@@ -133,7 +133,7 @@ export default function Landing() {
         </div>
 
         {showAuth ? (
-          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-4">
+          <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-4 w-full max-w-md">
             <div className="text-center">
               <p className="text-body text-ink-secondary italic">"{quote}"</p>
             </div>
@@ -149,36 +149,36 @@ export default function Landing() {
           </div>
         ) : (
           <>
-            {/* Middle content — vertically centered in remaining space */}
-            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[1.5vh]">
-              <p className="text-micro text-accent uppercase tracking-[0.15em] font-bold">
+            {/* Middle content — vertically centered, wider on desktop */}
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[1.5vh] md:gap-6">
+              <p className="text-micro md:text-caption text-accent uppercase tracking-[0.15em] font-bold">
                 The Mission
               </p>
 
-              <h1 className="landing-headline text-ink-primary font-bold leading-tight tracking-tight">
+              <h1 className="landing-headline md:text-5xl text-ink-primary font-bold leading-tight tracking-tight">
                 {mission.headline.split("\n").map((line, i, arr) => (
                   <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
                 ))}
               </h1>
 
-              <p className="text-body text-ink-secondary whitespace-pre-line">
+              <p className="text-body md:text-body-lg text-ink-secondary whitespace-pre-line">
                 {mission.subtitle}
               </p>
 
               <div>
                 <p className="text-micro text-ink-muted uppercase tracking-wide">Global Verified Burpees</p>
-                <p className="landing-counter repps-gradient-text tabular-nums leading-none mt-0.5">
+                <p className="landing-counter md:text-6xl repps-gradient-text tabular-nums leading-none mt-0.5">
                   {formatNumber(animatedCount)}
                 </p>
               </div>
 
-              <div className="w-4/5 max-h-[22vh]">
+              <div className="w-4/5 md:w-3/5 max-h-[22vh] md:max-h-[30vh]">
                 <VideoPlayer videoId="pZpr_WPCzf4" />
               </div>
             </div>
 
             {/* CTA — sits above bottom with sufficient padding */}
-            <div className="w-full flex flex-col items-center flex-shrink-0">
+            <div className="w-full max-w-md flex flex-col items-center flex-shrink-0">
               <button
                 onClick={() => navigate("/home")}
                 className="w-full py-4 px-8 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
@@ -198,7 +198,7 @@ export default function Landing() {
           </>
         )}
       </div>
-      <div className="absolute"><ActivityFeed /></div>
+      <ActivityFeed />
     </div>
   );
 }
