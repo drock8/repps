@@ -34,6 +34,46 @@ interface Inviter {
   avatar_url: string | null;
 }
 
+function PageShell({ comp, children }: { comp: CompInfo; children: React.ReactNode }) {
+  const isTeamComp = comp.team_size > 1;
+  const durationLabel = comp.duration_seconds
+    ? comp.duration_seconds >= 60
+      ? `${Math.floor(comp.duration_seconds / 60)} min`
+      : `${comp.duration_seconds}s`
+    : "Target";
+
+  return (
+    <div className="px-5 pt-3 pb-16 max-w-md mx-auto text-center flex flex-col" style={{ minHeight: "calc(100dvh - 112px)" }}>
+      <div className="mb-2">
+        <p className="text-micro text-accent uppercase tracking-widest mb-0.5">REPPs Live</p>
+        <h1 className="text-body-lg text-ink-primary font-bold">{comp.name}</h1>
+        <p className="text-micro text-ink-secondary mt-0.5">
+          {durationLabel} · {isTeamComp ? `Teams of ${comp.team_size}` : "Individual"}
+        </p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Avatar({ name, avatar_url, size = "w-11 h-11" }: { name: string; avatar_url: string | null; size?: string }) {
+  return avatar_url ? (
+    <img src={avatar_url} alt="" referrerPolicy="no-referrer" className={`${size} rounded-full object-cover`} />
+  ) : (
+    <div className={`${size} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body font-bold`}>
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><line x1="7" y1="12" x2="17" y2="12" />
+    </svg>
+  );
+}
+
 export default function CompetitionJoin() {
   const { joinCode } = useParams<{ joinCode: string }>();
   const { profile } = useAuth();
@@ -46,12 +86,10 @@ export default function CompetitionJoin() {
   const [error, setError] = useState("");
   const [showProfileGate, setShowProfileGate] = useState(false);
 
-  // All participant state — driven by a single poll
   const [joined, setJoined] = useState(false);
   const [team, setTeam] = useState<TeamInfo | null>(null);
   const [inviteFrom, setInviteFrom] = useState<Inviter | null>(null);
 
-  // UI-only state
   const [scanning, setScanning] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
   const [teamNameInput, setTeamNameInput] = useState("");
@@ -87,14 +125,10 @@ export default function CompetitionJoin() {
   }, [joinCode]);
 
   // ─── Single poll: reads ALL participant state ─────────────────
-  // This is the only thing that drives joined/team/inviteFrom state.
-  // Everything else (accept, scan, join) just writes to the DB and
-  // lets this poll pick up the result within 2 seconds.
   useEffect(() => {
     if (!profile || !comp) return;
 
     const poll = async () => {
-      // 1. Am I a participant?
       const { data: me } = await supabase
         .from("competition_participants")
         .select("id, competition_team_id, team_invite_from")
@@ -106,16 +140,13 @@ export default function CompetitionJoin() {
       if (!me) { setJoined(false); return; }
       setJoined(true);
 
-      // 2. Am I on a team?
       if (me.competition_team_id) {
-        // Load team name
         const { data: teamRow } = await supabase
           .from("competition_teams")
           .select("id, name")
           .eq("id", me.competition_team_id)
           .single();
 
-        // Load team members
         const { data: memberRows } = await supabase
           .from("competition_participants")
           .select("user_id")
@@ -141,7 +172,6 @@ export default function CompetitionJoin() {
         return;
       }
 
-      // 3. Do I have a pending invite?
       if (me.team_invite_from) {
         const { data: inviter } = await supabase
           .from("profiles")
@@ -159,15 +189,15 @@ export default function CompetitionJoin() {
     return () => clearInterval(id);
   }, [profile, comp]);
 
-  // ─── Generate QR (derived from state) ─────────────────────────
+  // ─── Generate QR ──────────────────────────────────────────────
   useEffect(() => {
     if (!profile || !comp || !joined || comp.team_size <= 1) return;
     if (team && team.members.length >= comp.team_size) { setMyQrUrl(null); return; }
     const url = `${window.location.origin}/compete/${comp.join_code}?pair=${profile.id}`;
-    generateStyledQRDataUrl(url, 200).then(setMyQrUrl);
+    generateStyledQRDataUrl(url, 120).then(setMyQrUrl);
   }, [profile, comp, joined, team]);
 
-  // ─── Actions (write to DB only — poll picks up the result) ────
+  // ─── Actions ──────────────────────────────────────────────────
 
   function handleJoinClick() {
     if (!profile || !comp) return;
@@ -237,7 +267,6 @@ export default function CompetitionJoin() {
     if (rpcErr) setError(rpcErr.message);
     setInviteFrom(null);
     setResponding(false);
-    // Poll will pick up the team formation within 2s
   }
 
   async function handleSaveTeamName() {
@@ -252,12 +281,8 @@ export default function CompetitionJoin() {
     });
     if (rpcErr || !data?.success) {
       const errCode = data?.error;
-      const messages: Record<string, string> = {
-        invalid_name: "Name must be 1–40 characters",
-        not_on_team: "You're not on a team",
-        name_taken: "That name is already taken",
-      };
-      setError(messages[errCode] || rpcErr?.message || errCode || "Failed to save name");
+      const messages: Record<string, string> = { invalid_name: "1–40 characters", not_on_team: "Not on a team", name_taken: "Name taken" };
+      setError(messages[errCode] || rpcErr?.message || errCode || "Failed");
       setSavingName(false);
       return;
     }
@@ -268,9 +293,7 @@ export default function CompetitionJoin() {
 
   // ─── Render ───────────────────────────────────────────────────
 
-  if (scanning) {
-    return <QRScanner onScan={handleScanResult} onClose={() => setScanning(false)} />;
-  }
+  if (scanning) return <QRScanner onScan={handleScanResult} onClose={() => setScanning(false)} />;
 
   if (loading) {
     return (
@@ -284,9 +307,7 @@ export default function CompetitionJoin() {
     return (
       <div className="px-5 pt-6 max-w-md mx-auto text-center">
         <p className="text-ink-secondary text-body-lg">{error || "Competition not found"}</p>
-        <button onClick={() => navigate("/events")} className="mt-4 text-accent text-body font-semibold">
-          Browse Events
-        </button>
+        <button onClick={() => navigate("/events")} className="mt-4 text-accent text-body font-semibold">Browse Events</button>
       </div>
     );
   }
@@ -294,97 +315,70 @@ export default function CompetitionJoin() {
   const joinable = comp.state === "join_open" || comp.state === "join_closed";
   const isTeamComp = comp.team_size > 1;
   const teamIsFull = team ? team.members.length >= comp.team_size : false;
-  const durationLabel = comp.duration_seconds
-    ? comp.duration_seconds >= 60
-      ? `${Math.floor(comp.duration_seconds / 60)} min`
-      : `${comp.duration_seconds}s`
-    : "Target-based";
 
-  // ─── Not joined yet ───────────────────────────────────────────
+  // ─── Not joined ───────────────────────────────────────────────
   if (!joined) {
-    if (!joinable) {
-      return (
-        <div className="px-5 pt-6 max-w-md mx-auto text-center">
-          <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-          <h1 className="text-display-md text-ink-primary mb-2">{comp.name}</h1>
-          <p className="text-body text-ink-secondary mb-4">
-            {comp.state === "draft" || comp.state === "announced"
-              ? "Entries aren't open yet. Watch the big screen!"
-              : "This competition is underway."}
-          </p>
-          <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-4 rounded-lg bg-bg-surface text-ink-primary text-body-lg font-semibold">
-            Watch Live
-          </button>
-        </div>
-      );
-    }
-
     return (
-      <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-        <h1 className="text-display-md text-ink-primary mb-2">{comp.name}</h1>
-        <div className="flex items-center justify-center gap-4 text-body text-ink-secondary mb-8">
-          <span>{durationLabel}</span>
-          <span>·</span>
-          <span>{isTeamComp ? `Teams of ${comp.team_size}` : "Individual"}</span>
-          <span>·</span>
-          <span>{participantCount} joined</span>
-        </div>
-        {error && <p className="text-error text-caption mb-4">{error}</p>}
-        <button
-          onClick={handleJoinClick}
-          disabled={joining}
-          className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40 transition-opacity"
-        >
-          {joining ? "Joining…" : "Join Competition"}
-        </button>
-        {showProfileGate && (
-          <ProfileGate
-            onComplete={() => { setShowProfileGate(false); doJoin(); }}
-            onSkip={() => { setShowProfileGate(false); doJoin(); }}
-          />
+      <PageShell comp={comp}>
+        {!joinable ? (
+          <>
+            <p className="text-body text-ink-secondary mb-4">
+              {comp.state === "draft" || comp.state === "announced" ? "Entries aren't open yet." : "Competition underway."}
+            </p>
+            <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-4 rounded-lg bg-bg-surface text-ink-primary text-body-lg font-semibold">
+              Watch Live
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-body text-ink-secondary mb-4">{participantCount} joined</p>
+            {error && <p className="text-error text-caption mb-3">{error}</p>}
+            <button
+              onClick={handleJoinClick}
+              disabled={joining}
+              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40"
+            >
+              {joining ? "Joining…" : "Join Competition"}
+            </button>
+            {showProfileGate && (
+              <ProfileGate
+                onComplete={() => { setShowProfileGate(false); doJoin(); }}
+                onSkip={() => { setShowProfileGate(false); doJoin(); }}
+              />
+            )}
+          </>
         )}
-      </div>
+      </PageShell>
     );
   }
 
-  // ─── Joined: solo comp → straight to Get Ready ────────────────
+  // ─── Solo comp → Get Ready ────────────────────────────────────
   if (!isTeamComp) {
     return (
-      <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-        <h1 className="text-display-md text-ink-primary mb-2">{comp.name}</h1>
-        <p className="text-body-lg text-success font-semibold mb-6">You're in!</p>
+      <PageShell comp={comp}>
+        <p className="text-success text-body font-semibold mb-4">You're in!</p>
         <button onClick={() => navigate(`/dab?comp=${comp.id}`)} className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3">
           Get Ready
         </button>
         <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
           Watch Dashboard
         </button>
-      </div>
+      </PageShell>
     );
   }
 
-  // ─── Joined team comp: team full + named → Get Ready ──────────
+  // ─── Team full + named → Get Ready ────────────────────────────
   if (team && teamIsFull && nameConfirmed) {
     return (
-      <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-        <h1 className="text-display-md text-ink-primary mb-4">{comp.name}</h1>
-        <div className="bg-success/10 rounded-xl p-5 mb-6">
-          <p className="text-micro text-success uppercase tracking-widest font-bold mb-3">Team Ready</p>
-          <p className="text-headline text-ink-primary font-semibold mb-4">{team.name}</p>
-          <div className="flex justify-center gap-4 flex-wrap">
+      <PageShell comp={comp}>
+        <div className="bg-success/10 rounded-xl p-4 mb-4">
+          <p className="text-micro text-success uppercase tracking-widest font-bold mb-2">Team Ready</p>
+          <p className="text-body-lg text-ink-primary font-semibold mb-3">{team.name}</p>
+          <div className="flex justify-center gap-3 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-1">
-                {m.avatar_url ? (
-                  <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold">
-                    {m.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
+              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+                <Avatar name={m.name} avatar_url={m.avatar_url} />
+                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
           </div>
@@ -395,41 +389,33 @@ export default function CompetitionJoin() {
         <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
           Watch Dashboard
         </button>
-      </div>
+      </PageShell>
     );
   }
 
-  // ─── Joined team comp: team full → name it ────────────────────
+  // ─── Team full → Name it ──────────────────────────────────────
   if (team && teamIsFull) {
     return (
-      <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-        <h1 className="text-display-md text-ink-primary mb-4">{comp.name}</h1>
-        <div className="bg-success/10 rounded-xl p-5 mb-6">
-          <p className="text-micro text-success uppercase tracking-widest font-bold mb-3">Team Complete</p>
-          <div className="flex justify-center gap-4 flex-wrap">
+      <PageShell comp={comp}>
+        <div className="bg-success/10 rounded-xl p-4 mb-4">
+          <p className="text-micro text-success uppercase tracking-widest font-bold mb-2">Team Complete</p>
+          <div className="flex justify-center gap-3 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-1">
-                {m.avatar_url ? (
-                  <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold">
-                    {m.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
+              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+                <Avatar name={m.name} avatar_url={m.avatar_url} />
+                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
           </div>
         </div>
-        <p className="text-body text-ink-secondary mb-3">Name your team</p>
+        <p className="text-body text-ink-secondary mb-2">Name your team</p>
         <input
           type="text"
           value={teamNameInput}
           onChange={(e) => setTeamNameInput(e.target.value)}
           placeholder={team.name}
           maxLength={40}
-          className="w-full px-4 py-3 rounded-lg bg-bg-surface text-ink-primary text-body-lg text-center placeholder:text-ink-muted/50 border border-divider focus:border-accent focus:outline-none transition-colors"
+          className="w-full px-4 py-3 rounded-lg bg-bg-surface text-ink-primary text-body-lg text-center placeholder:text-ink-muted/50 border border-divider focus:border-accent focus:outline-none"
           onKeyDown={(e) => { if (e.key === "Enter") handleSaveTeamName(); }}
           autoFocus
         />
@@ -445,142 +431,114 @@ export default function CompetitionJoin() {
             {savingName ? "Saving…" : "Save"}
           </button>
         </div>
-        {error && <p className="text-error text-caption mt-3">{error}</p>}
-      </div>
+        {error && <p className="text-error text-caption mt-2">{error}</p>}
+      </PageShell>
     );
   }
 
-  // ─── Joined team comp: team forming (not full) ────────────────
+  // ─── Team forming (not full) ──────────────────────────────────
   if (team && !teamIsFull) {
     return (
-      <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-        <h1 className="text-display-md text-ink-primary mb-4">{comp.name}</h1>
-        <div className="bg-accent/10 rounded-xl p-5 mb-5">
-          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-3">
+      <PageShell comp={comp}>
+        <div className="bg-accent/10 rounded-xl p-4 mb-3">
+          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-2">
             {team.members.length} of {comp.team_size} teammates
           </p>
-          <div className="flex justify-center gap-4 flex-wrap">
+          <div className="flex justify-center gap-3 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-1">
-                {m.avatar_url ? (
-                  <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold">
-                    {m.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
+              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+                <Avatar name={m.name} avatar_url={m.avatar_url} />
+                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
             {Array.from({ length: comp.team_size - team.members.length }).map((_, i) => (
-              <div key={`empty-${i}`} className="flex flex-col items-center gap-1">
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-                  <span className="text-ink-muted text-body-lg">?</span>
+              <div key={`e-${i}`} className="flex flex-col items-center gap-0.5">
+                <div className="w-11 h-11 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                  <span className="text-ink-muted text-body">?</span>
                 </div>
-                <p className="text-caption text-ink-muted">Open</p>
+                <p className="text-micro text-ink-muted">Open</p>
               </div>
             ))}
           </div>
         </div>
-        <p className="text-body text-ink-secondary mb-3">Scan a teammate's code to add them.</p>
         {myQrUrl && (
-          <div className="bg-bg-surface rounded-xl p-4 mb-4 inline-block">
-            <img src={myQrUrl} width={160} height={160} alt="Your team QR" className="rounded-lg mx-auto mb-1" />
-            <p className="text-caption text-ink-muted">Your QR code</p>
+          <div className="bg-bg-surface rounded-xl p-2 mb-2 inline-block">
+            <img src={myQrUrl} width={120} height={120} alt="Your QR" className="rounded-lg mx-auto" />
           </div>
         )}
         <button
           onClick={() => setScanning(true)}
-          className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3 flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold flex items-center justify-center gap-2"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><line x1="7" y1="12" x2="17" y2="12" />
-          </svg>
-          Scan to Add Teammate
+          <ScanIcon /> Scan to Add Teammate
         </button>
-        {inviteSent && <p className="text-success text-body font-semibold mb-3">Invite sent!</p>}
-        {error && <p className="text-error text-caption mt-3">{error}</p>}
-      </div>
+        {inviteSent && <p className="text-success text-caption font-semibold mt-1">Invite sent!</p>}
+        {error && <p className="text-error text-caption mt-1">{error}</p>}
+      </PageShell>
     );
   }
 
-  // ─── Joined team comp: no team yet → Find Teammate ────────────
+  // ─── No team yet → Find Teammate ──────────────────────────────
   return (
-    <div className="px-5 pt-6 pb-28 max-w-md mx-auto text-center">
-      <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
-      <h1 className="text-display-md text-ink-primary mb-4">{comp.name}</h1>
+    <PageShell comp={comp}>
+      <p className="text-success text-caption font-semibold mb-2">You're in!</p>
 
-      <div className="bg-success/10 rounded-xl p-4 mb-5">
-        <p className="text-success text-body-lg font-semibold">You're in!</p>
-      </div>
-
-      {inviteFrom && (
-        <div className="bg-accent/10 rounded-xl p-5 mb-5">
-          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-3">Team Request</p>
-          <div className="flex items-center justify-center gap-3 mb-3">
-            {inviteFrom.avatar_url ? (
-              <img src={inviteFrom.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold">
-                {inviteFrom.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <p className="text-body-lg text-ink-primary font-semibold">{inviteFrom.name}</p>
+      {inviteFrom ? (
+        <div className="bg-accent/10 rounded-xl p-3 mb-2">
+          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-1">Team Request</p>
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Avatar name={inviteFrom.name} avatar_url={inviteFrom.avatar_url} size="w-9 h-9" />
+            <p className="text-caption text-ink-primary font-semibold">{inviteFrom.name}</p>
           </div>
-          <p className="text-body text-ink-secondary mb-4">wants to team up!</p>
-          <div className="flex gap-3">
+          <p className="text-micro text-ink-secondary mb-2">wants to team up!</p>
+          <div className="flex gap-2">
             <button
               onClick={() => handleRespondInvite(false)}
               disabled={responding}
-              className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-lg bg-bg-surface text-ink-secondary text-caption font-semibold disabled:opacity-40"
             >
               Decline
             </button>
             <button
               onClick={() => handleRespondInvite(true)}
               disabled={responding}
-              className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+              className="flex-1 py-2.5 rounded-lg bg-accent text-ink-inverse text-caption font-semibold disabled:opacity-40"
             >
               {responding ? "Forming…" : "Accept"}
             </button>
           </div>
         </div>
+      ) : (
+        <>
+          <p className="text-caption text-ink-secondary mb-2">Find a teammate to get started</p>
+          <div className="flex justify-center gap-3 mb-2">
+            {Array.from({ length: comp.team_size }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-0.5">
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                  <span className="text-ink-muted text-caption">?</span>
+                </div>
+                <p className="text-micro text-ink-muted">Open</p>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
-      <p className="text-headline text-ink-primary mb-2">Find a Teammate</p>
-      <p className="text-body text-ink-secondary mb-4">Show your QR or scan someone else's.</p>
-
-      <div className="flex justify-center gap-4 mb-5">
-        {Array.from({ length: comp.team_size }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-              <span className="text-ink-muted text-body-lg">?</span>
-            </div>
-            <p className="text-caption text-ink-muted">Open</p>
-          </div>
-        ))}
-      </div>
-
       {myQrUrl && (
-        <div className="bg-bg-surface rounded-xl p-4 mb-4 inline-block">
-          <img src={myQrUrl} width={180} height={180} alt="Your team QR" className="rounded-lg mx-auto mb-2" />
-          <p className="text-caption text-ink-muted">Your personal QR code</p>
+        <div className="bg-bg-surface rounded-xl p-2 mb-2 inline-block">
+          <img src={myQrUrl} width={120} height={120} alt="Your QR" className="rounded-lg mx-auto" />
         </div>
       )}
 
       <button
         onClick={() => setScanning(true)}
-        className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3 flex items-center justify-center gap-2"
+        className="w-full py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold flex items-center justify-center gap-2"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><line x1="7" y1="12" x2="17" y2="12" />
-        </svg>
-        Scan Teammate's Code
+        <ScanIcon /> Scan Teammate's Code
       </button>
 
-      {inviteSent && <p className="text-success text-body font-semibold mb-3">Invite sent! Waiting for them to accept…</p>}
-      {error && <p className="text-error text-caption mt-3">{error}</p>}
-    </div>
+      {inviteSent && <p className="text-success text-caption font-semibold mt-1">Invite sent!</p>}
+      {error && <p className="text-error text-caption mt-1">{error}</p>}
+    </PageShell>
   );
 }
