@@ -552,9 +552,9 @@ function FinishOverlay({
         )}
 
         {isOlympics ? (
-          <div className="flex gap-8 justify-center flex-wrap mb-4">
+          <div className="flex flex-col items-center gap-12 mb-8">
             <div>
-              <p className="text-micro text-accent uppercase tracking-widest mb-4">Most Reps</p>
+              <p className="text-micro text-accent uppercase tracking-widest mb-4">Most Reps by Country</p>
               <div className="flex justify-center gap-6">
                 {countryResults.byTotal.slice(0, 3).map((c, i) => (
                   <div key={c.code} className="text-center">
@@ -567,8 +567,11 @@ function FinishOverlay({
                 ))}
               </div>
             </div>
+
+            <div className="w-32 border-t border-divider" />
+
             <div>
-              <p className="text-micro text-blue-400 uppercase tracking-widest mb-4">Highest Average</p>
+              <p className="text-micro text-blue-400 uppercase tracking-widest mb-4">Highest Average by Country</p>
               <div className="flex justify-center gap-6">
                 {countryResults.byAvg.slice(0, 3).map((c, i) => (
                   <div key={c.code} className="text-center">
@@ -602,25 +605,44 @@ function FinishOverlay({
         )}
 
         {isOlympics && (
-          <div className="mt-6">
-            <p className="text-micro text-ink-muted uppercase tracking-widest mb-4">Top Individuals</p>
-            <div className="flex justify-center gap-8">
-              {ranked.slice(0, 3).map((p, i) => (
-                <div key={p.user_id} className="text-center">
-                  <p className="text-[24px] mb-1">{["🥇", "🥈", "🥉"][i]}</p>
-                  {p.avatar_url ? (
-                    <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover mx-auto mb-1" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold mx-auto mb-1">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <p className="text-body text-ink-primary font-semibold">{p.name}</p>
-                  <p className="text-body text-accent">{p.reps}</p>
-                </div>
-              ))}
+          <>
+            <div className="w-32 border-t border-divider mx-auto my-8" />
+            <div>
+              <p className="text-micro text-ink-muted uppercase tracking-widest mb-4">Top Individuals</p>
+              <div className="flex justify-center gap-8">
+                {ranked.slice(0, 3).map((p, i) => (
+                  <div key={p.user_id} className="text-center">
+                    <p className="text-[24px] mb-1">{["🥇", "🥈", "🥉"][i]}</p>
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover mx-auto mb-1" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold mx-auto mb-1">
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <p className="text-body text-ink-primary font-semibold">{p.name}</p>
+                    <p className="text-body text-accent">{p.reps}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+
+            <div className="w-32 border-t border-divider mx-auto my-8" />
+            <div>
+              <p className="text-micro text-ink-muted uppercase tracking-widest mb-3">All Countries</p>
+              <div className="flex flex-wrap justify-center gap-4">
+                {countryResults.byTotal.map((c, i) => (
+                  <div key={c.code} className="text-center min-w-[80px]">
+                    <p className="text-[14px] font-bold text-ink-muted">{i + 1}</p>
+                    {c.code !== "XX" && <p className="text-[24px] leading-none">{flagEmoji(c.code)}</p>}
+                    <p className="text-caption text-ink-primary font-semibold">{c.name}</p>
+                    <p className="text-caption text-accent">{c.total} reps</p>
+                    <p className="text-micro text-ink-muted">avg {c.avg.toFixed(1)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         {(() => {
