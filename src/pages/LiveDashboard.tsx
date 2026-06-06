@@ -1002,12 +1002,52 @@ export default function LiveDashboard() {
               <p className="text-[64px] font-bold text-accent leading-none mb-1">{myReps}</p>
               <p className="text-body text-ink-muted mb-2">your reps</p>
               {myRank && (
-                <p className="text-headline text-ink-secondary">
-                  You placed #{myRank} of {participants.length}
+                <p className="text-headline text-ink-secondary mb-6">
+                  #{myRank} of {participants.length}
                 </p>
               )}
+
+              <div className="w-full max-w-xs">
+                <p className="text-micro text-ink-muted uppercase tracking-widest mb-3 text-left">Leaderboard</p>
+                <div className="flex flex-col gap-1.5">
+                  {ranked.map((p, i) => {
+                    const isMe = p.user_id === profile?.id;
+                    const reps = repMap.get(p.user_id) || 0;
+                    const flag = p.nationality_code ? flagEmoji(p.nationality_code) : "";
+                    return (
+                      <div
+                        key={p.user_id}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                          isMe ? "bg-accent/15 ring-1 ring-accent/30" : "bg-bg-surface"
+                        }`}
+                      >
+                        <span className={`text-body font-bold w-6 text-right ${i < 3 ? "text-accent" : "text-ink-muted"}`}>
+                          {i + 1}
+                        </span>
+                        {p.avatar_url ? (
+                          <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-caption font-bold">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className={`text-body truncate ${isMe ? "text-accent font-semibold" : "text-ink-primary"}`}>
+                            {flag && <span className="mr-1">{flag}</span>}
+                            {p.name}{isMe ? " (you)" : ""}
+                          </p>
+                        </div>
+                        <span className={`text-body font-bold tabular-nums ${isMe ? "text-accent" : "text-ink-primary"}`}>
+                          {reps}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <p className="text-display-md text-ink-primary mt-6">{animatedTotal}</p>
-              <p className="text-body text-ink-muted mb-8">total competition reps</p>
+              <p className="text-body text-ink-muted mb-6">total competition reps</p>
               <button
                 onClick={() => event?.id ? navigate(`/events/${event.id}`) : navigate("/")}
                 className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
