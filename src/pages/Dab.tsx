@@ -409,16 +409,16 @@ export default function Dab() {
     return () => clearTimeout(t);
   }, [loading, calibrated]);
 
-  // Voice guide: speak alignment cues during calibration
+  // Voice guide: speak alignment cues during calibration (skip in competition wait)
   useEffect(() => {
-    if (screen !== "detecting" || loading || calibrated) return;
+    if (screen !== "detecting" || loading || calibrated || compWaiting) return;
     speakGuide(alignmentStatus);
-  }, [alignmentStatus, screen, loading, calibrated]);
+  }, [alignmentStatus, screen, loading, calibrated, compWaiting]);
 
-  // Voice guide: announce "Ready. Go!" when calibration completes
+  // Voice guide: announce "Ready. Go!" when calibration completes (skip in competition wait)
   useEffect(() => {
-    if (calibrated) speakReady();
-  }, [calibrated]);
+    if (calibrated && !compWaiting) speakReady();
+  }, [calibrated, compWaiting]);
 
   // Stop voice guide on unmount or screen change
   useEffect(() => {
