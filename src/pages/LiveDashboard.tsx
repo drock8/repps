@@ -276,10 +276,12 @@ function ParticipantCard({
           className={`text-[13px] font-semibold px-3 py-1 rounded-full ${
             p.status === "camera_ready"
               ? "bg-success/20 text-success"
-              : "bg-[#FFC857]/20 text-[#FFC857]"
+              : p.competition_team_id
+                ? "bg-accent/20 text-accent"
+                : "bg-[#FFC857]/20 text-[#FFC857]"
           }`}
         >
-          {p.status === "camera_ready" ? "Ready" : "Joining…"}
+          {p.status === "camera_ready" ? "Ready" : p.competition_team_id ? "Teamed" : "Joining…"}
         </p>
       )}
     </div>
