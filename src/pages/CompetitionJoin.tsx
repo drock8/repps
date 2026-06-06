@@ -54,7 +54,7 @@ export default function CompetitionJoin() {
   const [teamFormed, setTeamFormed] = useState<TeamInfo | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
 
-  const loadTeam = useCallback(async (compId: string, teamId: string) => {
+  const loadTeam = useCallback(async (_compId: string, teamId: string) => {
     const { data: team } = await supabase
       .from("competition_teams")
       .select("id, name")
