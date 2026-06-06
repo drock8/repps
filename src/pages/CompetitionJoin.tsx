@@ -59,6 +59,9 @@ export default function CompetitionJoin() {
   const [savingName, setSavingName] = useState(false);
   const [nameConfirmed, setNameConfirmed] = useState(false);
 
+  // Join success feedback
+  const [justJoined, setJustJoined] = useState(false);
+
   const loadTeam = useCallback(async (_compId: string, teamId: string) => {
     const { data: team } = await supabase
       .from("competition_teams")
@@ -104,6 +107,8 @@ export default function CompetitionJoin() {
       return;
     }
 
+    console.log("[JOIN] comp loaded:", compData.name, "team_size:", compData.team_size, "state:", compData.state);
+
     const { count } = await supabase
       .from("competition_participants")
       .select("id", { count: "exact", head: true })
@@ -118,6 +123,9 @@ export default function CompetitionJoin() {
         .eq("user_id", profile.id)
         .neq("status", "withdrawn")
         .maybeSingle();
+
+      console.log("[JOIN] existing participant:", existing?.id, "team:", existing?.competition_team_id);
+
       if (existing) {
         setAlreadyJoined(true);
         if (existing.competition_team_id) {
@@ -223,6 +231,8 @@ export default function CompetitionJoin() {
       p_team_name: null,
     });
 
+    console.log("[JOIN] doJoin result:", data, "err:", rpcErr?.message);
+
     if (rpcErr || !data?.success) {
       if (data?.error === "already_joined") {
         setAlreadyJoined(true);
@@ -235,7 +245,9 @@ export default function CompetitionJoin() {
     }
 
     setAlreadyJoined(true);
+    setJustJoined(true);
     setJoining(false);
+    setTimeout(() => setJustJoined(false), 3000);
   }
 
   const handleScanResult = useCallback(async (value: string) => {
@@ -260,6 +272,8 @@ export default function CompetitionJoin() {
       p_competition_id: comp.id,
       p_target_user_id: targetUserId,
     });
+
+    console.log("[JOIN] send_team_invite result:", data, "err:", rpcErr?.message);
 
     if (rpcErr || !data?.success) {
       const errCode = data?.error;
@@ -286,6 +300,8 @@ export default function CompetitionJoin() {
       p_competition_id: comp.id,
       p_accept: accept,
     });
+
+    console.log("[JOIN] respond_team_invite result:", data, "err:", rpcErr?.message);
 
     if (rpcErr || !data?.success) {
       setError(rpcErr?.message || data?.error || "Failed to respond");
@@ -364,6 +380,8 @@ export default function CompetitionJoin() {
     : "Target-based";
   const teamIsFull = teamFormed ? teamFormed.members.length >= comp.team_size : false;
 
+  console.log("[JOIN] render state:", { alreadyJoined, isTeamComp, teamFormed: !!teamFormed, teamIsFull, nameConfirmed, justJoined, compState: comp.state });
+
   return (
     <div className="px-5 pt-6 pb-28 max-w-md mx-auto overflow-y-auto">
       <div className="text-center mb-6">
@@ -377,6 +395,13 @@ export default function CompetitionJoin() {
           <span>{comp.participant_count} joined</span>
         </div>
       </div>
+
+      {/* Join success flash */}
+      {justJoined && (
+        <div className="bg-success/10 rounded-xl p-4 mb-5 text-center">
+          <p className="text-success text-body-lg font-semibold">You're in!</p>
+        </div>
+      )}
 
       {/* Team formed (or forming) — show members */}
       {alreadyJoined && teamFormed ? (
@@ -573,7 +598,7 @@ export default function CompetitionJoin() {
           {error && <p className="text-error text-caption mt-3">{error}</p>}
         </div>
       ) : alreadyJoined ? (
-        /* Already joined individual comp */
+        /* Already joined — solo comp or team comp that somehow skipped team flow */
         <div className="text-center">
           <p className="text-body-lg text-ink-primary mb-4">You're in! Get ready to compete.</p>
           <button
