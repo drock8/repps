@@ -723,29 +723,32 @@ export default function Dab() {
                 }
               }
 
-              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
-                lastRepCount = frame.repCount;
-                repCountRef.current = frame.repCount;
-                setReps(frame.repCount);
-                playRepAudio(frame.repCount);
-                navigator.vibrate?.(100);
-                if (!tuneMode) insertRep();
-                // Capture poster frame on first rep (user is fresh)
-                if (frame.repCount === 1) {
-                  try {
-                    if (videoRef.current && videoRef.current.videoWidth > 0) {
-                      const pc = document.createElement("canvas");
-                      pc.width = videoRef.current.videoWidth;
-                      pc.height = videoRef.current.videoHeight;
-                      const pctx = pc.getContext("2d");
-                      if (pctx) {
-                        pctx.translate(pc.width, 0);
-                        pctx.scale(-1, 1);
-                        pctx.drawImage(videoRef.current, 0, 0);
-                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+              if (frame.repCount > lastRepCount) {
+                if (compWaitingRef.current) {
+                  lastRepCount = frame.repCount;
+                } else {
+                  lastRepCount = frame.repCount;
+                  repCountRef.current = frame.repCount;
+                  setReps(frame.repCount);
+                  playRepAudio(frame.repCount);
+                  navigator.vibrate?.(100);
+                  if (!tuneMode) insertRep();
+                  if (frame.repCount === 1) {
+                    try {
+                      if (videoRef.current && videoRef.current.videoWidth > 0) {
+                        const pc = document.createElement("canvas");
+                        pc.width = videoRef.current.videoWidth;
+                        pc.height = videoRef.current.videoHeight;
+                        const pctx = pc.getContext("2d");
+                        if (pctx) {
+                          pctx.translate(pc.width, 0);
+                          pctx.scale(-1, 1);
+                          pctx.drawImage(videoRef.current, 0, 0);
+                          setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                        }
                       }
-                    }
-                  } catch { /* ignore */ }
+                    } catch { /* ignore */ }
+                  }
                 }
               }
 
@@ -793,28 +796,32 @@ export default function Dab() {
                 }
               }
 
-              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
-                lastRepCount = frame.repCount;
-                repCountRef.current = frame.repCount;
-                setReps(frame.repCount);
-                playRepAudio(frame.repCount);
-                navigator.vibrate?.(100);
-                if (!tuneMode) insertRep();
-                if (frame.repCount === 1) {
-                  try {
-                    if (videoRef.current && videoRef.current.videoWidth > 0) {
-                      const pc = document.createElement("canvas");
-                      pc.width = videoRef.current.videoWidth;
-                      pc.height = videoRef.current.videoHeight;
-                      const pctx = pc.getContext("2d");
-                      if (pctx) {
-                        pctx.translate(pc.width, 0);
-                        pctx.scale(-1, 1);
-                        pctx.drawImage(videoRef.current, 0, 0);
-                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+              if (frame.repCount > lastRepCount) {
+                if (compWaitingRef.current) {
+                  lastRepCount = frame.repCount;
+                } else {
+                  lastRepCount = frame.repCount;
+                  repCountRef.current = frame.repCount;
+                  setReps(frame.repCount);
+                  playRepAudio(frame.repCount);
+                  navigator.vibrate?.(100);
+                  if (!tuneMode) insertRep();
+                  if (frame.repCount === 1) {
+                    try {
+                      if (videoRef.current && videoRef.current.videoWidth > 0) {
+                        const pc = document.createElement("canvas");
+                        pc.width = videoRef.current.videoWidth;
+                        pc.height = videoRef.current.videoHeight;
+                        const pctx = pc.getContext("2d");
+                        if (pctx) {
+                          pctx.translate(pc.width, 0);
+                          pctx.scale(-1, 1);
+                          pctx.drawImage(videoRef.current, 0, 0);
+                          setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                        }
                       }
-                    }
-                  } catch { /* ignore */ }
+                    } catch { /* ignore */ }
+                  }
                 }
               }
 
@@ -876,34 +883,38 @@ export default function Dab() {
                 showCoachingCue(frame.coachingCue);
               }
 
-              if (frame.repCount > lastRepCount && !compWaitingRef.current) {
-                lastRepCount = frame.repCount;
-                repCountRef.current = frame.repCount;
-                setReps(frame.repCount);
-                playRepAudio(frame.repCount);
-                navigator.vibrate?.(100);
-                consecutiveRejectionRef.current = { reason: "", count: 0 };
-                cleanStreakRef.current++;
-                playEncouragement(cleanStreakRef.current);
-                setFlashColor("green");
-                if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
-                flashTimeoutRef.current = setTimeout(() => setFlashColor(null), 300);
-                if (!tuneMode) insertRep();
-                if (frame.repCount === 1) {
-                  try {
-                    if (videoRef.current && videoRef.current.videoWidth > 0) {
-                      const pc = document.createElement("canvas");
-                      pc.width = videoRef.current.videoWidth;
-                      pc.height = videoRef.current.videoHeight;
-                      const pctx = pc.getContext("2d");
-                      if (pctx) {
-                        pctx.translate(pc.width, 0);
-                        pctx.scale(-1, 1);
-                        pctx.drawImage(videoRef.current, 0, 0);
-                        setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+              if (frame.repCount > lastRepCount) {
+                if (compWaitingRef.current) {
+                  lastRepCount = frame.repCount;
+                } else {
+                  lastRepCount = frame.repCount;
+                  repCountRef.current = frame.repCount;
+                  setReps(frame.repCount);
+                  playRepAudio(frame.repCount);
+                  navigator.vibrate?.(100);
+                  consecutiveRejectionRef.current = { reason: "", count: 0 };
+                  cleanStreakRef.current++;
+                  playEncouragement(cleanStreakRef.current);
+                  setFlashColor("green");
+                  if (flashTimeoutRef.current) clearTimeout(flashTimeoutRef.current);
+                  flashTimeoutRef.current = setTimeout(() => setFlashColor(null), 300);
+                  if (!tuneMode) insertRep();
+                  if (frame.repCount === 1) {
+                    try {
+                      if (videoRef.current && videoRef.current.videoWidth > 0) {
+                        const pc = document.createElement("canvas");
+                        pc.width = videoRef.current.videoWidth;
+                        pc.height = videoRef.current.videoHeight;
+                        const pctx = pc.getContext("2d");
+                        if (pctx) {
+                          pctx.translate(pc.width, 0);
+                          pctx.scale(-1, 1);
+                          pctx.drawImage(videoRef.current, 0, 0);
+                          setPosterUrl(pc.toDataURL("image/jpeg", 0.8));
+                        }
                       }
-                    }
-                  } catch { /* ignore */ }
+                    } catch { /* ignore */ }
+                  }
                 }
               }
 
