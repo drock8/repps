@@ -508,15 +508,15 @@ function FinishOverlay({
       .sort((a, b) => b.reps - a.reps);
   }, [participants, repMap]);
 
-  const topTeam = useMemo(() => {
-    if (teamSize <= 1) return null;
+  const rankedTeams = useMemo(() => {
+    if (teamSize <= 1) return [];
     return teams
       .map((t) => {
         const members = participants.filter((p) => p.competition_team_id === t.id);
         const total = members.reduce((sum, m) => sum + (repMap.get(m.user_id) || 0), 0);
-        return { ...t, total };
+        return { ...t, total, members };
       })
-      .sort((a, b) => b.total - a.total)[0] || null;
+      .sort((a, b) => b.total - a.total);
   }, [teams, participants, repMap, teamSize]);
 
   const countryResults = useMemo(() => {
@@ -544,14 +544,6 @@ function FinishOverlay({
         <p className="text-micro text-accent uppercase tracking-widest mb-2">Competition Complete</p>
         <p className="text-[80px] font-bold text-accent leading-none mb-2">{totalReps}</p>
         <p className="text-headline text-ink-secondary mb-8">total reps · {participants.length} participants</p>
-
-        {topTeam && (
-          <div className="mb-6">
-            <p className="text-micro text-ink-muted uppercase tracking-widest mb-1">Best Team</p>
-            <p className="text-display-md text-ink-primary">{topTeam.name}</p>
-            <p className="text-headline text-accent">{topTeam.total} reps</p>
-          </div>
-        )}
 
         {isOlympics ? (
           <div className="flex flex-col items-center gap-12 mb-8">
@@ -586,6 +578,23 @@ function FinishOverlay({
                 ))}
               </div>
             </div>
+          </div>
+        ) : rankedTeams.length > 0 ? (
+          <div className="flex justify-center gap-8">
+            {rankedTeams.slice(0, 3).map((t, i) => {
+              const initials = t.name.split(/[\s&]+/).filter((w: string) => w.length > 0).map((w: string) => w.charAt(0).toUpperCase()).join("").slice(0, 2);
+              return (
+                <div key={t.id} className="text-center">
+                  <p className="text-[32px] mb-1">{["🥇", "🥈", "🥉"][i]}</p>
+                  <div className="w-16 h-16 rounded-full bg-accent text-ink-inverse flex items-center justify-center text-headline font-bold mx-auto mb-2">
+                    {initials}
+                  </div>
+                  <p className="text-body-lg text-ink-primary font-semibold">{t.name}</p>
+                  <p className="text-headline text-accent">{t.total} reps</p>
+                  <p className="text-caption text-ink-muted">{t.members.length} members</p>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="flex justify-center gap-8">
@@ -912,6 +921,17 @@ export default function LiveDashboard() {
       .sort((a, b) => b.reps - a.reps);
   }, [participants, repMap]);
 
+  const mainTeamRanked = useMemo(() => {
+    if (!comp || comp.team_size <= 1) return [];
+    return teams
+      .map((t) => {
+        const members = participants.filter((p) => p.competition_team_id === t.id);
+        const total = members.reduce((sum, m) => sum + (repMap.get(m.user_id) || 0), 0);
+        return { ...t, total, members };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [comp, teams, participants, repMap]);
+
   const rankOf = useCallback(
     (userId: string) => {
       const idx = ranked.findIndex((r) => r.user_id === userId);
@@ -1006,49 +1026,97 @@ export default function LiveDashboard() {
               <p className="text-headline text-ink-secondary mb-4">Competition Complete!</p>
               <p className="text-[64px] font-bold text-accent leading-none mb-1">{myReps}</p>
               <p className="text-body text-ink-muted mb-2">your reps</p>
-              {myRank && (
+              {mainTeamRanked.length > 0 ? (() => {
+                const myTeamEntry = mainTeamRanked.find((t) => t.members.some((m) => m.user_id === profile?.id));
+                const myTeamRank = myTeamEntry ? mainTeamRanked.indexOf(myTeamEntry) + 1 : null;
+                return myTeamEntry ? (
+                  <div className="mb-6">
+                    <p className="text-body-lg text-ink-primary font-semibold">{myTeamEntry.name}</p>
+                    <p className="text-headline text-ink-secondary">
+                      #{myTeamRank} of {mainTeamRanked.length} teams · {myTeamEntry.total} team reps
+                    </p>
+                  </div>
+                ) : null;
+              })() : myRank && (
                 <p className="text-headline text-ink-secondary mb-6">
                   #{myRank} of {participants.length}
                 </p>
               )}
 
               <div className="w-full max-w-xs">
-                <p className="text-micro text-ink-muted uppercase tracking-widest mb-3 text-left">Leaderboard</p>
-                <div className="flex flex-col gap-1.5">
-                  {ranked.map((p, i) => {
-                    const isMe = p.user_id === profile?.id;
-                    const reps = repMap.get(p.user_id) || 0;
-                    const flag = p.nationality_code ? flagEmoji(p.nationality_code) : "";
-                    return (
-                      <div
-                        key={p.user_id}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
-                          isMe ? "bg-accent/15 ring-1 ring-accent/30" : "bg-bg-surface"
-                        }`}
-                      >
-                        <span className={`text-body font-bold w-6 text-right ${i < 3 ? "text-accent" : "text-ink-muted"}`}>
-                          {i + 1}
-                        </span>
-                        {p.avatar_url ? (
-                          <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-caption font-bold">
-                            {p.name.charAt(0).toUpperCase()}
+                {mainTeamRanked.length > 0 ? (
+                  <>
+                    <p className="text-micro text-ink-muted uppercase tracking-widest mb-3 text-left">Team Rankings</p>
+                    <div className="flex flex-col gap-1.5">
+                      {mainTeamRanked.map((t, i) => {
+                        const myTeam = t.members.some((m) => m.user_id === profile?.id);
+                        const initials = t.name.split(/[\s&]+/).filter((w: string) => w.length > 0).map((w: string) => w.charAt(0).toUpperCase()).join("").slice(0, 2);
+                        return (
+                          <div
+                            key={t.id}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                              myTeam ? "bg-accent/15 ring-1 ring-accent/30" : "bg-bg-surface"
+                            }`}
+                          >
+                            <span className={`text-body font-bold w-6 text-right ${i < 3 ? "text-accent" : "text-ink-muted"}`}>
+                              {i + 1}
+                            </span>
+                            <div className="w-8 h-8 rounded-full bg-accent text-ink-inverse flex items-center justify-center text-caption font-bold">
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className={`text-body truncate ${myTeam ? "text-accent font-semibold" : "text-ink-primary"}`}>
+                                {t.name}{myTeam ? " (you)" : ""}
+                              </p>
+                            </div>
+                            <span className={`text-body font-bold tabular-nums ${myTeam ? "text-accent" : "text-ink-primary"}`}>
+                              {t.total}
+                            </span>
                           </div>
-                        )}
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className={`text-body truncate ${isMe ? "text-accent font-semibold" : "text-ink-primary"}`}>
-                            {flag && <span className="mr-1">{flag}</span>}
-                            {p.name}{isMe ? " (you)" : ""}
-                          </p>
-                        </div>
-                        <span className={`text-body font-bold tabular-nums ${isMe ? "text-accent" : "text-ink-primary"}`}>
-                          {reps}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-micro text-ink-muted uppercase tracking-widest mb-3 text-left">Leaderboard</p>
+                    <div className="flex flex-col gap-1.5">
+                      {ranked.map((p, i) => {
+                        const isMe = p.user_id === profile?.id;
+                        const reps = repMap.get(p.user_id) || 0;
+                        const flag = p.nationality_code ? flagEmoji(p.nationality_code) : "";
+                        return (
+                          <div
+                            key={p.user_id}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg ${
+                              isMe ? "bg-accent/15 ring-1 ring-accent/30" : "bg-bg-surface"
+                            }`}
+                          >
+                            <span className={`text-body font-bold w-6 text-right ${i < 3 ? "text-accent" : "text-ink-muted"}`}>
+                              {i + 1}
+                            </span>
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-caption font-bold">
+                                {p.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className={`text-body truncate ${isMe ? "text-accent font-semibold" : "text-ink-primary"}`}>
+                                {flag && <span className="mr-1">{flag}</span>}
+                                {p.name}{isMe ? " (you)" : ""}
+                              </p>
+                            </div>
+                            <span className={`text-body font-bold tabular-nums ${isMe ? "text-accent" : "text-ink-primary"}`}>
+                              {reps}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
 
               <p className="text-display-md text-ink-primary mt-6">{animatedTotal}</p>
