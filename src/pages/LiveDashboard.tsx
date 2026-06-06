@@ -1121,7 +1121,7 @@ export default function LiveDashboard() {
 
           {/* Participant grid */}
           {comp.team_size > 1 && teams.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="flex flex-wrap gap-4 justify-center">
               {teams.map((team) => {
                 const members = participants.filter(
                   (p) => p.competition_team_id === team.id
