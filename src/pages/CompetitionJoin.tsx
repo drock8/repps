@@ -70,24 +70,34 @@ export default function CompetitionJoin() {
       .single();
     if (!team) return;
 
-    const { data: members, error: membersErr } = await supabase
+    // Two separate queries — the join approach may not return profiles correctly
+    const { data: memberRows, error: membersErr } = await supabase
       .from("competition_participants")
-      .select("user_id, profiles!inner(name, avatar_url)")
+      .select("user_id")
       .eq("competition_team_id", teamId)
       .neq("status", "withdrawn");
 
-    console.log("[TEAM] loadTeam", teamId, "members:", members?.length, "err:", membersErr?.message);
+    console.log("[TEAM] loadTeam", teamId, "memberRows:", memberRows?.length, "err:", membersErr?.message);
 
-    const parsed: TeamMember[] = (members || []).map((m: Record<string, unknown>) => {
-      const p = m.profiles as Record<string, unknown>;
+    if (!memberRows || memberRows.length === 0) return;
+
+    const userIds = memberRows.map((m) => m.user_id);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, name, avatar_url")
+      .in("id", userIds);
+
+    console.log("[TEAM] profiles loaded:", profiles?.length);
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    const parsed: TeamMember[] = memberRows.map((m) => {
+      const p = profileMap.get(m.user_id);
       return {
-        user_id: m.user_id as string,
-        name: (p?.name as string) || "?",
-        avatar_url: (p?.avatar_url as string) || null,
+        user_id: m.user_id,
+        name: p?.name || "?",
+        avatar_url: p?.avatar_url || null,
       };
     });
-
-    if (parsed.length === 0) return;
 
     setTeamFormed({ id: team.id, name: team.name, members: parsed });
   }, []);
