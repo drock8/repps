@@ -710,6 +710,9 @@ export default function LiveDashboard() {
     setEvent(data.event);
     setParticipants(data.participants);
     setTeams(data.teams);
+    if (data.teams?.length > 0) {
+      console.log("[COMP] teams:", data.teams, "participants team_ids:", data.participants?.map((p: any) => ({ name: p.name, team_id: p.competition_team_id })));
+    }
     setTotalReps(data.total_qualified_reps);
 
     const map = new Map<string, number>();

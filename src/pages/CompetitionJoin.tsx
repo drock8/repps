@@ -403,6 +403,8 @@ export default function CompetitionJoin() {
   }
 
   // ─── Team full → Name it ──────────────────────────────────────
+  const teammateNamed = team && teamIsFull && initialTeamNameRef.current !== null && team.name !== initialTeamNameRef.current;
+
   if (team && teamIsFull) {
     return (
       <PageShell comp={comp}>
@@ -417,29 +419,45 @@ export default function CompetitionJoin() {
             ))}
           </div>
         </div>
-        <p className="text-body text-ink-secondary mb-2">Name your team</p>
-        <input
-          type="text"
-          value={teamNameInput}
-          onChange={(e) => setTeamNameInput(e.target.value)}
-          placeholder={team.name}
-          maxLength={40}
-          className="w-full px-4 py-3 rounded-lg bg-bg-surface text-ink-primary text-body-lg text-center placeholder:text-ink-muted/50 border border-divider focus:border-accent focus:outline-none"
-          onKeyDown={(e) => { if (e.key === "Enter") handleSaveTeamName(); }}
-          autoFocus
-        />
-        <div className="flex gap-3 mt-3">
-          <button onClick={() => setNameConfirmed(true)} className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
-            Keep It
-          </button>
-          <button
-            onClick={handleSaveTeamName}
-            disabled={savingName || !teamNameInput.trim()}
-            className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
-          >
-            {savingName ? "Saving…" : "Save"}
-          </button>
-        </div>
+
+        {teammateNamed ? (
+          <>
+            <p className="text-caption text-ink-secondary mb-2">Your teammate chose</p>
+            <p className="text-headline text-ink-primary font-bold mb-4">{team.name}</p>
+            <button
+              onClick={() => setNameConfirmed(true)}
+              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold"
+            >
+              Looks good!
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-body text-ink-secondary mb-2">Name your team</p>
+            <input
+              type="text"
+              value={teamNameInput}
+              onChange={(e) => setTeamNameInput(e.target.value)}
+              placeholder={team.name}
+              maxLength={40}
+              className="w-full px-4 py-3 rounded-lg bg-bg-surface text-ink-primary text-body-lg text-center placeholder:text-ink-muted/50 border border-divider focus:border-accent focus:outline-none"
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveTeamName(); }}
+              autoFocus
+            />
+            <div className="flex gap-3 mt-3">
+              <button onClick={() => setNameConfirmed(true)} className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
+                Keep It
+              </button>
+              <button
+                onClick={handleSaveTeamName}
+                disabled={savingName || !teamNameInput.trim()}
+                className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+              >
+                {savingName ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </>
+        )}
         {error && <p className="text-error text-caption mt-2">{error}</p>}
       </PageShell>
     );
