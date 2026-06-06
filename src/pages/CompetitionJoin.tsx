@@ -44,10 +44,10 @@ function PageShell({ comp, children }: { comp: CompInfo; children: React.ReactNo
 
   return (
     <div className="px-5 pt-4 pb-20 max-w-md mx-auto text-center flex flex-col min-h-[calc(100dvh-68px)]">
-      <div className="mb-3">
-        <p className="text-micro text-accent uppercase tracking-widest mb-1">REPPs Live</p>
-        <h1 className="text-headline text-ink-primary">{comp.name}</h1>
-        <p className="text-caption text-ink-secondary mt-1">
+      <div className="mb-4">
+        <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
+        <h1 className="text-display-sm text-ink-primary">{comp.name}</h1>
+        <p className="text-body text-ink-secondary mt-2">
           {durationLabel} · {isTeamComp ? `Teams of ${comp.team_size}` : "Individual"}
         </p>
       </div>
@@ -331,21 +331,21 @@ export default function CompetitionJoin() {
       <PageShell comp={comp}>
         {!joinable ? (
           <>
-            <p className="text-body text-ink-secondary mb-4">
+            <p className="text-body-lg text-ink-secondary mb-6">
               {comp.state === "draft" || comp.state === "announced" ? "Entries aren't open yet." : "Competition underway."}
             </p>
-            <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-4 rounded-lg bg-bg-surface text-ink-primary text-body-lg font-semibold">
+            <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-5 px-10 rounded-xl bg-bg-surface text-ink-primary text-headline font-bold active:scale-95 transition-transform">
               Watch Live
             </button>
           </>
         ) : (
           <>
-            <p className="text-body text-ink-secondary mb-4">{participantCount} joined</p>
+            <p className="text-body-lg text-ink-secondary mb-6">{participantCount} joined</p>
             {error && <p className="text-error text-caption mb-3">{error}</p>}
             <button
               onClick={handleJoinClick}
               disabled={joining}
-              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40"
+              className="w-full py-5 px-10 rounded-xl bg-accent text-ink-inverse text-headline font-bold disabled:opacity-40 active:scale-95 transition-transform"
             >
               {joining ? "Joining…" : "Join Competition"}
             </button>
@@ -365,11 +365,11 @@ export default function CompetitionJoin() {
   if (!isTeamComp) {
     return (
       <PageShell comp={comp}>
-        <p className="text-success text-body font-semibold mb-4">You're in!</p>
-        <button onClick={() => navigate(`/dab?comp=${comp.id}`)} className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3">
+        <p className="text-success text-body-lg font-semibold mb-6">You're in!</p>
+        <button onClick={() => navigate(`/dab?comp=${comp.id}`)} className="w-full py-5 px-8 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform mb-3">
           Get Ready
         </button>
-        <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
+        <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-4 px-8 rounded-xl bg-bg-surface text-ink-secondary text-body-lg font-semibold active:scale-95 transition-transform">
           Watch Dashboard
         </button>
       </PageShell>
@@ -392,10 +392,10 @@ export default function CompetitionJoin() {
             ))}
           </div>
         </div>
-        <button onClick={() => navigate(`/dab?comp=${comp.id}`)} className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3">
+        <button onClick={() => navigate(`/dab?comp=${comp.id}`)} className="w-full py-5 px-8 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform mb-3">
           Get Ready
         </button>
-        <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
+        <button onClick={() => navigate(`/live/${comp.id}`)} className="w-full py-4 px-8 rounded-xl bg-bg-surface text-ink-secondary text-body-lg font-semibold active:scale-95 transition-transform">
           Watch Dashboard
         </button>
       </PageShell>
@@ -426,7 +426,7 @@ export default function CompetitionJoin() {
             <p className="text-headline text-ink-primary font-bold mb-4">{team.name}</p>
             <button
               onClick={() => setNameConfirmed(true)}
-              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold"
+              className="w-full py-5 px-8 rounded-xl bg-accent text-ink-inverse text-headline font-bold active:scale-95 transition-transform"
             >
               Looks good!
             </button>
@@ -445,13 +445,13 @@ export default function CompetitionJoin() {
               autoFocus
             />
             <div className="flex gap-3 mt-3">
-              <button onClick={() => setNameConfirmed(true)} className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold">
+              <button onClick={() => setNameConfirmed(true)} className="flex-1 py-4 px-6 rounded-xl bg-bg-surface text-ink-secondary text-body-lg font-semibold active:scale-95 transition-transform">
                 Keep It
               </button>
               <button
                 onClick={handleSaveTeamName}
                 disabled={savingName || !teamNameInput.trim()}
-                className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+                className="flex-1 py-4 px-6 rounded-xl bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40 active:scale-95 transition-transform"
               >
                 {savingName ? "Saving…" : "Save"}
               </button>
@@ -495,7 +495,7 @@ export default function CompetitionJoin() {
         )}
         <button
           onClick={() => setScanning(true)}
-          className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold flex items-center justify-center gap-2"
+          className="w-full py-5 px-8 rounded-xl bg-accent text-ink-inverse text-headline font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
         >
           <ScanIcon /> Scan to Add Teammate
         </button>
@@ -524,14 +524,14 @@ export default function CompetitionJoin() {
             <button
               onClick={() => handleRespondInvite(false)}
               disabled={responding}
-              className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold disabled:opacity-40"
+              className="flex-1 py-4 px-6 rounded-xl bg-bg-surface text-ink-secondary text-body-lg font-semibold disabled:opacity-40 active:scale-95 transition-transform"
             >
               Decline
             </button>
             <button
               onClick={() => handleRespondInvite(true)}
               disabled={responding}
-              className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+              className="flex-1 py-4 px-6 rounded-xl bg-accent text-ink-inverse text-body-lg font-semibold disabled:opacity-40 active:scale-95 transition-transform"
             >
               {responding ? "Forming…" : "Accept"}
             </button>
@@ -561,7 +561,7 @@ export default function CompetitionJoin() {
 
       <button
         onClick={() => setScanning(true)}
-        className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold flex items-center justify-center gap-2"
+        className="w-full py-5 px-8 rounded-xl bg-accent text-ink-inverse text-headline font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform"
       >
         <ScanIcon /> Scan Teammate's Code
       </button>
