@@ -17,10 +17,22 @@ interface CompInfo {
   participant_count: number;
 }
 
+interface TeamMember {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
 interface TeamInfo {
   id: string;
   name: string;
-  members: { user_id: string; name: string; avatar_url: string | null }[];
+  members: TeamMember[];
+}
+
+interface Inviter {
+  id: string;
+  name: string;
+  avatar_url: string | null;
 }
 
 export default function CompetitionJoin() {
@@ -37,21 +49,44 @@ export default function CompetitionJoin() {
   // Team pairing state
   const [myQrUrl, setMyQrUrl] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [inviteFrom, setInviteFrom] = useState<{ id: string; name: string; avatar_url: string | null } | null>(null);
+  const [inviteFrom, setInviteFrom] = useState<Inviter | null>(null);
   const [responding, setResponding] = useState(false);
   const [teamFormed, setTeamFormed] = useState<TeamInfo | null>(null);
+  const [inviteSent, setInviteSent] = useState(false);
 
-  useEffect(() => {
+  const loadTeam = useCallback(async (compId: string, teamId: string) => {
+    const { data: team } = await supabase
+      .from("competition_teams")
+      .select("id, name")
+      .eq("id", teamId)
+      .single();
+    if (!team) return;
+
+    const { data: members } = await supabase
+      .from("competition_participants")
+      .select("user_id, profiles!inner(name, avatar_url)")
+      .eq("competition_team_id", teamId)
+      .neq("status", "withdrawn");
+
+    const parsed: TeamMember[] = (members || []).map((m: Record<string, unknown>) => {
+      const p = m.profiles as Record<string, unknown>;
+      return {
+        user_id: m.user_id as string,
+        name: p.name as string,
+        avatar_url: (p.avatar_url as string) || null,
+      };
+    });
+
+    setTeamFormed({ id: team.id, name: team.name, members: parsed });
+  }, []);
+
+  const loadCompetition = useCallback(async () => {
     if (!joinCode) return;
-    loadCompetition();
-  }, [joinCode]);
-
-  async function loadCompetition() {
     setLoading(true);
     const { data: compData } = await supabase
       .from("competition_settings")
       .select("id, name, state, team_size, duration_seconds, target_type, join_code")
-      .eq("join_code", joinCode!.toUpperCase())
+      .eq("join_code", joinCode.toUpperCase())
       .single();
 
     if (!compData) {
@@ -84,34 +119,13 @@ export default function CompetitionJoin() {
 
     setComp({ ...compData, participant_count: count || 0 });
     setLoading(false);
-  }
+  }, [joinCode, profile, loadTeam]);
 
-  async function loadTeam(compId: string, teamId: string) {
-    const { data: team } = await supabase
-      .from("competition_teams")
-      .select("id, name")
-      .eq("id", teamId)
-      .single();
-    if (!team) return;
+  useEffect(() => {
+    loadCompetition();
+  }, [loadCompetition]);
 
-    const { data: members } = await supabase
-      .from("competition_participants")
-      .select("user_id, profiles!inner(name, avatar_url)")
-      .eq("competition_team_id", teamId)
-      .neq("status", "withdrawn");
-
-    setTeamFormed({
-      id: team.id,
-      name: team.name,
-      members: (members || []).map((m: any) => ({
-        user_id: m.user_id,
-        name: m.profiles.name,
-        avatar_url: m.profiles.avatar_url,
-      })),
-    });
-  }
-
-  // Generate personal QR for team pairing (also when on a team but not full)
+  // Generate personal QR for team pairing
   useEffect(() => {
     if (!profile || !comp || !alreadyJoined || comp.team_size <= 1) return;
     if (teamFormed && teamFormed.members.length >= comp.team_size) return;
@@ -119,10 +133,11 @@ export default function CompetitionJoin() {
     generateStyledQRDataUrl(url, 200).then(setMyQrUrl);
   }, [profile, comp, alreadyJoined, teamFormed]);
 
-  // Poll for incoming team invites and team formation
+  // Poll for incoming team invites, team formation, and team growth
   useEffect(() => {
     if (!profile || !comp || !alreadyJoined || comp.team_size <= 1) return;
-    if (teamFormed) return;
+    // Stop polling only when team is full
+    if (teamFormed && teamFormed.members.length >= comp.team_size) return;
 
     const poll = async () => {
       const { data: me } = await supabase
@@ -135,11 +150,13 @@ export default function CompetitionJoin() {
 
       if (!me) return;
 
+      // Team assigned — load or refresh team data
       if (me.competition_team_id) {
         await loadTeam(comp.id, me.competition_team_id);
         return;
       }
 
+      // Check for incoming invite
       if (me.team_invite_from && !inviteFrom) {
         const { data: inviter } = await supabase
           .from("profiles")
@@ -155,7 +172,7 @@ export default function CompetitionJoin() {
     poll();
     const id = setInterval(poll, 2000);
     return () => clearInterval(id);
-  }, [profile, comp, alreadyJoined, teamFormed, inviteFrom]);
+  }, [profile, comp, alreadyJoined, teamFormed, inviteFrom, loadTeam]);
 
   function handleJoinClick() {
     if (!profile || !comp) return;
@@ -197,7 +214,6 @@ export default function CompetitionJoin() {
     setScanning(false);
     if (!comp || !profile) return;
 
-    // Extract pair user ID from URL
     const pairMatch = value.match(/[?&]pair=([a-f0-9-]+)/i);
     if (!pairMatch) {
       setError("Not a valid teammate QR code");
@@ -211,30 +227,33 @@ export default function CompetitionJoin() {
     }
 
     setError("");
+    setInviteSent(false);
     const { data, error: rpcErr } = await supabase.rpc("send_team_invite", {
       p_competition_id: comp.id,
       p_target_user_id: targetUserId,
     });
 
     if (rpcErr || !data?.success) {
-      setError(data?.error === "target_not_participant"
-        ? "They haven't joined the competition yet"
-        : data?.error === "target_already_on_team"
-        ? "They're already on a team"
-        : data?.error === "target_has_pending_invite"
-        ? "They already have a pending invite"
-        : data?.error === "already_on_team"
-        ? "You're already on a team"
-        : rpcErr?.message || data?.error || "Failed to send invite");
+      const errCode = data?.error;
+      const messages: Record<string, string> = {
+        target_not_participant: "They haven't joined the competition yet",
+        target_already_on_team: "They're already on a team",
+        target_has_pending_invite: "They already have a pending invite",
+        team_full: "Your team is full",
+        cannot_invite_self: "That's your own QR code!",
+      };
+      setError(messages[errCode] || rpcErr?.message || errCode || "Failed to send invite");
       return;
     }
 
-    setError("");
+    setInviteSent(true);
+    setTimeout(() => setInviteSent(false), 5000);
   }, [comp, profile]);
 
   async function handleRespondInvite(accept: boolean) {
     if (!comp) return;
     setResponding(true);
+    setError("");
     const { data, error: rpcErr } = await supabase.rpc("respond_team_invite", {
       p_competition_id: comp.id,
       p_accept: accept,
@@ -286,6 +305,7 @@ export default function CompetitionJoin() {
       ? `${Math.floor(comp.duration_seconds / 60)} min`
       : `${comp.duration_seconds}s`
     : "Target-based";
+  const teamIsFull = teamFormed ? teamFormed.members.length >= comp.team_size : false;
 
   return (
     <div className="px-5 pt-6 pb-28 max-w-md mx-auto">
@@ -304,90 +324,84 @@ export default function CompetitionJoin() {
       {/* Team formed (or forming) — show members */}
       {alreadyJoined && teamFormed ? (
         <div className="text-center">
-          {(() => {
-            const isFull = teamFormed.members.length >= comp.team_size;
-            return (
-              <>
-                <div className={`${isFull ? "bg-success/10" : "bg-accent/10"} rounded-xl p-6 mb-6`}>
-                  <p className={`text-micro uppercase tracking-widest font-bold mb-3 ${isFull ? "text-success" : "text-accent"}`}>
-                    {isFull ? "Team Ready" : `${teamFormed.members.length} of ${comp.team_size} teammates`}
-                  </p>
-                  <p className="text-headline text-ink-primary mb-4">{teamFormed.name}</p>
-                  <div className="flex justify-center gap-4 flex-wrap">
-                    {teamFormed.members.map((m) => (
-                      <div key={m.user_id} className="flex flex-col items-center gap-1">
-                        {m.avatar_url ? (
-                          <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-headline font-bold">
-                            {m.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
-                      </div>
-                    ))}
-                    {/* Empty slots */}
-                    {Array.from({ length: comp.team_size - teamFormed.members.length }).map((_, i) => (
-                      <div key={`empty-${i}`} className="flex flex-col items-center gap-1">
-                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-                          <span className="text-ink-muted text-headline">?</span>
-                        </div>
-                        <p className="text-caption text-ink-muted">Open</p>
-                      </div>
-                    ))}
-                  </div>
+          <div className={`${teamIsFull ? "bg-success/10" : "bg-accent/10"} rounded-xl p-6 mb-6`}>
+            <p className={`text-micro uppercase tracking-widest font-bold mb-3 ${teamIsFull ? "text-success" : "text-accent"}`}>
+              {teamIsFull ? "Team Ready" : `${teamFormed.members.length} of ${comp.team_size} teammates`}
+            </p>
+            <p className="text-headline text-ink-primary mb-4">{teamFormed.name}</p>
+            <div className="flex justify-center gap-4 flex-wrap">
+              {teamFormed.members.map((m) => (
+                <div key={m.user_id} className="flex flex-col items-center gap-1">
+                  {m.avatar_url ? (
+                    <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-headline font-bold">
+                      {m.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
                 </div>
+              ))}
+              {Array.from({ length: comp.team_size - teamFormed.members.length }).map((_, i) => (
+                <div key={`empty-${i}`} className="flex flex-col items-center gap-1">
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                    <span className="text-ink-muted text-headline">?</span>
+                  </div>
+                  <p className="text-caption text-ink-muted">Open</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
-                {!isFull && (
-                  <>
-                    <p className="text-body text-ink-secondary mb-4">
-                      Scan a teammate's code to add them, or show yours.
-                    </p>
-                    {myQrUrl && (
-                      <div className="bg-bg-surface rounded-xl p-6 mb-4 inline-block">
-                        <img src={myQrUrl} width={180} height={180} alt="Your team QR" className="rounded-lg mx-auto mb-2" />
-                        <p className="text-caption text-ink-muted">Your QR code</p>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => setScanning(true)}
-                      className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3 flex items-center justify-center gap-2"
-                    >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-                        <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-                        <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-                        <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-                        <line x1="7" y1="12" x2="17" y2="12" />
-                      </svg>
-                      Scan to Add Teammate
-                    </button>
-                  </>
-                )}
+          {!teamIsFull && (
+            <>
+              <p className="text-body text-ink-secondary mb-4">
+                Scan a teammate's code to add them, or show yours.
+              </p>
+              {myQrUrl && (
+                <div className="bg-bg-surface rounded-xl p-6 mb-4 inline-block">
+                  <img src={myQrUrl} width={180} height={180} alt="Your team QR" className="rounded-lg mx-auto mb-2" />
+                  <p className="text-caption text-ink-muted">Your QR code</p>
+                </div>
+              )}
+              <button
+                onClick={() => setScanning(true)}
+                className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3 flex items-center justify-center gap-2"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                  <line x1="7" y1="12" x2="17" y2="12" />
+                </svg>
+                Scan to Add Teammate
+              </button>
+              {inviteSent && (
+                <p className="text-success text-body font-semibold mb-3">Invite sent! Waiting for them to accept…</p>
+              )}
+            </>
+          )}
 
-                {isFull && (
-                  <button
-                    onClick={() => navigate(`/dab?comp=${comp.id}`)}
-                    className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3"
-                  >
-                    Get Ready
-                  </button>
-                )}
-                <button
-                  onClick={() => navigate(`/live/${comp.id}`)}
-                  className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold"
-                >
-                  Watch Dashboard
-                </button>
-                {error && <p className="text-error text-caption mt-3">{error}</p>}
-              </>
-            );
-          })()}
+          {teamIsFull && (
+            <button
+              onClick={() => navigate(`/dab?comp=${comp.id}`)}
+              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3"
+            >
+              Get Ready
+            </button>
+          )}
+          <button
+            onClick={() => navigate(`/live/${comp.id}`)}
+            className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold"
+          >
+            Watch Dashboard
+          </button>
+          {error && <p className="text-error text-caption mt-3">{error}</p>}
         </div>
       ) : alreadyJoined && isTeamComp ? (
         /* Joined but no team yet — Find Teammate flow */
         <div className="text-center">
-          {/* Incoming invite */}
           {inviteFrom && (
             <div className="bg-accent/10 rounded-xl p-6 mb-6">
               <p className="text-micro text-accent uppercase tracking-widest font-bold mb-3">Team Request</p>
@@ -447,6 +461,9 @@ export default function CompetitionJoin() {
             Scan Teammate's Code
           </button>
 
+          {inviteSent && (
+            <p className="text-success text-body font-semibold mb-3">Invite sent! Waiting for them to accept…</p>
+          )}
           {error && <p className="text-error text-caption mt-3">{error}</p>}
         </div>
       ) : alreadyJoined ? (
@@ -481,7 +498,6 @@ export default function CompetitionJoin() {
           </button>
         </div>
       ) : (
-        /* Not yet joined — join button */
         <>
           {error && <p className="text-error text-caption mb-4">{error}</p>}
           <button

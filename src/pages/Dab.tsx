@@ -1095,12 +1095,6 @@ export default function Dab() {
     }
   }, [finishSession]);
 
-  if (authLoading) return (
-    <div className="flex items-center justify-center h-[100dvh]">
-      <div className="w-8 h-8 border-2 border-ink-muted border-t-accent rounded-full animate-spin" />
-    </div>
-  );
-
   useEffect(() => {
     if (screen !== "claim-spot" || reps === 0) return;
     supabase.rpc("get_leaderboard", { p_period: "daily", p_limit: 50 }).then(({ data }) => {
@@ -1110,6 +1104,12 @@ export default function Dab() {
       setClaimRank(rank === -1 ? counts.length + 1 : rank + 1);
     });
   }, [screen, reps]);
+
+  if (authLoading) return (
+    <div className="flex items-center justify-center h-[100dvh]">
+      <div className="w-8 h-8 border-2 border-ink-muted border-t-accent rounded-full animate-spin" />
+    </div>
+  );
 
   if (screen === "claim-spot") {
     if (profile) {

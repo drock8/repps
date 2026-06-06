@@ -41,18 +41,32 @@ begin
     return jsonb_build_object('success', false, 'error', 'individual_competition');
   end if;
 
-  -- Both must be participants
-  select * into v_my_participant
-  from competition_participants
-  where competition_id = p_competition_id and user_id = v_uid and status != 'withdrawn';
+  -- Lock both rows to prevent race conditions (consistent ordering by user_id)
+  if v_uid < p_target_user_id then
+    select * into v_my_participant
+    from competition_participants
+    where competition_id = p_competition_id and user_id = v_uid and status != 'withdrawn'
+    for update;
+
+    select * into v_target_participant
+    from competition_participants
+    where competition_id = p_competition_id and user_id = p_target_user_id and status != 'withdrawn'
+    for update;
+  else
+    select * into v_target_participant
+    from competition_participants
+    where competition_id = p_competition_id and user_id = p_target_user_id and status != 'withdrawn'
+    for update;
+
+    select * into v_my_participant
+    from competition_participants
+    where competition_id = p_competition_id and user_id = v_uid and status != 'withdrawn'
+    for update;
+  end if;
 
   if v_my_participant.id is null then
     return jsonb_build_object('success', false, 'error', 'not_participant');
   end if;
-
-  select * into v_target_participant
-  from competition_participants
-  where competition_id = p_competition_id and user_id = p_target_user_id and status != 'withdrawn';
 
   if v_target_participant.id is null then
     return jsonb_build_object('success', false, 'error', 'target_not_participant');
@@ -118,9 +132,11 @@ begin
     return jsonb_build_object('success', false, 'error', 'not_found');
   end if;
 
+  -- Lock my row
   select * into v_my_participant
   from competition_participants
-  where competition_id = p_competition_id and user_id = v_uid and status != 'withdrawn';
+  where competition_id = p_competition_id and user_id = v_uid and status != 'withdrawn'
+  for update;
 
   if v_my_participant.id is null or v_my_participant.team_invite_from is null then
     return jsonb_build_object('success', false, 'error', 'no_pending_invite');
@@ -133,26 +149,34 @@ begin
     return jsonb_build_object('success', true, 'action', 'declined');
   end if;
 
-  -- Accept: verify inviter is still a participant
+  -- Accept: lock inviter's row too
   select * into v_inviter_participant
   from competition_participants
   where competition_id = p_competition_id
     and user_id = v_my_participant.team_invite_from
-    and status != 'withdrawn';
+    and status != 'withdrawn'
+  for update;
 
   if v_inviter_participant.id is null then
     update competition_participants set team_invite_from = null where id = v_my_participant.id;
     return jsonb_build_object('success', false, 'error', 'inviter_left');
   end if;
 
+  -- If I already got placed on a team (e.g. race condition), abort
+  if v_my_participant.competition_team_id is not null then
+    update competition_participants set team_invite_from = null where id = v_my_participant.id;
+    return jsonb_build_object('success', false, 'error', 'already_on_team');
+  end if;
+
   -- Case 1: Inviter already on a team → join that team
   if v_inviter_participant.competition_team_id is not null then
     v_team_id := v_inviter_participant.competition_team_id;
 
-    -- Check capacity
+    -- Check capacity with lock
     select count(*) into v_team_count
     from competition_participants
-    where competition_team_id = v_team_id and status != 'withdrawn';
+    where competition_team_id = v_team_id and status != 'withdrawn'
+    for update;
 
     if v_team_count >= v_comp.team_size then
       update competition_participants set team_invite_from = null where id = v_my_participant.id;
@@ -185,7 +209,7 @@ begin
   where id = v_my_participant.id;
 
   update competition_participants
-  set competition_team_id = v_team_id, entry_type = 'new_team'
+  set competition_team_id = v_team_id, entry_type = 'new_team', team_invite_from = null
   where id = v_inviter_participant.id;
 
   return jsonb_build_object('success', true, 'action', 'accepted', 'team_id', v_team_id, 'team_name', v_team_name);
