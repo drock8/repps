@@ -19,6 +19,11 @@ export default function ReferralQRModal({ open, onClose }: { open: boolean; onCl
       navigate(`/compete/${compMatch[1]}`);
       return;
     }
+    const teamMatch = value.match(/\/team\/join\/([A-Za-z0-9]+)/);
+    if (teamMatch) {
+      navigate(`/team/join/${teamMatch[1]}`);
+      return;
+    }
     const refMatch = value.match(/\/r\/([A-Za-z0-9]+)/);
     if (refMatch) {
       navigate(`/r/${refMatch[1]}`);

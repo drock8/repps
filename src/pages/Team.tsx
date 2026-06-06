@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth, type Profile } from "../contexts/AuthContext";
 import ActivityHeatmap from "../components/ActivityHeatmap";
 import WeeklyBarChart from "../components/WeeklyBarChart";
+import { generateStyledQRDataUrl } from "../lib/qrRenderer";
 
 interface TeamData {
   id: string;
@@ -88,6 +89,7 @@ export default function Team() {
 
   // Invite screen (after create)
   const [newJoinCode, setNewJoinCode] = useState("");
+  const [teamQrUrl, setTeamQrUrl] = useState<string | null>(null);
 
   const fetchTeamData = useCallback(async () => {
     if (!profile?.team_id) {
@@ -211,6 +213,13 @@ export default function Team() {
   useEffect(() => {
     fetchTeamData();
   }, [fetchTeamData]);
+
+  useEffect(() => {
+    const code = team?.join_code || newJoinCode;
+    if (!code) return;
+    const url = `${window.location.origin}/team/join/${code}`;
+    generateStyledQRDataUrl(url, 200).then(setTeamQrUrl);
+  }, [team?.join_code, newJoinCode]);
 
   const handleCreate = async () => {
     const trimmed = teamName.trim();
@@ -442,6 +451,9 @@ export default function Team() {
         </p>
 
         <div className="w-full max-w-sm bg-bg-surface rounded-lg p-6 flex flex-col items-center gap-4">
+          {teamQrUrl && (
+            <img src={teamQrUrl} width={180} height={180} alt="Team QR code" className="rounded-lg" />
+          )}
           <p className="text-micro text-ink-muted uppercase tracking-wide">Join Code</p>
           <button
             onClick={() => handleCopyCode(newJoinCode)}
@@ -1024,16 +1036,14 @@ export default function Team() {
         </div>
       )}
 
-      {/* Invite button (captain only, when forming) */}
-      {isCaptain && team.status === "forming" && (
-        <div className="flex flex-col gap-3 mb-6">
-          <button
-            onClick={handleShare}
-            className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
-          >
-            {copied ? "Link Copied!" : "Invite Teammates"}
-          </button>
-          <div className="bg-bg-surface rounded-lg p-4 flex items-center justify-between">
+      {/* Invite section (all members, when forming) */}
+      {team.status === "forming" && (
+        <div className="flex flex-col items-center gap-4 mb-6">
+          {teamQrUrl && (
+            <img src={teamQrUrl} width={180} height={180} alt="Team QR code" className="rounded-lg" />
+          )}
+          <p className="text-caption text-ink-secondary text-center">Scan to join this team</p>
+          <div className="w-full bg-bg-surface rounded-lg p-4 flex items-center justify-between">
             <div>
               <p className="text-micro text-ink-muted uppercase tracking-wide">Join Code</p>
               <p className="text-body text-ink-primary font-bold tracking-widest mt-0.5">{team.join_code}</p>
@@ -1045,6 +1055,12 @@ export default function Team() {
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
+          <button
+            onClick={handleShare}
+            className="w-full py-4 rounded-pill bg-accent text-ink-inverse font-bold text-body-lg transition-all duration-200 ease-apple active:scale-95"
+          >
+            {copied ? "Link Copied!" : "Share Invite Link"}
+          </button>
         </div>
       )}
 
