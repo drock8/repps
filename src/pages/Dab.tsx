@@ -54,6 +54,25 @@ const COACHING_MESSAGES: Record<string, string> = {
   stay_in_frame: "Stay in the frame!",
 };
 
+function DabCountdown() {
+  const [count, setCount] = useState(3);
+  useEffect(() => {
+    if (count <= 0) return;
+    const t = setTimeout(() => setCount((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [count]);
+
+  return (
+    <div
+      key={count}
+      className="text-[180px] font-bold text-accent leading-none"
+      style={{ animation: "pulse 0.8s ease-in-out infinite" }}
+    >
+      {count <= 0 ? "GO!" : count}
+    </div>
+  );
+}
+
 export default function Dab() {
   const { profile, loading: authLoading } = useAuth();
   const theme = useTheme();
@@ -1505,8 +1524,13 @@ export default function Dab() {
         />
       </div>
 
-      {/* Competition overlay — waiting for GO / timer / time's up */}
-      {competitionId && calibrated && compState && compState !== "live" && !compFinished && (
+      {/* Competition overlay — waiting for GO / countdown / timer / time's up */}
+      {competitionId && calibrated && compState === "countdown" && !compFinished && (
+        <div className="fixed inset-0 z-[60] bg-bg-base/90 flex items-center justify-center">
+          <DabCountdown />
+        </div>
+      )}
+      {competitionId && calibrated && compState && compState !== "live" && compState !== "countdown" && !compFinished && (
         <div className="fixed inset-0 z-[55] bg-bg-base/80 flex flex-col items-center justify-center text-center px-6">
           <p className="text-micro text-success uppercase tracking-widest mb-2 font-bold">Camera Ready</p>
           <p className="text-display-md text-ink-primary mb-2">Waiting for GO…</p>
