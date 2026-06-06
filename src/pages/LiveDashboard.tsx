@@ -752,7 +752,7 @@ export default function LiveDashboard() {
   useEffect(() => {
     if (!comp?.join_code) return;
     const url = `${window.location.origin}/compete/${comp.join_code}`;
-    generateStyledQRDataUrl(url, 200).then(setQrUrl);
+    generateStyledQRDataUrl(url, 400).then(setQrUrl);
   }, [comp?.join_code]);
 
   // Realtime: participant changes (unfiltered — filtered UPDATEs unreliable even with replica identity full)
@@ -1107,8 +1107,8 @@ export default function LiveDashboard() {
                     : "Coming soon"}
               </p>
               {qrUrl && comp.state === "join_open" && (
-                <div className="mb-4 bg-white p-3 rounded-lg">
-                  <img src={qrUrl} alt="Join QR" className="w-[200px] h-[200px]" />
+                <div className="mb-4 bg-white p-4 rounded-xl inline-block">
+                  <img src={qrUrl} alt="Join QR" className="w-[400px] h-[400px]" />
                 </div>
               )}
               {comp.state === "join_open" && (
