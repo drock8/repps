@@ -7,6 +7,8 @@ type RepCallback = (payload: { user_id: string }) => void;
 let channel: RealtimeChannel | null = null;
 let subscribers = new Set<RepCallback>();
 let subscribed = false;
+let retryCount = 0;
+const MAX_RETRIES = 5;
 const onSubscribeCallbacks: (() => void)[] = [];
 
 function createChannel(): RealtimeChannel {
@@ -26,16 +28,19 @@ function createChannel(): RealtimeChannel {
       console.log("[realtime] reps-global:", status);
       if (status === "SUBSCRIBED") {
         subscribed = true;
+        retryCount = 0;
         for (const cb of onSubscribeCallbacks) cb();
         onSubscribeCallbacks.length = 0;
       }
       if (status === "TIMED_OUT" || status === "CLOSED" || status === "CHANNEL_ERROR") {
-        console.warn("[realtime] reps-global lost, reconnecting in 3s…");
         subscribed = false;
         channel?.unsubscribe();
         channel = null;
-        if (subscribers.size > 0) {
-          setTimeout(() => ensureChannel(), 3000);
+        if (subscribers.size > 0 && retryCount < MAX_RETRIES) {
+          retryCount++;
+          const delay = Math.min(3000 * Math.pow(2, retryCount - 1), 30000);
+          console.warn(`[realtime] reps-global lost, retry ${retryCount}/${MAX_RETRIES} in ${delay / 1000}s`);
+          setTimeout(() => ensureChannel(), delay);
         }
       }
     });
@@ -51,6 +56,7 @@ function teardownIfEmpty() {
     channel.unsubscribe();
     channel = null;
     subscribed = false;
+    retryCount = 0;
   }
 }
 
