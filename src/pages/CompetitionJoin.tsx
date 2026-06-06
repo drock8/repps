@@ -539,7 +539,7 @@ export default function CompetitionJoin() {
         </div>
       ) : (
         <>
-          <p className="text-body text-ink-secondary mb-3">Find a teammate to get started</p>
+          <p className="text-body-lg text-accent font-semibold mb-3">Find a teammate to get started</p>
           <div className="flex justify-center gap-4 mb-4">
             {Array.from({ length: comp.team_size }).map((_, i) => (
               <div key={i} className="flex flex-col items-center gap-1">
