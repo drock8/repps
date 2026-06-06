@@ -54,6 +54,11 @@ export default function CompetitionJoin() {
   const [teamFormed, setTeamFormed] = useState<TeamInfo | null>(null);
   const [inviteSent, setInviteSent] = useState(false);
 
+  // Team naming state
+  const [teamNameInput, setTeamNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameConfirmed, setNameConfirmed] = useState(false);
+
   const loadTeam = useCallback(async (_compId: string, teamId: string) => {
     const { data: team } = await supabase
       .from("competition_teams")
@@ -62,20 +67,24 @@ export default function CompetitionJoin() {
       .single();
     if (!team) return;
 
-    const { data: members } = await supabase
+    const { data: members, error: membersErr } = await supabase
       .from("competition_participants")
       .select("user_id, profiles!inner(name, avatar_url)")
       .eq("competition_team_id", teamId)
       .neq("status", "withdrawn");
 
+    console.log("[TEAM] loadTeam", teamId, "members:", members?.length, "err:", membersErr?.message);
+
     const parsed: TeamMember[] = (members || []).map((m: Record<string, unknown>) => {
       const p = m.profiles as Record<string, unknown>;
       return {
         user_id: m.user_id as string,
-        name: p.name as string,
-        avatar_url: (p.avatar_url as string) || null,
+        name: (p?.name as string) || "?",
+        avatar_url: (p?.avatar_url as string) || null,
       };
     });
+
+    if (parsed.length === 0) return;
 
     setTeamFormed({ id: team.id, name: team.name, members: parsed });
   }, []);
@@ -125,7 +134,7 @@ export default function CompetitionJoin() {
     loadCompetition();
   }, [loadCompetition]);
 
-  // Generate personal QR for team pairing
+  // Generate personal QR for team pairing (only when team not full)
   useEffect(() => {
     if (!profile || !comp || !alreadyJoined || comp.team_size <= 1) return;
     if (teamFormed && teamFormed.members.length >= comp.team_size) return;
@@ -136,7 +145,6 @@ export default function CompetitionJoin() {
   // Poll for incoming team invites, team formation, and team growth
   useEffect(() => {
     if (!profile || !comp || !alreadyJoined || comp.team_size <= 1) return;
-    // Stop polling only when team is full
     if (teamFormed && teamFormed.members.length >= comp.team_size) return;
 
     const poll = async () => {
@@ -150,13 +158,11 @@ export default function CompetitionJoin() {
 
       if (!me) return;
 
-      // Team assigned — load or refresh team data
       if (me.competition_team_id) {
         await loadTeam(comp.id, me.competition_team_id);
         return;
       }
 
-      // Check for incoming invite
       if (me.team_invite_from && !inviteFrom) {
         const { data: inviter } = await supabase
           .from("profiles")
@@ -173,6 +179,28 @@ export default function CompetitionJoin() {
     const id = setInterval(poll, 2000);
     return () => clearInterval(id);
   }, [profile, comp, alreadyJoined, teamFormed, inviteFrom, loadTeam]);
+
+  // Poll for team name changes (another member may rename)
+  useEffect(() => {
+    if (!teamFormed || !comp) return;
+    const teamIsFull = teamFormed.members.length >= comp.team_size;
+    if (!teamIsFull || nameConfirmed) return;
+
+    const poll = async () => {
+      const { data: team } = await supabase
+        .from("competition_teams")
+        .select("name")
+        .eq("id", teamFormed.id)
+        .single();
+      if (team && team.name !== teamFormed.name) {
+        setTeamFormed((prev) => prev ? { ...prev, name: team.name } : prev);
+        setTeamNameInput(team.name);
+      }
+    };
+
+    const id = setInterval(poll, 3000);
+    return () => clearInterval(id);
+  }, [teamFormed, comp, nameConfirmed]);
 
   function handleJoinClick() {
     if (!profile || !comp) return;
@@ -272,6 +300,35 @@ export default function CompetitionJoin() {
     setResponding(false);
   }
 
+  async function handleSaveTeamName() {
+    if (!comp || !teamFormed) return;
+    const trimmed = teamNameInput.trim();
+    if (!trimmed) return;
+
+    setSavingName(true);
+    setError("");
+    const { data, error: rpcErr } = await supabase.rpc("rename_competition_team", {
+      p_competition_id: comp.id,
+      p_team_name: trimmed,
+    });
+
+    if (rpcErr || !data?.success) {
+      const errCode = data?.error;
+      const messages: Record<string, string> = {
+        invalid_name: "Name must be 1–40 characters",
+        not_on_team: "You're not on a team",
+        name_taken: "That name is already taken",
+      };
+      setError(messages[errCode] || rpcErr?.message || errCode || "Failed to save name");
+      setSavingName(false);
+      return;
+    }
+
+    setTeamFormed((prev) => prev ? { ...prev, name: data.name } : prev);
+    setNameConfirmed(true);
+    setSavingName(false);
+  }
+
   if (scanning) {
     return <QRScanner onScan={handleScanResult} onClose={() => setScanning(false)} />;
   }
@@ -308,8 +365,8 @@ export default function CompetitionJoin() {
   const teamIsFull = teamFormed ? teamFormed.members.length >= comp.team_size : false;
 
   return (
-    <div className="px-5 pt-6 pb-28 max-w-md mx-auto">
-      <div className="text-center mb-8">
+    <div className="px-5 pt-6 pb-28 max-w-md mx-auto overflow-y-auto">
+      <div className="text-center mb-6">
         <p className="text-micro text-accent uppercase tracking-widest mb-2">REPPs Live</p>
         <h1 className="text-display-md text-ink-primary mb-2">{comp.name}</h1>
         <div className="flex items-center justify-center gap-4 text-body text-ink-secondary">
@@ -324,28 +381,28 @@ export default function CompetitionJoin() {
       {/* Team formed (or forming) — show members */}
       {alreadyJoined && teamFormed ? (
         <div className="text-center">
-          <div className={`${teamIsFull ? "bg-success/10" : "bg-accent/10"} rounded-xl p-6 mb-6`}>
+          {/* Team members card */}
+          <div className={`${teamIsFull ? "bg-success/10" : "bg-accent/10"} rounded-xl p-5 mb-5`}>
             <p className={`text-micro uppercase tracking-widest font-bold mb-3 ${teamIsFull ? "text-success" : "text-accent"}`}>
-              {teamIsFull ? "Team Ready" : `${teamFormed.members.length} of ${comp.team_size} teammates`}
+              {teamIsFull ? "Team Complete" : `${teamFormed.members.length} of ${comp.team_size} teammates`}
             </p>
-            <p className="text-headline text-ink-primary mb-4">{teamFormed.name}</p>
             <div className="flex justify-center gap-4 flex-wrap">
               {teamFormed.members.map((m) => (
                 <div key={m.user_id} className="flex flex-col items-center gap-1">
                   {m.avatar_url ? (
-                    <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-14 h-14 rounded-full object-cover" />
+                    <img src={m.avatar_url} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
                   ) : (
-                    <div className="w-14 h-14 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-headline font-bold">
+                    <div className="w-12 h-12 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold">
                       {m.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
                 </div>
               ))}
-              {Array.from({ length: comp.team_size - teamFormed.members.length }).map((_, i) => (
+              {!teamIsFull && Array.from({ length: comp.team_size - teamFormed.members.length }).map((_, i) => (
                 <div key={`empty-${i}`} className="flex flex-col items-center gap-1">
-                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-                    <span className="text-ink-muted text-headline">?</span>
+                  <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                    <span className="text-ink-muted text-body-lg">?</span>
                   </div>
                   <p className="text-caption text-ink-muted">Open</p>
                 </div>
@@ -353,14 +410,15 @@ export default function CompetitionJoin() {
             </div>
           </div>
 
+          {/* Team not full — show QR + scan */}
           {!teamIsFull && (
             <>
-              <p className="text-body text-ink-secondary mb-4">
-                Scan a teammate's code to add them, or show yours.
+              <p className="text-body text-ink-secondary mb-3">
+                Show your code or scan a teammate's to add them.
               </p>
               {myQrUrl && (
-                <div className="bg-bg-surface rounded-xl p-6 mb-4 inline-block">
-                  <img src={myQrUrl} width={180} height={180} alt="Your team QR" className="rounded-lg mx-auto mb-2" />
+                <div className="bg-bg-surface rounded-xl p-4 mb-4 inline-block">
+                  <img src={myQrUrl} width={160} height={160} alt="Your team QR" className="rounded-lg mx-auto mb-1" />
                   <p className="text-caption text-ink-muted">Your QR code</p>
                 </div>
               )}
@@ -383,14 +441,50 @@ export default function CompetitionJoin() {
             </>
           )}
 
-          {teamIsFull && (
-            <button
-              onClick={() => navigate(`/dab?comp=${comp.id}`)}
-              className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3"
-            >
-              Get Ready
-            </button>
+          {/* Team full — name your team, then Get Ready */}
+          {teamIsFull && !nameConfirmed && (
+            <div className="mb-5">
+              <p className="text-body text-ink-secondary mb-3">Name your team</p>
+              <input
+                type="text"
+                value={teamNameInput}
+                onChange={(e) => setTeamNameInput(e.target.value)}
+                placeholder={teamFormed.name}
+                maxLength={40}
+                className="w-full px-4 py-3 rounded-lg bg-bg-surface text-ink-primary text-body-lg text-center placeholder:text-ink-muted/50 border border-divider focus:border-accent focus:outline-none transition-colors"
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveTeamName(); }}
+                autoFocus
+              />
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => setNameConfirmed(true)}
+                  className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold"
+                >
+                  Keep "{teamFormed.name}"
+                </button>
+                <button
+                  onClick={handleSaveTeamName}
+                  disabled={savingName || !teamNameInput.trim()}
+                  className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
+                >
+                  {savingName ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
           )}
+
+          {teamIsFull && nameConfirmed && (
+            <>
+              <p className="text-headline text-ink-primary font-semibold mb-4">{teamFormed.name}</p>
+              <button
+                onClick={() => navigate(`/dab?comp=${comp.id}`)}
+                className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold mb-3"
+              >
+                Get Ready
+              </button>
+            </>
+          )}
+
           <button
             onClick={() => navigate(`/live/${comp.id}`)}
             className="w-full py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold"
@@ -436,13 +530,25 @@ export default function CompetitionJoin() {
           )}
 
           <p className="text-headline text-ink-primary mb-2">Find a Teammate</p>
-          <p className="text-body text-ink-secondary mb-6">
+          <p className="text-body text-ink-secondary mb-4">
             Show your QR code, or scan someone else's to team up.
           </p>
 
+          {/* Empty team slots */}
+          <div className="flex justify-center gap-4 mb-5">
+            {Array.from({ length: comp.team_size }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                  <span className="text-ink-muted text-body-lg">?</span>
+                </div>
+                <p className="text-caption text-ink-muted">Open</p>
+              </div>
+            ))}
+          </div>
+
           {myQrUrl && (
-            <div className="bg-bg-surface rounded-xl p-6 mb-6 inline-block">
-              <img src={myQrUrl} width={200} height={200} alt="Your team QR" className="rounded-lg mx-auto mb-3" />
+            <div className="bg-bg-surface rounded-xl p-4 mb-4 inline-block">
+              <img src={myQrUrl} width={180} height={180} alt="Your team QR" className="rounded-lg mx-auto mb-2" />
               <p className="text-caption text-ink-muted">Your personal QR code</p>
             </div>
           )}
