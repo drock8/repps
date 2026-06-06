@@ -43,24 +43,26 @@ function PageShell({ comp, children }: { comp: CompInfo; children: React.ReactNo
     : "Target";
 
   return (
-    <div className="px-5 pt-3 pb-16 max-w-md mx-auto text-center flex flex-col" style={{ minHeight: "calc(100dvh - 112px)" }}>
-      <div className="mb-2">
-        <p className="text-micro text-accent uppercase tracking-widest mb-0.5">REPPs Live</p>
-        <h1 className="text-body-lg text-ink-primary font-bold">{comp.name}</h1>
-        <p className="text-micro text-ink-secondary mt-0.5">
+    <div className="px-5 pt-4 pb-20 max-w-md mx-auto text-center flex flex-col min-h-[calc(100dvh-68px)]">
+      <div className="mb-3">
+        <p className="text-micro text-accent uppercase tracking-widest mb-1">REPPs Live</p>
+        <h1 className="text-headline text-ink-primary">{comp.name}</h1>
+        <p className="text-caption text-ink-secondary mt-1">
           {durationLabel} · {isTeamComp ? `Teams of ${comp.team_size}` : "Individual"}
         </p>
       </div>
-      {children}
+      <div className="flex-1 flex flex-col justify-center">
+        {children}
+      </div>
     </div>
   );
 }
 
-function Avatar({ name, avatar_url, size = "w-11 h-11" }: { name: string; avatar_url: string | null; size?: string }) {
+function Avatar({ name, avatar_url, size = "w-12 h-12" }: { name: string; avatar_url: string | null; size?: string }) {
   return avatar_url ? (
     <img src={avatar_url} alt="" referrerPolicy="no-referrer" className={`${size} rounded-full object-cover`} />
   ) : (
-    <div className={`${size} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body font-bold`}>
+    <div className={`${size} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-body-lg font-bold`}>
       {name.charAt(0).toUpperCase()}
     </div>
   );
@@ -100,6 +102,7 @@ export default function CompetitionJoin() {
 
   const compRef = useRef(comp);
   compRef.current = comp;
+  const initialTeamNameRef = useRef<string | null>(null);
 
   // ─── Load competition (once) ──────────────────────────────────
   useEffect(() => {
@@ -166,6 +169,12 @@ export default function CompetitionJoin() {
             return { user_id: m.user_id, name: p?.name || "?", avatar_url: p?.avatar_url || null };
           });
 
+          if (initialTeamNameRef.current === null) {
+            initialTeamNameRef.current = teamRow.name;
+          } else if (teamRow.name !== initialTeamNameRef.current) {
+            setNameConfirmed(true);
+          }
+
           setTeam({ id: teamRow.id, name: teamRow.name, members });
         }
         setInviteFrom(null);
@@ -194,7 +203,7 @@ export default function CompetitionJoin() {
     if (!profile || !comp || !joined || comp.team_size <= 1) return;
     if (team && team.members.length >= comp.team_size) { setMyQrUrl(null); return; }
     const url = `${window.location.origin}/compete/${comp.join_code}?pair=${profile.id}`;
-    generateStyledQRDataUrl(url, 120).then(setMyQrUrl);
+    generateStyledQRDataUrl(url, 160).then(setMyQrUrl);
   }, [profile, comp, joined, team]);
 
   // ─── Actions ──────────────────────────────────────────────────
@@ -371,14 +380,14 @@ export default function CompetitionJoin() {
   if (team && teamIsFull && nameConfirmed) {
     return (
       <PageShell comp={comp}>
-        <div className="bg-success/10 rounded-xl p-4 mb-4">
-          <p className="text-micro text-success uppercase tracking-widest font-bold mb-2">Team Ready</p>
-          <p className="text-body-lg text-ink-primary font-semibold mb-3">{team.name}</p>
-          <div className="flex justify-center gap-3 flex-wrap">
+        <div className="bg-success/10 rounded-xl p-5 mb-6">
+          <p className="text-micro text-success uppercase tracking-widest font-bold mb-3">Team Ready</p>
+          <p className="text-headline text-ink-primary font-semibold mb-4">{team.name}</p>
+          <div className="flex justify-center gap-4 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+              <div key={m.user_id} className="flex flex-col items-center gap-1">
                 <Avatar name={m.name} avatar_url={m.avatar_url} />
-                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
+                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
           </div>
@@ -397,13 +406,13 @@ export default function CompetitionJoin() {
   if (team && teamIsFull) {
     return (
       <PageShell comp={comp}>
-        <div className="bg-success/10 rounded-xl p-4 mb-4">
-          <p className="text-micro text-success uppercase tracking-widest font-bold mb-2">Team Complete</p>
-          <div className="flex justify-center gap-3 flex-wrap">
+        <div className="bg-success/10 rounded-xl p-5 mb-5">
+          <p className="text-micro text-success uppercase tracking-widest font-bold mb-3">Team Complete</p>
+          <div className="flex justify-center gap-4 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+              <div key={m.user_id} className="flex flex-col items-center gap-1">
                 <Avatar name={m.name} avatar_url={m.avatar_url} />
-                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
+                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
           </div>
@@ -440,40 +449,40 @@ export default function CompetitionJoin() {
   if (team && !teamIsFull) {
     return (
       <PageShell comp={comp}>
-        <div className="bg-accent/10 rounded-xl p-4 mb-3">
-          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-2">
+        <div className="bg-accent/10 rounded-xl p-4 mb-4">
+          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-3">
             {team.members.length} of {comp.team_size} teammates
           </p>
-          <div className="flex justify-center gap-3 flex-wrap">
+          <div className="flex justify-center gap-4 flex-wrap">
             {team.members.map((m) => (
-              <div key={m.user_id} className="flex flex-col items-center gap-0.5">
+              <div key={m.user_id} className="flex flex-col items-center gap-1">
                 <Avatar name={m.name} avatar_url={m.avatar_url} />
-                <p className="text-micro text-ink-primary font-semibold">{m.name}</p>
+                <p className="text-caption text-ink-primary font-semibold">{m.name}</p>
               </div>
             ))}
             {Array.from({ length: comp.team_size - team.members.length }).map((_, i) => (
-              <div key={`e-${i}`} className="flex flex-col items-center gap-0.5">
-                <div className="w-11 h-11 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-                  <span className="text-ink-muted text-body">?</span>
+              <div key={`e-${i}`} className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                  <span className="text-ink-muted text-body-lg">?</span>
                 </div>
-                <p className="text-micro text-ink-muted">Open</p>
+                <p className="text-caption text-ink-muted">Open</p>
               </div>
             ))}
           </div>
         </div>
         {myQrUrl && (
-          <div className="bg-bg-surface rounded-xl p-2 mb-2 inline-block">
-            <img src={myQrUrl} width={120} height={120} alt="Your QR" className="rounded-lg mx-auto" />
+          <div className="bg-bg-surface rounded-xl p-3 mb-4 inline-block">
+            <img src={myQrUrl} width={160} height={160} alt="Your QR" className="rounded-lg mx-auto" />
           </div>
         )}
         <button
           onClick={() => setScanning(true)}
-          className="w-full py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold flex items-center justify-center gap-2"
         >
           <ScanIcon /> Scan to Add Teammate
         </button>
-        {inviteSent && <p className="text-success text-caption font-semibold mt-1">Invite sent!</p>}
-        {error && <p className="text-error text-caption mt-1">{error}</p>}
+        {inviteSent && <p className="text-success text-body font-semibold mt-2">Invite sent!</p>}
+        {error && <p className="text-error text-caption mt-2">{error}</p>}
       </PageShell>
     );
   }
@@ -481,28 +490,30 @@ export default function CompetitionJoin() {
   // ─── No team yet → Find Teammate ──────────────────────────────
   return (
     <PageShell comp={comp}>
-      <p className="text-success text-caption font-semibold mb-2">You're in!</p>
+      <div className="bg-success/10 rounded-xl p-3 mb-4">
+        <p className="text-success text-body font-semibold">You're in!</p>
+      </div>
 
       {inviteFrom ? (
-        <div className="bg-accent/10 rounded-xl p-3 mb-2">
-          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-1">Team Request</p>
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Avatar name={inviteFrom.name} avatar_url={inviteFrom.avatar_url} size="w-9 h-9" />
-            <p className="text-caption text-ink-primary font-semibold">{inviteFrom.name}</p>
+        <div className="bg-accent/10 rounded-xl p-4 mb-4">
+          <p className="text-micro text-accent uppercase tracking-widest font-bold mb-2">Team Request</p>
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Avatar name={inviteFrom.name} avatar_url={inviteFrom.avatar_url} />
+            <p className="text-body text-ink-primary font-semibold">{inviteFrom.name}</p>
           </div>
-          <p className="text-micro text-ink-secondary mb-2">wants to team up!</p>
-          <div className="flex gap-2">
+          <p className="text-caption text-ink-secondary mb-3">wants to team up!</p>
+          <div className="flex gap-3">
             <button
               onClick={() => handleRespondInvite(false)}
               disabled={responding}
-              className="flex-1 py-2.5 rounded-lg bg-bg-surface text-ink-secondary text-caption font-semibold disabled:opacity-40"
+              className="flex-1 py-3 rounded-lg bg-bg-surface text-ink-secondary text-body font-semibold disabled:opacity-40"
             >
               Decline
             </button>
             <button
               onClick={() => handleRespondInvite(true)}
               disabled={responding}
-              className="flex-1 py-2.5 rounded-lg bg-accent text-ink-inverse text-caption font-semibold disabled:opacity-40"
+              className="flex-1 py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold disabled:opacity-40"
             >
               {responding ? "Forming…" : "Accept"}
             </button>
@@ -510,14 +521,14 @@ export default function CompetitionJoin() {
         </div>
       ) : (
         <>
-          <p className="text-caption text-ink-secondary mb-2">Find a teammate to get started</p>
-          <div className="flex justify-center gap-3 mb-2">
+          <p className="text-body text-ink-secondary mb-3">Find a teammate to get started</p>
+          <div className="flex justify-center gap-4 mb-4">
             {Array.from({ length: comp.team_size }).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-0.5">
-                <div className="w-10 h-10 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
-                  <span className="text-ink-muted text-caption">?</span>
+              <div key={i} className="flex flex-col items-center gap-1">
+                <div className="w-12 h-12 rounded-full border-2 border-dashed border-ink-muted/40 flex items-center justify-center">
+                  <span className="text-ink-muted text-body">?</span>
                 </div>
-                <p className="text-micro text-ink-muted">Open</p>
+                <p className="text-caption text-ink-muted">Open</p>
               </div>
             ))}
           </div>
@@ -525,20 +536,20 @@ export default function CompetitionJoin() {
       )}
 
       {myQrUrl && (
-        <div className="bg-bg-surface rounded-xl p-2 mb-2 inline-block">
-          <img src={myQrUrl} width={120} height={120} alt="Your QR" className="rounded-lg mx-auto" />
+        <div className="bg-bg-surface rounded-xl p-3 mb-4 inline-block">
+          <img src={myQrUrl} width={160} height={160} alt="Your QR" className="rounded-lg mx-auto" />
         </div>
       )}
 
       <button
         onClick={() => setScanning(true)}
-        className="w-full py-3 rounded-lg bg-accent text-ink-inverse text-body font-semibold flex items-center justify-center gap-2"
+        className="w-full py-4 rounded-lg bg-accent text-ink-inverse text-body-lg font-semibold flex items-center justify-center gap-2"
       >
         <ScanIcon /> Scan Teammate's Code
       </button>
 
-      {inviteSent && <p className="text-success text-caption font-semibold mt-1">Invite sent!</p>}
-      {error && <p className="text-error text-caption mt-1">{error}</p>}
+      {inviteSent && <p className="text-success text-body font-semibold mt-2">Invite sent!</p>}
+      {error && <p className="text-error text-caption mt-2">{error}</p>}
     </PageShell>
   );
 }
