@@ -1,5 +1,10 @@
 # Changelog
 
+## Show all results on competition finish overlay (2026-06-08)
+
+### Added
+- **"Show All Results" toggle** — competition finish overlay now has a button to switch between the winners podium and a full ranked list of all contestants with final rep counts. Teams (with member count) and individuals both shown. Toggle back to "Show Winners" to return to podium view.
+
 ## Login method hint + profile indicator (2026-06-06)
 
 ### Added
