@@ -1,9 +1,9 @@
 # Changelog
 
-## Show all results on competition finish overlay (2026-06-08)
+## Remove winners overlay from live dashboard (2026-06-08)
 
-### Added
-- **"Show All Results" toggle** — competition finish overlay now has a button to switch between the winners podium and a full ranked list of all contestants with final rep counts. Teams (with member count) and individuals both shown. Toggle back to "Show Winners" to return to podium view.
+### Changed
+- **No more finish overlay** — completed competitions now show the full dashboard (participant grid + sidebar progress chart) instead of a winners overlay covering the screen. Header shows "COMPLETE" badge when finished.
 
 ## Login method hint + profile indicator (2026-06-06)
 
