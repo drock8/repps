@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { storeReferralCode } from "./ReferralJoin";
 import GoogleIcon from "../components/GoogleIcon";
 
 interface TeamPreview {
@@ -13,12 +14,18 @@ interface TeamPreview {
 
 export default function TeamJoin() {
   const { code } = useParams<{ code: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { profile, refreshProfile } = useAuth();
   const [team, setTeam] = useState<TeamPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
+
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) storeReferralCode(ref);
+  }, [searchParams]);
 
   useEffect(() => {
     async function fetchTeam() {

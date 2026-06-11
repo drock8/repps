@@ -43,13 +43,10 @@ export default function SparksCard() {
   };
 
   const handleShare = async () => {
+    const text = `Join me on REPPs — we're on a mission to inspire 1,000,000 people to move more and live better. It starts with one repp. ${referralUrl}`;
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: "Join REPPs",
-          text: "Join me on REPPs — the global movement challenge!",
-          url: referralUrl,
-        });
+        await navigator.share({ text });
       } catch { /* cancelled */ }
     } else {
       handleCopy();

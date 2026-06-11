@@ -1,5 +1,13 @@
 # Changelog
 
+## Referral tracking on team invites + share message upgrade (2026-06-11)
+
+### Fixed
+- **Team invite links now carry referral code** — share URL includes `?ref={code}` so the inviter gets referral credit when someone joins via their team link. TeamJoin page reads the param and stores it for claim on sign-up.
+
+### Changed
+- **Referral share message upgraded** — both ReferralQRModal and SparksCard now use the same mission-driven message as team invites: "we're on a mission to inspire 1,000,000 people to move more and live better. It starts with one repp." Replaces the generic "the global movement challenge" copy.
+
 ## Add save buttons to admin panel settings (2026-06-11)
 
 ### Fixed
