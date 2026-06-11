@@ -305,7 +305,7 @@ export default function Team() {
     const code = team?.join_code || newJoinCode;
     if (!code) return;
     const name = team?.name || teamName;
-    const refParam = profile.referral_code ? `?ref=${profile.referral_code}` : "";
+    const refParam = profile?.referral_code ? `?ref=${profile.referral_code}` : "";
     const url = `${window.location.origin}/team/join/${code}${refParam}`;
     const text = `Join ${name} on REPPs — we're on a mission to inspire 1,000,000 people to move more and live better. It starts with one repp. ${url}`;
 
