@@ -1,5 +1,10 @@
 # Changelog
 
+## Hide face landmarks from pose skeleton overlay (2026-06-11)
+
+### Changed
+- **Skeleton renders body only** — filtered out all 11 face landmarks (indices 0–10) from both the dot and connector drawing on the live video and recorded output. Detection algorithm still uses all landmarks internally. Face is no longer obscured during DAB flow.
+
 ## Referral tracking on team invites + share message upgrade (2026-06-11)
 
 ### Fixed

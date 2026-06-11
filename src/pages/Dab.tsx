@@ -651,12 +651,16 @@ export default function Dab() {
           const accentSecondary = accentSecondaryRef.current || getComputedStyle(document.documentElement).getPropertyValue("--color-accent-secondary").trim();
           const drawer = new DrawingUtils(ctx);
           for (const landmarks of result.landmarks) {
-            drawer.drawLandmarks(landmarks, {
+            const bodyLandmarks = landmarks.filter((_, i) => i > 10);
+            drawer.drawLandmarks(bodyLandmarks, {
               radius: 3,
               color: accent,
               fillColor: accentSecondary,
             });
-            drawer.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, {
+            const bodyConnections = PoseLandmarker.POSE_CONNECTIONS.filter(
+              (c) => c.start > 10 && c.end > 10
+            );
+            drawer.drawConnectors(landmarks, bodyConnections, {
               color: accent + "80",
               lineWidth: 2,
             });
