@@ -1,5 +1,10 @@
 # Changelog
 
+## Add save buttons to admin panel settings (2026-06-11)
+
+### Fixed
+- **Admin settings had no save button** — Global Target and Leaderboard sections relied on blur-to-save only, making it easy to miss saving changes (especially on mobile). Added explicit "Save Target" and "Save Leaderboard Settings" buttons with loading state to both sections.
+
 ## Remove winners overlay from live dashboard (2026-06-08)
 
 ### Changed

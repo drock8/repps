@@ -363,6 +363,19 @@ export default function Admin() {
                     {stats.totalReps.toLocaleString()} / {Number(globalTarget).toLocaleString()}
                   </span>
                 </div>
+                <button
+                  onClick={async () => {
+                    await Promise.all([
+                      upsertSetting("global_target", globalTarget),
+                      upsertSetting("target_date", globalTargetDate),
+                      upsertSetting("target_label", globalTargetLabel),
+                    ]);
+                  }}
+                  disabled={saving !== null}
+                  className="w-full repps-gradient text-ink-inverse font-semibold py-3 rounded-xl text-sm transition-opacity disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Target"}
+                </button>
               </div>
             </section>
 
@@ -402,6 +415,18 @@ export default function Admin() {
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
+                <button
+                  onClick={async () => {
+                    await Promise.all([
+                      upsertSetting("consistency_daily_threshold", consistencyThreshold),
+                      upsertSetting("consistency_weekly_days_required", consistencyDaysRequired),
+                    ]);
+                  }}
+                  disabled={saving !== null}
+                  className="w-full repps-gradient text-ink-inverse font-semibold py-3 rounded-xl text-sm transition-opacity disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Leaderboard Settings"}
+                </button>
               </div>
             </section>
 
