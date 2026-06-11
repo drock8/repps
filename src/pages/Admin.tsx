@@ -185,12 +185,17 @@ export default function Admin() {
   }, [authorized, loadSettings, loadStats]);
 
   async function upsertSetting(key: string, value: string): Promise<string | null> {
-    const { error } = await supabase
-      .from("settings")
-      .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    const { data, error } = await supabase.rpc("admin_upsert_setting", {
+      p_key: key,
+      p_value: value,
+    });
     if (error) {
       console.error("Failed to save setting:", key, error);
       return `${key}: ${error.message}`;
+    }
+    if (data && !data.success) {
+      console.error("Failed to save setting:", key, data.error);
+      return `${key}: ${data.error}`;
     }
     return null;
   }
