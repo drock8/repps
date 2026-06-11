@@ -119,7 +119,8 @@ export default function Admin() {
   const [stats, setStats] = useState<Stats>({ totalReps: 0, totalUsers: 0, totalTeams: 0, activeEvents: 0 });
   const [activeEngine, setActiveEngine] = useState<EngineVersion>("v2");
   const [selectedTheme, setSelectedTheme] = useState<Theme>("orange");
-  const [saving, setSaving] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveResult, setSaveResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [globalTarget, setGlobalTarget] = useState("2000");
   const [globalTargetDate, setGlobalTargetDate] = useState("2026-06-06");
   const [globalTargetLabel, setGlobalTargetLabel] = useState("2,000 burpees by June 6, 2026");
@@ -183,25 +184,29 @@ export default function Admin() {
     loadStats();
   }, [authorized, loadSettings, loadStats]);
 
-  async function upsertSetting(key: string, value: string) {
-    setSaving(key);
+  async function upsertSetting(key: string, value: string): Promise<string | null> {
     const { error } = await supabase
       .from("settings")
       .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" });
     if (error) {
-      console.error("Failed to save setting:", error);
+      console.error("Failed to save setting:", key, error);
+      return `${key}: ${error.message}`;
     }
-    setSaving(null);
+    return null;
   }
 
   async function handleEngineSelect(engine: EngineVersion) {
     setActiveEngine(engine);
+    setSaving(true);
     await upsertSetting("detection_engine", engine);
+    setSaving(false);
   }
 
   async function handleThemeSelect(theme: Theme) {
     setSelectedTheme(theme);
+    setSaving(true);
     await upsertSetting("theme", theme);
+    setSaving(false);
   }
 
   if (checkingAuth || authLoading) {
@@ -321,7 +326,6 @@ export default function Admin() {
                     type="number"
                     value={globalTarget}
                     onChange={(e) => setGlobalTarget(e.target.value)}
-                    onBlur={() => upsertSetting("global_target", globalTarget)}
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
@@ -332,10 +336,7 @@ export default function Admin() {
                   <input
                     type="date"
                     value={globalTargetDate}
-                    onChange={(e) => {
-                      setGlobalTargetDate(e.target.value);
-                      upsertSetting("target_date", e.target.value);
-                    }}
+                    onChange={(e) => setGlobalTargetDate(e.target.value)}
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
@@ -347,7 +348,6 @@ export default function Admin() {
                     type="text"
                     value={globalTargetLabel}
                     onChange={(e) => setGlobalTargetLabel(e.target.value)}
-                    onBlur={() => upsertSetting("target_label", globalTargetLabel)}
                     placeholder="e.g. 2,000 burpees by June 6, 2026"
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
@@ -365,17 +365,29 @@ export default function Admin() {
                 </div>
                 <button
                   onClick={async () => {
-                    await Promise.all([
+                    setSaving(true);
+                    setSaveResult(null);
+                    const errors = (await Promise.all([
                       upsertSetting("global_target", globalTarget),
                       upsertSetting("target_date", globalTargetDate),
                       upsertSetting("target_label", globalTargetLabel),
-                    ]);
+                    ])).filter(Boolean);
+                    setSaving(false);
+                    setSaveResult(errors.length
+                      ? { ok: false, msg: errors.join("; ") }
+                      : { ok: true, msg: "Saved!" });
+                    if (!errors.length) setTimeout(() => setSaveResult(null), 2000);
                   }}
-                  disabled={saving !== null}
+                  disabled={saving}
                   className="w-full repps-gradient text-ink-inverse font-semibold py-3 rounded-xl text-sm transition-opacity disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Target"}
                 </button>
+                {saveResult && (
+                  <p className={`text-xs text-center mt-2 ${saveResult.ok ? "text-green-400" : "text-red-400"}`}>
+                    {saveResult.msg}
+                  </p>
+                )}
               </div>
             </section>
 
@@ -399,7 +411,6 @@ export default function Admin() {
                     type="number"
                     value={consistencyThreshold}
                     onChange={(e) => setConsistencyThreshold(e.target.value)}
-                    onBlur={() => upsertSetting("consistency_daily_threshold", consistencyThreshold)}
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
@@ -411,22 +422,33 @@ export default function Admin() {
                     type="number"
                     value={consistencyDaysRequired}
                     onChange={(e) => setConsistencyDaysRequired(e.target.value)}
-                    onBlur={() => upsertSetting("consistency_weekly_days_required", consistencyDaysRequired)}
                     className="w-full bg-bg-input border border-divider rounded-xl px-4 py-3 text-sm text-ink-primary focus:outline-none focus:border-accent transition-colors"
                   />
                 </div>
                 <button
                   onClick={async () => {
-                    await Promise.all([
+                    setSaving(true);
+                    setSaveResult(null);
+                    const errors = (await Promise.all([
                       upsertSetting("consistency_daily_threshold", consistencyThreshold),
                       upsertSetting("consistency_weekly_days_required", consistencyDaysRequired),
-                    ]);
+                    ])).filter(Boolean);
+                    setSaving(false);
+                    setSaveResult(errors.length
+                      ? { ok: false, msg: errors.join("; ") }
+                      : { ok: true, msg: "Saved!" });
+                    if (!errors.length) setTimeout(() => setSaveResult(null), 2000);
                   }}
-                  disabled={saving !== null}
+                  disabled={saving}
                   className="w-full repps-gradient text-ink-inverse font-semibold py-3 rounded-xl text-sm transition-opacity disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Leaderboard Settings"}
                 </button>
+                {saveResult && (
+                  <p className={`text-xs text-center mt-2 ${saveResult.ok ? "text-green-400" : "text-red-400"}`}>
+                    {saveResult.msg}
+                  </p>
+                )}
               </div>
             </section>
 
@@ -448,7 +470,7 @@ export default function Admin() {
                     <button
                       key={model.id}
                       onClick={() => handleEngineSelect(model.id)}
-                      disabled={saving === "detection_engine"}
+                      disabled={saving}
                       className={`w-full text-left rounded-2xl border-2 p-5 transition-all ${
                         isActive
                           ? "border-accent bg-accent/5"
@@ -530,7 +552,7 @@ export default function Admin() {
                     <button
                       key={t.id}
                       onClick={() => handleThemeSelect(t.id)}
-                      disabled={saving === "theme"}
+                      disabled={saving}
                       className={`rounded-2xl border-2 p-4 transition-all ${
                         isActive
                           ? "border-accent bg-accent/5"
