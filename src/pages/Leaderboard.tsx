@@ -542,7 +542,7 @@ export default function Leaderboard() {
     if (!profile) return;
     if (m === "reps") {
       const [{ data: rankData }, { data: statsData }] = await Promise.all([
-        supabase.rpc("get_user_rank", { p_user_id: profile.id, p_gender: gender === "all" ? null : gender, p_period: period }),
+        supabase.rpc("get_user_rank", { p_user_id: profile.id, p_gender: gender === "all" ? null : gender, p_period: period, p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryFilter || null }),
         supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
       ]);
       const row = Array.isArray(rankData) ? rankData[0] : rankData;
@@ -588,7 +588,7 @@ export default function Leaderboard() {
       } else setUserPinned(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, gender, period]);
+  }, [profile, gender, period, ageBracket, countryFilter]);
 
   const resolveTeamPinned = useCallback((entries: TeamEntry[]) => {
     if (!profile?.team_id) { setTeamPinned(null); return; }
