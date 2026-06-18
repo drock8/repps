@@ -1,5 +1,10 @@
 # Changelog
 
+## Update PWA icons with more padding (2026-06-18)
+
+### Changed
+- **Home screen icon** — replaced all R mark icon files (192px + 512px) with versions that have more breathing room so the logo no longer touches the edges of the icon shape on iOS/Android home screens.
+
 ## Server-side push notifications via Vercel cron (2026-06-18)
 
 ### Added
