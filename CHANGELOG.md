@@ -1,16 +1,21 @@
 # Changelog
 
+## Server-side push notifications via Vercel cron (2026-06-18)
+
+### Added
+- **Web Push API integration** — VAPID keys, `push_subscriptions` table, full subscribe/unsubscribe flow from Profile settings.
+- **Vercel cron endpoint** (`api/cron/send-reminders.ts`) — runs every 15 minutes, finds users past their reminder time who haven't hit MDR, sends push notification. Auto-cleans expired subscriptions (410/404).
+- **`push_subscriptions` table + `get_pending_reminders` RPC** — stores device endpoints, reminder time, and preferences per user. RPC joins against today's reps to find who needs a nudge.
+- **Client-side fallback preserved** — still fires on app open/visibility change if server push was missed.
+
 ## Add daily reminder notifications with Profile settings (2026-06-18)
 
 ### Added
-- **Service worker** (`public/sw.js`) — handles local notifications and opens the app on tap.
+- **Service worker** (`public/sw.js`) — handles push and local notifications, opens the app on tap.
 - **Notification settings on Profile** — collapsible "Reminders" card with daily reminder toggle, preset time picker (9 AM / 12 PM / 6 PM / 8 PM), custom time input, and team nudge toggle.
-- **useNotifications hook** — manages browser permission, localStorage preferences, SW registration, and reminder scheduling.
+- **useNotifications hook** — manages browser permission, localStorage preferences, SW registration, push subscription, and reminder scheduling.
 - **SW registration** in `main.tsx` — service worker auto-registers on app load.
 - **iOS Add to Home Screen prompt** — detects when notifications require PWA install and shows instructions with share icon.
-
-### Fixed
-- **Reliable reminder delivery** — replaced unreliable SW `setTimeout` (killed by idle browser) with client-side checks on app open, visibility change, and 15-minute interval. Fires only once per day, only if past reminder time and user hasn't hit MDR. Message shows remaining rep count.
 
 ## Hide face landmarks from pose skeleton overlay (2026-06-11)
 

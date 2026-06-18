@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 
 const PREFS_KEY = "repps_notification_prefs";
 const LAST_REMINDED_KEY = "repps_last_reminded";
+const VAPID_PUBLIC_KEY = "BN1rVtnGZN2iIssPHMUmZp7Pwz0Ewd7eQ0vdCB8V2bkGyfv824EZjp0vvC9cD-cl4ic8yL0VmW3A5SP7fnYdKEw";
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -60,6 +61,64 @@ async function registerSW(): Promise<ServiceWorkerRegistration | null> {
   }
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function subscribeToPush(
+  registration: ServiceWorkerRegistration,
+  userId: string,
+  prefs: NotificationPrefs,
+): Promise<boolean> {
+  try {
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    const subJson = subscription.toJSON();
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      {
+        user_id: userId,
+        endpoint: subJson.endpoint!,
+        p256dh: subJson.keys!.p256dh!,
+        auth: subJson.keys!.auth!,
+        reminder_time: prefs.reminderTime + ":00",
+        reminder_enabled: prefs.enabled,
+        team_nudges: prefs.teamNudges,
+      },
+      { onConflict: "user_id,endpoint" },
+    );
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+async function unsubscribeFromPush(userId: string) {
+  await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+}
+
+async function syncPrefsToServer(userId: string, prefs: NotificationPrefs) {
+  await supabase
+    .from("push_subscriptions")
+    .update({
+      reminder_time: prefs.reminderTime + ":00",
+      reminder_enabled: prefs.enabled,
+      team_nudges: prefs.teamNudges,
+    })
+    .eq("user_id", userId);
+}
+
+// Client-side fallback: check on app open
 function todayKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -99,7 +158,7 @@ async function getDailyTarget(): Promise<number> {
   return data ? Number(data.value) : 5;
 }
 
-async function showNotification(registration: ServiceWorkerRegistration, title: string, body: string) {
+async function showLocalNotification(registration: ServiceWorkerRegistration, title: string, body: string) {
   if (registration.active) {
     registration.active.postMessage({ type: "SHOW_NOTIFICATION", title, body, tag: "daily-reminder" });
   }
@@ -128,7 +187,7 @@ async function checkAndNotify(
     ? `Time to start! Hit your ${target} daily reps.`
     : `${remaining} more rep${remaining === 1 ? "" : "s"} to hit your daily minimum. Let's go!`;
 
-  await showNotification(registration, "REPPs", body);
+  await showLocalNotification(registration, "REPPs", body);
 }
 
 export function useNotifications(userId?: string) {
@@ -147,20 +206,17 @@ export function useNotifications(userId?: string) {
     });
   }, []);
 
-  // Check on mount, visibility change, and periodically while app is open
+  // Client-side fallback check
   useEffect(() => {
     if (!prefs.enabled || permission !== "granted") return;
 
     const check = () => checkAndNotify(prefs, userId, swRegistration);
-
     check();
 
     function handleVisibility() {
       if (document.visibilityState === "visible") check();
     }
     document.addEventListener("visibilitychange", handleVisibility);
-
-    // Check every 15 minutes while the app is open
     checkIntervalRef.current = setInterval(check, 15 * 60 * 1000);
 
     return () => {
@@ -187,15 +243,27 @@ export function useNotifications(userId?: string) {
         }
       }
 
-      if (next.enabled && !swRegistration) {
-        const reg = await registerSW();
+      let reg = swRegistration;
+      if (next.enabled && !reg) {
+        reg = await registerSW();
         if (reg) setSWRegistration(reg);
       }
 
       savePrefs(next);
       setPrefs(next);
+
+      // Subscribe/unsubscribe from server push
+      if (userId && reg) {
+        if (next.enabled) {
+          await subscribeToPush(reg, userId, next);
+        } else {
+          await unsubscribeFromPush(userId);
+        }
+      } else if (userId && next.enabled) {
+        await syncPrefsToServer(userId, next);
+      }
     },
-    [prefs, permission, requestPermission, swRegistration]
+    [prefs, permission, requestPermission, swRegistration, userId]
   );
 
   return { prefs, permission, needsInstall, updatePrefs };
