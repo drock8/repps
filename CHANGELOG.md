@@ -1,5 +1,13 @@
 # Changelog
 
+## Add daily reminder notifications with Profile settings (2026-06-18)
+
+### Added
+- **Service worker** (`public/sw.js`) — handles scheduled local notifications and opens the app on tap.
+- **Notification settings on Profile** — collapsible "Reminders" card with daily reminder toggle, preset time picker (9 AM / 12 PM / 6 PM / 8 PM), custom time input, and team nudge toggle.
+- **useNotifications hook** — manages browser permission, localStorage preferences, SW registration, and reminder scheduling.
+- **SW registration** in `main.tsx` — service worker auto-registers on app load.
+
 ## Hide face landmarks from pose skeleton overlay (2026-06-11)
 
 ### Changed

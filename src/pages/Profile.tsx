@@ -12,6 +12,7 @@ import type { Country } from "../data/countries";
 import { flagEmoji } from "../lib/flagEmoji";
 import GoogleIcon from "../components/GoogleIcon";
 import PasswordInput from "../components/PasswordInput";
+import NotificationSettings from "../components/NotificationSettings";
 
 const genderOptions: { label: string; value: Gender }[] = [
   { label: "Female", value: "female" },
@@ -402,6 +403,9 @@ export default function Profile() {
 
         {/* Sparks — referral stats */}
         <SparksCard />
+
+        {/* Notification settings */}
+        <NotificationSettings />
 
         {/* Profile details — collapsible */}
         <div className="bg-bg-surface rounded-lg overflow-hidden">
