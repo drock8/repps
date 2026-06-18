@@ -3,10 +3,14 @@
 ## Add daily reminder notifications with Profile settings (2026-06-18)
 
 ### Added
-- **Service worker** (`public/sw.js`) — handles scheduled local notifications and opens the app on tap.
+- **Service worker** (`public/sw.js`) — handles local notifications and opens the app on tap.
 - **Notification settings on Profile** — collapsible "Reminders" card with daily reminder toggle, preset time picker (9 AM / 12 PM / 6 PM / 8 PM), custom time input, and team nudge toggle.
 - **useNotifications hook** — manages browser permission, localStorage preferences, SW registration, and reminder scheduling.
 - **SW registration** in `main.tsx` — service worker auto-registers on app load.
+- **iOS Add to Home Screen prompt** — detects when notifications require PWA install and shows instructions with share icon.
+
+### Fixed
+- **Reliable reminder delivery** — replaced unreliable SW `setTimeout` (killed by idle browser) with client-side checks on app open, visibility change, and 15-minute interval. Fires only once per day, only if past reminder time and user hasn't hit MDR. Message shows remaining rep count.
 
 ## Hide face landmarks from pose skeleton overlay (2026-06-11)
 
