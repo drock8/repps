@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNotifications } from "../hooks/useNotifications";
 
 export default function NotificationSettings() {
-  const { prefs, permission, updatePrefs } = useNotifications();
+  const { prefs, permission, needsInstall, updatePrefs } = useNotifications();
   const [expanded, setExpanded] = useState(false);
 
   const unsupported = permission === "unsupported";
@@ -33,7 +33,7 @@ export default function NotificationSettings() {
             <p className="text-micro text-ink-muted uppercase tracking-wide">Reminders</p>
             <p className="text-body mt-0.5">
               {unsupported
-                ? "Not supported"
+                ? needsInstall ? "Add to Home Screen" : "Not supported"
                 : prefs.enabled
                   ? `Daily at ${formatTime(prefs.reminderTime)}`
                   : "Off"}
@@ -57,7 +57,20 @@ export default function NotificationSettings() {
 
       {expanded && (
         <div className="px-4 pb-4 flex flex-col gap-3">
-          {unsupported && (
+          {unsupported && needsInstall && (
+            <div className="bg-bg-elevated rounded-lg p-3">
+              <p className="text-body text-ink-primary font-semibold">Install REPPs to enable reminders</p>
+              <p className="text-caption text-ink-secondary mt-1.5">
+                Tap the share button <span className="inline-block align-middle">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+                  </svg>
+                </span> then "Add to Home Screen". Once installed, come back here to turn on reminders.
+              </p>
+            </div>
+          )}
+
+          {unsupported && !needsInstall && (
             <p className="text-caption text-ink-muted">
               Your browser doesn't support notifications.
             </p>

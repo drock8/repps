@@ -28,9 +28,25 @@ function savePrefs(prefs: NotificationPrefs) {
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
 }
 
+function isIOSSafari(): boolean {
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isStandalone(): boolean {
+  return window.matchMedia("(display-mode: standalone)").matches
+    || ("standalone" in navigator && (navigator as unknown as { standalone: boolean }).standalone === true);
+}
+
+export function getNotificationSupport(): { permission: NotificationPermission | "unsupported"; needsInstall: boolean } {
+  if (!("Notification" in window)) {
+    return { permission: "unsupported", needsInstall: isIOSSafari() && !isStandalone() };
+  }
+  return { permission: Notification.permission, needsInstall: false };
+}
+
 export function getNotificationPermission(): NotificationPermission | "unsupported" {
-  if (!("Notification" in window)) return "unsupported";
-  return Notification.permission;
+  return getNotificationSupport().permission;
 }
 
 async function registerSW(): Promise<ServiceWorkerRegistration | null> {
@@ -66,9 +82,11 @@ function scheduleReminder(registration: ServiceWorkerRegistration, prefs: Notifi
 
 export function useNotifications() {
   const [prefs, setPrefs] = useState<NotificationPrefs>(loadPrefs);
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    getNotificationPermission
-  );
+  const [support, setSupport] = useState(getNotificationSupport);
+  const permission = support.permission;
+  const needsInstall = support.needsInstall;
+  const setPermission = (p: NotificationPermission | "unsupported") =>
+    setSupport((s) => ({ ...s, permission: p }));
   const [swRegistration, setSWRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
@@ -115,5 +133,5 @@ export function useNotifications() {
     [prefs, permission, requestPermission, swRegistration]
   );
 
-  return { prefs, permission, updatePrefs };
+  return { prefs, permission, needsInstall, updatePrefs };
 }
