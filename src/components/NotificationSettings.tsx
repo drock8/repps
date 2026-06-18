@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../hooks/useNotifications";
 
 export default function NotificationSettings() {
-  const { prefs, permission, needsInstall, updatePrefs } = useNotifications();
+  const { profile } = useAuth();
+  const { prefs, permission, needsInstall, updatePrefs } = useNotifications(profile?.id);
   const [expanded, setExpanded] = useState(false);
 
   const unsupported = permission === "unsupported";

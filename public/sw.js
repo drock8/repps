@@ -28,16 +28,14 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data?.type === "SCHEDULE_REMINDER") {
-    const { delayMs, title, body } = event.data;
-    setTimeout(() => {
-      self.registration.showNotification(title || "REPPs", {
-        body: body || "You haven't hit your daily minimum yet. Let's go!",
-        icon: "/repps-icon-192.png",
-        badge: "/repps-icon-192.png",
-        tag: "daily-reminder",
-        data: { url: "/home" },
-      });
-    }, delayMs);
+  if (event.data?.type === "SHOW_NOTIFICATION") {
+    const { title, body, tag } = event.data;
+    self.registration.showNotification(title || "REPPs", {
+      body: body || "You haven't hit your daily minimum yet. Let's go!",
+      icon: "/repps-icon-192.png",
+      badge: "/repps-icon-192.png",
+      tag: tag || "daily-reminder",
+      data: { url: "/home" },
+    });
   }
 });

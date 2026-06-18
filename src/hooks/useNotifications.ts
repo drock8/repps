@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 const PREFS_KEY = "repps_notification_prefs";
+const LAST_REMINDED_KEY = "repps_last_reminded";
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -58,29 +60,78 @@ async function registerSW(): Promise<ServiceWorkerRegistration | null> {
   }
 }
 
-function scheduleReminder(registration: ServiceWorkerRegistration, prefs: NotificationPrefs) {
-  if (!prefs.enabled || !registration.active) return;
-
-  const [hours, minutes] = prefs.reminderTime.split(":").map(Number);
-  const now = new Date();
-  const target = new Date();
-  target.setHours(hours, minutes, 0, 0);
-
-  if (target.getTime() <= now.getTime()) {
-    target.setDate(target.getDate() + 1);
-  }
-
-  const delayMs = target.getTime() - now.getTime();
-
-  registration.active.postMessage({
-    type: "SCHEDULE_REMINDER",
-    delayMs,
-    title: "REPPs",
-    body: "You haven't hit your daily minimum yet. Let's go! 💪",
-  });
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function useNotifications() {
+function alreadyRemindedToday(): boolean {
+  return localStorage.getItem(LAST_REMINDED_KEY) === todayKey();
+}
+
+function markRemindedToday() {
+  localStorage.setItem(LAST_REMINDED_KEY, todayKey());
+}
+
+function isPastReminderTime(reminderTime: string): boolean {
+  const [h, m] = reminderTime.split(":").map(Number);
+  const now = new Date();
+  return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m);
+}
+
+async function getTodayRepCount(userId: string): Promise<number> {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("reps")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("validated_at", todayStart.toISOString());
+  return count ?? 0;
+}
+
+async function getDailyTarget(): Promise<number> {
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "team_daily_target")
+    .single();
+  return data ? Number(data.value) : 5;
+}
+
+async function showNotification(registration: ServiceWorkerRegistration, title: string, body: string) {
+  if (registration.active) {
+    registration.active.postMessage({ type: "SHOW_NOTIFICATION", title, body, tag: "daily-reminder" });
+  }
+}
+
+async function checkAndNotify(
+  prefs: NotificationPrefs,
+  userId: string | undefined,
+  registration: ServiceWorkerRegistration | null,
+) {
+  if (!prefs.enabled || !userId || !registration) return;
+  if (!isPastReminderTime(prefs.reminderTime)) return;
+  if (alreadyRemindedToday()) return;
+
+  const [todayCount, target] = await Promise.all([
+    getTodayRepCount(userId),
+    getDailyTarget(),
+  ]);
+
+  if (todayCount >= target) return;
+
+  markRemindedToday();
+
+  const remaining = target - todayCount;
+  const body = todayCount === 0
+    ? `Time to start! Hit your ${target} daily reps.`
+    : `${remaining} more rep${remaining === 1 ? "" : "s"} to hit your daily minimum. Let's go!`;
+
+  await showNotification(registration, "REPPs", body);
+}
+
+export function useNotifications(userId?: string) {
   const [prefs, setPrefs] = useState<NotificationPrefs>(loadPrefs);
   const [support, setSupport] = useState(getNotificationSupport);
   const permission = support.permission;
@@ -88,6 +139,7 @@ export function useNotifications() {
   const setPermission = (p: NotificationPermission | "unsupported") =>
     setSupport((s) => ({ ...s, permission: p }));
   const [swRegistration, setSWRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     registerSW().then((reg) => {
@@ -95,10 +147,27 @@ export function useNotifications() {
     });
   }, []);
 
+  // Check on mount, visibility change, and periodically while app is open
   useEffect(() => {
-    if (!swRegistration || !prefs.enabled || permission !== "granted") return;
-    scheduleReminder(swRegistration, prefs);
-  }, [swRegistration, prefs, permission]);
+    if (!prefs.enabled || permission !== "granted") return;
+
+    const check = () => checkAndNotify(prefs, userId, swRegistration);
+
+    check();
+
+    function handleVisibility() {
+      if (document.visibilityState === "visible") check();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Check every 15 minutes while the app is open
+    checkIntervalRef.current = setInterval(check, 15 * 60 * 1000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+    };
+  }, [prefs, permission, userId, swRegistration]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (!("Notification" in window)) return false;
@@ -125,10 +194,6 @@ export function useNotifications() {
 
       savePrefs(next);
       setPrefs(next);
-
-      if (next.enabled && swRegistration) {
-        scheduleReminder(swRegistration, next);
-      }
     },
     [prefs, permission, requestPermission, swRegistration]
   );
