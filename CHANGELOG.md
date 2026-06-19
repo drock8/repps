@@ -1,5 +1,15 @@
 # Changelog
 
+## Fix leaderboard ranking not updating when filters change (2026-06-19)
+
+### Fixed
+- **User rank now reacts to filter changes** — switching time period (Today → All Time), gender, age, or country filters now correctly recalculates the user's pinned rank and metric value. Previously the rank stayed stuck on the initial filter's result due to stale React hook dependencies.
+- **Period-filtered rep count** — pinned card for Repps metric now shows the count matching the selected period instead of always showing the all-time total.
+- **Actual rank for Score/Streak/Session** — when the user isn't in the top 50, their rank is now computed from the full leaderboard instead of being hardcoded to #51.
+
+### Changed
+- **`get_user_rank` RPC** — now returns `metric_value` alongside `rank` and `total_count`, eliminating the need for a separate `get_user_stats_summary` call that ignored period filters.
+
 ## Update PWA icons with more padding (2026-06-18)
 
 ### Changed

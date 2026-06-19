@@ -284,6 +284,101 @@ export default function Leaderboard() {
     if (count !== null) setTotalReps(count);
   }, []);
 
+  // ── Pinned card resolution ──────────────────────────────────
+
+  const fetchUserPinnedData = useCallback(async (m: Metric) => {
+    if (!profile) return;
+    const genderParam = gender === "all" ? null : gender;
+    const countryParam = countryFilter || null;
+
+    if (m === "reps") {
+      const { data: rankData } = await supabase.rpc("get_user_rank", {
+        p_user_id: profile.id, p_gender: genderParam, p_period: period,
+        p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryParam,
+      });
+      const row = Array.isArray(rankData) ? rankData[0] : rankData;
+      const count = Number(row?.metric_value || 0);
+      if (count > 0) {
+        setUserPinned({ rank: Number(row?.rank || 51), entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "reps", primaryValue: count, secondaryLabel: "repps",
+        }});
+      } else setUserPinned(null);
+    } else if (m === "score") {
+      const { data } = await supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: period });
+      const row = Array.isArray(data) ? data[0] : data;
+      const score = Number(row?.score || 0);
+      if (score > 0) {
+        const { data: boardData } = await supabase.rpc("get_rep_score_leaderboard", {
+          p_gender: genderParam, p_period: period, p_limit: 200,
+          p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryParam,
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rank = ((boardData || []) as any[]).findIndex((r: any) => r.user_id === profile.id) + 1 || (boardData || []).length + 1;
+        setUserPinned({ rank, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "score", primaryValue: score, secondaryLabel: "pts",
+          baseReps: Number(row.base_reps || 0), dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
+          dailyMultiplier: Number(row.daily_multiplier || 1), streakBonusPts: Number(row.streak_bonus_pts || 0),
+        }});
+      } else setUserPinned(null);
+    } else if (m === "streak") {
+      const { data } = await supabase.rpc("get_streak_leaderboard", {
+        p_gender: genderParam, p_limit: 200,
+        p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryParam,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allStreakEntries = (data || []) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userRow = allStreakEntries.find((r: any) => (r.out_user_id || r.user_id) === profile.id);
+      if (userRow) {
+        const rank = allStreakEntries.indexOf(userRow) + 1;
+        const longest = Number(userRow.out_longest_streak || userRow.longest_streak || 0);
+        const current = Number(userRow.out_current_streak || userRow.current_streak || 0);
+        setUserPinned({ rank, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "streak", primaryValue: longest,
+          secondaryLabel: longest === 1 ? "day" : "days",
+          currentStreak: current,
+        }});
+      } else setUserPinned(null);
+    } else if (m === "session") {
+      const { data } = await supabase.rpc("get_best_session_leaderboard", {
+        p_gender: genderParam, p_limit: 200, p_period: period,
+        p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryParam,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allSessionEntries = (data || []) as any[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userRow = allSessionEntries.find((r: any) => r.user_id === profile.id);
+      if (userRow) {
+        const rank = allSessionEntries.indexOf(userRow) + 1;
+        setUserPinned({ rank, entry: {
+          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
+          metric: "session", primaryValue: Number(userRow.rep_count), secondaryLabel: "repps",
+          durationSeconds: Number(userRow.duration_seconds),
+        }});
+      } else setUserPinned(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, gender, period, ageBracket, countryFilter]);
+
+  const resolveUserPinned = useCallback((entries: IndividualEntry[], m: Metric) => {
+    if (!profile) { setUserPinned(null); return; }
+    const userMatchesFilter = gender === "all" || profile.gender === gender;
+    if (!userMatchesFilter) { setUserPinned(null); return; }
+    const idx = entries.findIndex(e => e.userId === profile.id);
+    if (idx >= 0) { setUserPinned(null); return; }
+    fetchUserPinnedData(m);
+  }, [profile, gender, fetchUserPinnedData]);
+
+  const resolveTeamPinned = useCallback((entries: TeamEntry[]) => {
+    if (!profile?.team_id) { setTeamPinned(null); return; }
+    const idx = entries.findIndex(e => e.teamId === profile.team_id);
+    if (idx >= 0) { setTeamPinned(null); return; }
+    setTeamPinned(null);
+  }, [profile]);
+
   // ── Individual fetchers ─────────────────────────────────────
 
   const fetchIndividualReps = useCallback(async () => {
@@ -525,78 +620,7 @@ export default function Leaderboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heatmapOpen, heatmapTab]);
 
-  // ── Pinned card resolution ──────────────────────────────────
 
-  const resolveUserPinned = useCallback((entries: IndividualEntry[], m: Metric) => {
-    if (!profile) { setUserPinned(null); return; }
-    const userMatchesFilter = gender === "all" || profile.gender === gender;
-    if (!userMatchesFilter) { setUserPinned(null); return; }
-    const idx = entries.findIndex(e => e.userId === profile.id);
-    if (idx >= 0) { setUserPinned(null); return; } // in list, will use inline highlight
-    // Not in top 50 — fetch user stats for this metric
-    fetchUserPinnedData(m);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, gender]);
-
-  const fetchUserPinnedData = useCallback(async (m: Metric) => {
-    if (!profile) return;
-    if (m === "reps") {
-      const [{ data: rankData }, { data: statsData }] = await Promise.all([
-        supabase.rpc("get_user_rank", { p_user_id: profile.id, p_gender: gender === "all" ? null : gender, p_period: period, p_age_min: ageParams.min, p_age_max: ageParams.max, p_country: countryFilter || null }),
-        supabase.rpc("get_user_stats_summary", { p_user_id: profile.id }),
-      ]);
-      const row = Array.isArray(rankData) ? rankData[0] : rankData;
-      const stats = Array.isArray(statsData) ? statsData[0] : statsData;
-      const count = Number(stats?.total_reps || 0);
-      if (count > 0) {
-        setUserPinned({ rank: Number(row?.rank || 51), entry: {
-          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
-          metric: "reps", primaryValue: count, secondaryLabel: "repps",
-        }});
-      } else setUserPinned(null);
-    } else if (m === "score") {
-      const { data } = await supabase.rpc("calculate_user_rep_score", { p_user_id: profile.id, p_period: period });
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row && Number(row.score) > 0) {
-        setUserPinned({ rank: 51, entry: {
-          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
-          metric: "score", primaryValue: Number(row.score), secondaryLabel: "pts",
-          baseReps: Number(row.base_reps || 0), dailyMultiplierPts: Number(row.daily_multiplier_pts || 0),
-          dailyMultiplier: Number(row.daily_multiplier || 1), streakBonusPts: Number(row.streak_bonus_pts || 0),
-        }});
-      } else setUserPinned(null);
-    } else if (m === "streak") {
-      const { data } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row && Number(row.longest_streak) > 0) {
-        setUserPinned({ rank: 51, entry: {
-          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
-          metric: "streak", primaryValue: Number(row.longest_streak),
-          secondaryLabel: Number(row.longest_streak) === 1 ? "day" : "days",
-          currentStreak: Number(row.current_streak),
-        }});
-      } else setUserPinned(null);
-    } else if (m === "session") {
-      const { data } = await supabase.rpc("get_user_stats_summary", { p_user_id: profile.id });
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row && Number(row.best_session_count) > 0) {
-        setUserPinned({ rank: 51, entry: {
-          userId: profile.id, name: profile.name, avatarUrl: profile.avatar_url,
-          metric: "session", primaryValue: Number(row.best_session_count), secondaryLabel: "repps",
-          durationSeconds: Number(row.best_session_duration),
-        }});
-      } else setUserPinned(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, gender, period, ageBracket, countryFilter]);
-
-  const resolveTeamPinned = useCallback((entries: TeamEntry[]) => {
-    if (!profile?.team_id) { setTeamPinned(null); return; }
-    const idx = entries.findIndex(e => e.teamId === profile.team_id);
-    if (idx >= 0) { setTeamPinned(null); return; }
-    // Team not in top 50 — we don't have a single-team lookup for all metrics yet
-    setTeamPinned(null);
-  }, [profile]);
 
   // ── Computed pinned for in-list users ───────────────────────
 
