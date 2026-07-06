@@ -331,15 +331,16 @@ function ParticipantCard({
           {p.name.charAt(0).toUpperCase()}
         </div>
       )}
-      <p className="text-[18px] font-semibold text-ink-primary truncate max-w-[140px]">
-        {p.name}
-      </p>
-      {flag && <p className="text-[20px] leading-none">{flag}</p>}
+      <div className="text-center">
+        <p className="text-[18px] font-semibold text-ink-primary truncate max-w-[140px]">
+          {p.name}
+        </p>
+        {p.nationality_name && (
+          <p className="text-[13px] text-ink-muted">{flag ? `${flag} ` : ""}{p.nationality_name}</p>
+        )}
+      </div>
       {live ? (
-        <div className="text-center">
-          <p className="text-[28px] font-bold text-accent leading-tight">{displayReps}</p>
-          <p className="text-[13px] text-ink-muted">reps</p>
-        </div>
+        <p className="text-[28px] font-bold text-accent leading-tight">{displayReps}</p>
       ) : (
         <p
           className={`text-[13px] font-semibold px-3 py-1 rounded-full ${
