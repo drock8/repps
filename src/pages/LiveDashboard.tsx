@@ -656,7 +656,9 @@ function ResultsOverlay({
       <div className="text-center max-w-3xl py-10 px-4 w-full relative z-31">
         {/* Logo + comp name */}
         <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-[86px] mx-auto mb-3 object-contain" />
-        <p className="text-headline text-ink-primary font-bold uppercase tracking-wide mb-6">{compName}</p>
+        <p className="text-headline text-ink-primary font-bold uppercase tracking-wide mb-6">
+          {compName} — {isOlympics ? "Olympics" : teamSize > 1 ? "Teams" : "Individual"}
+        </p>
 
         {/* Total reps hero */}
         <p className="text-[72px] font-bold text-accent leading-none mb-1">{totalReps}</p>
@@ -1312,7 +1314,9 @@ export default function LiveDashboard() {
         </div>
         <div className="text-center flex-shrink-0 flex flex-col items-center">
           <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-16 object-contain mb-0.5" />
-          <p className="text-[20px] text-white font-bold truncate max-w-[400px]">{comp.name}</p>
+          <p className="text-[20px] text-white font-bold truncate max-w-[500px]">
+            {comp.name} — {(comp.winner_categories || []).includes("highest_avg") ? "Olympics" : comp.team_size > 1 ? "Teams" : "Individual"}
+          </p>
         </div>
         <div className="flex-1 flex items-center justify-end gap-4">
           {isFinished && (
