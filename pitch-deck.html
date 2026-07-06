@@ -24,24 +24,24 @@
 }
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; background: #000; font-family: 'Inter', system-ui, sans-serif; }
-body { display: flex; align-items: center; justify-content: center; }
+body { display: block; }
 
 #deck { width: 1920px; height: 1080px; position: relative; transform-origin: 0 0; }
 .slide {
   position: absolute; inset: 0; width: 1920px; height: 1080px;
   background: var(--bg-base); color: var(--ink-primary);
-  padding: 100px; display: none; flex-direction: column;
+  padding: 0 100px; display: none; flex-direction: column;
   opacity: 0; transition: opacity 250ms ease;
 }
 .slide.active { display: flex; opacity: 1; }
 
 /* Typography */
 .eyebrow {
-  font-size: 13px; font-weight: 700; letter-spacing: 0.15em;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.15em;
   text-transform: uppercase; color: var(--accent); margin-bottom: 16px;
 }
-h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 24px; }
-h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 20px; }
+h1 { font-size: 80px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin-bottom: 24px; }
+h2 { font-size: 72px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; margin-bottom: 24px; }
 .body { font-size: 22px; font-weight: 400; line-height: 1.5; color: var(--ink-secondary); max-width: 900px; }
 .accent { color: var(--accent); }
 .accent-grad {
@@ -69,9 +69,9 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
 .card-accent { border-color: rgba(255, 214, 0, 0.2); }
 
 /* Stat cards */
-.stat-row { display: flex; gap: 24px; margin-top: 48px; }
+.stat-row { display: flex; gap: 24px; margin-top: 32px; }
 .stat-card { flex: 1; text-align: center; }
-.stat-card .num { font-size: 64px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+.stat-card .num { font-size: 56px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
 .stat-card .label { font-size: 18px; color: var(--ink-secondary); margin-top: 8px; }
 
 /* Three-col */
@@ -190,7 +190,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
 .quote-source { font-size: 15px; color: var(--ink-muted); font-style: normal; margin-top: 16px; font-weight: 600; }
 
 /* Content helpers */
-.content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.content { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 72px 0 56px; }
 .center { text-align: center; align-items: center; }
 .mt-auto { margin-top: auto; }
 .flex-1 { flex: 1; }
@@ -204,15 +204,15 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
 <div class="slide active" data-label="Cover">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span></span></div>
   <div class="content center">
-    <h1 style="font-size:64px; max-width:1200px;">Get 1 Million People to Do<br><span class="accent-grad">At Least 1 Burpee.</span></h1>
+    <h1 style="font-size:96px; max-width:1400px;">Get 1 Million People to Do<br><span class="accent-grad">At Least 1 Burpee.</span></h1>
     <p class="body" style="text-align:center; margin-top:16px;">AI-verified micro-exercise. Team accountability that compounds.</p>
     <div style="margin-top:64px; display:flex; flex-direction:column; align-items:center; gap:12px;">
       <span style="font-size:18px; color:var(--ink-secondary);">Human Potential Venture Studio</span>
       <span style="font-size:16px; color:var(--ink-muted);">Derrick Siu &middot; Founder</span>
-      <span class="badge" style="margin-top:12px;">Patent Pending</span>
+      <span class="badge" style="margin-top:12px;">Shanghai 2026</span>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>1 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>1 / 16</span></div>
 </div>
 
 <!-- Slide 2: THE PROBLEM -->
@@ -228,10 +228,38 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       <div class="stat-card card"><div class="num">92%</div><div class="label">of fitness goals never reached</div></div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>2 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>2 / 16</span></div>
 </div>
 
-<!-- Slide 3: THE SCIENCE -->
+<!-- Slide 3: THE COST -->
+<div class="slide" data-label="The Cost">
+  <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Cost</span></div>
+  <div class="content">
+    <p class="eyebrow">The Cost</p>
+    <h2>Sedentary Lifestyles Are Killing Us &mdash;<br>And Bankrupting Healthcare</h2>
+    <div class="stat-row">
+      <div class="stat-card card">
+        <div class="num">3.2–5M</div>
+        <div class="label">premature deaths per year<br>attributed to physical inactivity</div>
+      </div>
+      <div class="stat-card card">
+        <div class="num">$300B</div>
+        <div class="label">projected healthcare cost<br>2020&ndash;2030 if nothing changes</div>
+      </div>
+      <div class="stat-card card">
+        <div class="num">500M</div>
+        <div class="label">new preventable disease cases<br>by 2030 (heart disease, diabetes, obesity)</div>
+      </div>
+    </div>
+    <div class="quote-block" style="margin-top:40px;">
+      Physical inactivity is the 4th leading risk factor for global mortality. The problem isn't that people don't know they should move. It's that nothing makes them.
+      <div class="quote-source">WHO Global Status Report on Physical Activity, 2022</div>
+    </div>
+  </div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>3 / 16</span></div>
+</div>
+
+<!-- Slide 4: THE SCIENCE -->
 <div class="slide" data-label="The Science">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Science</span></div>
   <div class="content">
@@ -243,7 +271,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
     </div>
     <p class="body">What matters is not exercising for one hour a day. What matters more is moving regularly throughout the day. No product is built for this. <strong style="color:var(--ink-primary)">REPPs is.</strong></p>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>3 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>4 / 16</span></div>
 </div>
 
 <!-- Slide 4: THE INSIGHT -->
@@ -254,10 +282,43 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
     <h1 style="font-size:80px;">Make the <span class="accent">doing</span> inevitable.</h1>
     <p class="body" style="text-align:center; font-size:24px; margin-top:24px;">Reduce friction to zero. Make accountability tribal.<br>Make stopping expensive.</p>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>4 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>5 / 16</span></div>
 </div>
 
-<!-- Slide 5: THREE ENGINES -->
+<!-- Slide 5: ABOUT ME -->
+<div class="slide" data-label="About Me">
+  <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Founder</span></div>
+  <div class="content center">
+    <p class="eyebrow">The Founder</p>
+    <h2>Derrick Siu</h2>
+    <p class="body" style="text-align:center; font-size:20px; margin-bottom:48px;">Medical doctor turned bodybuilder turned parkour academy founder turned software builder.<br>Every chapter pointed here.</p>
+    <div style="display:flex; gap:32px; margin-bottom:40px;">
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/derrick-doctor.jpg" alt="Derrick as Doctor" style="width:200px; height:200px; border-radius:16px; object-fit:cover; border:1px solid var(--divider);">
+        <div style="font-size:18px; font-weight:700; margin-top:16px;">Medical Doctor</div>
+        <div style="font-size:14px; color:var(--ink-secondary); margin-top:4px; max-width:200px;">Understands the science<br>of human performance</div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/derrick-bodybuilding.jpg" alt="Derrick Bodybuilding" style="width:200px; height:200px; border-radius:16px; object-fit:cover; border:1px solid var(--divider);">
+        <div style="font-size:18px; font-weight:700; margin-top:16px;">Bodybuilder</div>
+        <div style="font-size:14px; color:var(--ink-secondary); margin-top:4px; max-width:200px;">Lives the discipline<br>this product demands</div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/derrick-parkour.jpg" alt="Derrick Parkour" style="width:200px; height:200px; border-radius:16px; object-fit:cover; border:1px solid var(--divider);">
+        <div style="font-size:18px; font-weight:700; margin-top:16px;">Parkour Academy Founder</div>
+        <div style="font-size:14px; color:var(--ink-secondary); margin-top:4px; max-width:200px;">Built movement communities<br>from scratch</div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/derrick-profile.jpeg" alt="Derrick Profile" style="width:200px; height:200px; border-radius:16px; object-fit:cover; border:2px solid rgba(255,214,0,0.3);">
+        <div style="font-size:18px; font-weight:700; margin-top:16px;">Software for Human Potential</div>
+        <div style="font-size:14px; color:var(--ink-secondary); margin-top:4px; max-width:200px;">Now encoding it all<br>into technology</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>6 / 16</span></div>
+</div>
+
+<!-- Slide 6: THREE ENGINES -->
 <div class="slide" data-label="How It Works">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>How It Works</span></div>
   <div class="content">
@@ -287,7 +348,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       <span class="loop-item">Repeat</span><span class="loop-arrow">&circlearrowleft;</span>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>5 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>7 / 16</span></div>
 </div>
 
 <!-- Slide 6: THE MATH -->
@@ -312,7 +373,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
     </div>
     <p style="text-align:center; color:var(--ink-secondary); font-size:18px; margin-top:12px;">3.4x more &mdash; and the gap keeps growing</p>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>6 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>8 / 16</span></div>
 </div>
 
 <!-- Slide 7: LIVE COMPETITION -->
@@ -344,7 +405,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
     </div>
     <p style="text-align:center; color:var(--ink-muted); font-size:16px; margin-top:32px; letter-spacing:0.04em;">Conferences &middot; Corporate Events &middot; Festivals &middot; Schools &middot; Gyms &middot; Anywhere</p>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>7 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>9 / 16</span></div>
 </div>
 
 <!-- Slide 8: WHAT'S BUILT -->
@@ -357,7 +418,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       <div class="stat-box"><div class="num">350+</div><div class="label">Commits</div></div>
       <div class="stat-box"><div class="num">22</div><div class="label">Phases</div></div>
       <div class="stat-box"><div class="num">3</div><div class="label">AI Engines</div></div>
-      <div class="stat-box"><div class="num">4</div><div class="label">Patent Claims</div></div>
+      <div class="stat-box"><div class="num">7</div><div class="label">AI Detection States</div></div>
     </div>
     <div class="pill-grid">
       <div class="pill"><span class="check">&check;</span> AI burpee detection (V1/V2/V3)</div>
@@ -374,7 +435,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       <div class="pill"><span class="check">&check;</span> Activity rhythm heatmap</div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>8 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>10 / 16</span></div>
 </div>
 
 <!-- Slide 9: MONETIZATION -->
@@ -401,7 +462,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       </div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>9 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>11 / 16</span></div>
 </div>
 
 <!-- Slide 11: VERTICALS -->
@@ -419,75 +480,65 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
       <div class="card"><div class="grid-item-title">Events &amp; Conferences</div><div class="grid-item-body">Live competitions as turnkey activation experiences</div></div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>10 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>12 / 16</span></div>
 </div>
 
-<!-- Slide 12: ROADMAP -->
+<!-- Slide 13: ROADMAP -->
 <div class="slide" data-label="Roadmap">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>Roadmap</span></div>
   <div class="content">
     <p class="eyebrow">Roadmap</p>
     <h2>The Next 12 Months</h2>
     <div class="timeline">
-      <div class="tl-item"><div class="tl-dot"></div><div class="tl-quarter">Q3 2026</div><div class="tl-text">Public launch. 10K users. Patent filing. First community event.</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-quarter">Q3 2026</div><div class="tl-text">Public launch. 10K users. First community event.</div></div>
       <div class="tl-item"><div class="tl-dot"></div><div class="tl-quarter">Q4 2026</div><div class="tl-text">First brand sponsorship. Tiered teams. Multi-exercise support.</div></div>
       <div class="tl-item"><div class="tl-dot"></div><div class="tl-quarter">Q1 2027</div><div class="tl-text">Corporate wellness pilot. Live competition dashboard.</div></div>
       <div class="tl-item"><div class="tl-dot"></div><div class="tl-quarter">Q2 2027</div><div class="tl-text">Government/education pilot. Affiliate partnerships.</div></div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>11 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>13 / 16</span></div>
 </div>
 
-<!-- Slide 13: THE ASK -->
-<div class="slide" data-label="The Ask">
-  <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Ask</span></div>
+<!-- Slide 14: THE TEAM -->
+<div class="slide" data-label="The Team">
+  <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Team</span></div>
   <div class="content center">
-    <p class="eyebrow">The Ask</p>
-    <h2>Join the Movement</h2>
-    <div class="three-col" style="margin-top:48px;">
-      <div class="card" style="text-align:center; padding:48px 32px;">
-        <div style="font-size:40px; margin-bottom:16px;">&#128176;</div>
-        <div class="col-title">Investors</div>
-        <div class="col-body" style="margin-top:12px;">Seed funding to scale the platform, build the team, and file the patent.</div>
+    <p class="eyebrow">The Team</p>
+    <h2>Built Different</h2>
+    <div class="three-col" style="margin-top:56px; gap:48px;">
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/team-derrick.png" alt="Derrick" style="width:220px; height:220px; border-radius:50%; object-fit:cover; border:2px solid var(--divider); margin-bottom:24px;">
+        <div style="font-size:24px; font-weight:800;">Derrick</div>
+        <div style="font-size:15px; color:var(--accent); font-weight:600; margin-top:4px;">The Founder</div>
+        <div style="font-size:15px; color:var(--ink-secondary); margin-top:12px; max-width:280px; line-height:1.5;">Vision, product, community, domain expertise, and the obsession to ship 22 phases in 2 weeks.</div>
       </div>
-      <div class="card" style="text-align:center; padding:48px 32px;">
-        <div style="font-size:40px; margin-bottom:16px;">&#129309;</div>
-        <div class="col-title">Brand Partners</div>
-        <div class="col-body" style="margin-top:12px;">Fitness, wellness, and longevity brands that want to sponsor verified movement.</div>
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/team-ai.png" alt="AI" style="width:220px; height:220px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,214,0,0.2); margin-bottom:24px;">
+        <div style="font-size:24px; font-weight:800;">AI</div>
+        <div style="font-size:15px; color:var(--accent); font-weight:600; margin-top:4px;">The Co-Builder</div>
+        <div style="font-size:15px; color:var(--ink-secondary); margin-top:12px; max-width:280px; line-height:1.5;">350+ commits. Never sleeps. Never complains. Sometimes hallucinates. Always ships.</div>
       </div>
-      <div class="card" style="text-align:center; padding:48px 32px;">
-        <div style="font-size:40px; margin-bottom:16px;">&#127758;</div>
-        <div class="col-title">Community Partners</div>
-        <div class="col-body" style="margin-top:12px;">Organizations deploying micro-exercise programs for their people.</div>
+      <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <img src="public/team-partner.png" alt="Future Partner" style="width:220px; height:220px; border-radius:50%; object-fit:cover; border:2px dashed var(--divider); margin-bottom:24px;">
+        <div style="font-size:24px; font-weight:800;">???</div>
+        <div style="font-size:15px; color:var(--accent); font-weight:600; margin-top:4px;">The Future Partner</div>
+        <div style="font-size:15px; color:var(--ink-secondary); margin-top:12px; max-width:280px; line-height:1.5;">Growth, operations, and the human touch. Ideally someone who can do burpees better than both of us.</div>
       </div>
     </div>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>12 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>14 / 16</span></div>
 </div>
 
-<!-- Slide 14: THE DEMO -->
+<!-- Slide 15: THE DEMO -->
 <div class="slide" data-label="The Demo">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>The Demo</span></div>
-  <div class="content" style="flex-direction:row; gap:80px; align-items:center;">
-    <div style="flex:1;">
-      <p class="eyebrow">The Demo</p>
-      <h2>Right Now. In This Room.</h2>
-      <h1 style="font-size:48px; margin-top:16px;">Can we get <span class="accent">11</span> people to do <span class="accent">1</span> burpee?</h1>
-      <div class="steps" style="margin-top:40px;">
-        <div class="step"><div class="step-num">1</div><div class="step-text">Everyone scans the QR code</div></div>
-        <div class="step"><div class="step-num">2</div><div class="step-text">The big screen shows the live leaderboard</div></div>
-        <div class="step"><div class="step-num">3</div><div class="step-text">Those who rep see their name surge in real time</div></div>
-        <div class="step"><div class="step-num">4</div><div class="step-text">By the end, the global counter has moved because of this room</div></div>
-      </div>
-    </div>
-    <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
-      <div class="qr-box" data-qr="https://repps.pro" style="width:240px; height:240px;"><span class="qr-label" style="font-size:14px;">repps.pro</span></div>
-    </div>
+  <div class="content center">
+    <video src="Repps-Demo-Video.m4v" style="max-width:1600px; max-height:900px; width:100%; border-radius:24px; border:2px solid var(--divider);" controls muted></video>
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>13 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>15 / 16</span></div>
 </div>
 
-<!-- Slide 15: CONTACT -->
+<!-- Slide 16: CONTACT -->
 <div class="slide" data-label="Let's Go">
   <div class="top-bar"><img src="public/Repps-Yellow-Logo.png" alt="REPPs"><span>Let's Go</span></div>
   <div class="content center">
@@ -505,7 +556,7 @@ h2 { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.
     </div>
     <img src="public/Repps-Yellow-Logo.png" alt="REPPs" style="height:40px; margin-top:48px; opacity:0.6;">
   </div>
-  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>14 / 14</span></div>
+  <div class="bottom-bar"><span>Human Potential Venture Studio</span><span>16 / 16</span></div>
 </div>
 
 </div>

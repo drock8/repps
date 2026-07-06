@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>REPPs Thumbnail</title>
+<link href="https://rsms.me/inter/inter.css" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    font-family: 'Inter var', 'Inter', -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #111315;
+    color: #F5F2EA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .glow {
+    position: absolute;
+    top: -200px;
+    right: -100px;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(255,214,0,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .glow-2 {
+    position: absolute;
+    bottom: -300px;
+    left: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(255,214,0,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 64px;
+    padding: 0 80px;
+    width: 100%;
+  }
+
+  .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo {
+    height: 44px;
+    margin-bottom: 32px;
+    align-self: flex-start;
+  }
+
+  .eyebrow {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #FFD600;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: 58px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+  }
+
+  .accent {
+    background: linear-gradient(135deg, #FFD600 0%, #FFE857 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .sub {
+    font-size: 22px;
+    color: #8D9199;
+    margin-top: 20px;
+    line-height: 1.4;
+  }
+
+  .right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .badge {
+    background: #1C1F24;
+    border-radius: 12px;
+    padding: 14px 20px;
+    text-align: center;
+    min-width: 110px;
+  }
+
+  .badge .num {
+    font-size: 28px;
+    font-weight: 800;
+    color: #FFD600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .badge .label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #5C6066;
+    margin-top: 4px;
+  }
+
+  .engines {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .engine-pill {
+    background: rgba(255,214,0,0.1);
+    border: 1px solid rgba(255,214,0,0.2);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #FFD600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #FFD600 0%, #FFE857 100%);
+  }
+</style>
+</head>
+<body>
+
+<div class="glow"></div>
+<div class="glow-2"></div>
+
+<div class="content">
+  <div class="left">
+    <img src="public/Repps-Yellow-Logo.png" alt="REPPs" class="logo">
+    <p class="eyebrow">AI-Verified Micro-Exercise</p>
+    <h1>1 Million People.<br><span class="accent">At Least 1 Burpee.</span></h1>
+    <p class="sub">The app where your team depends on you<br>and the math rewards you for never stopping.</p>
+  </div>
+
+  <div class="right">
+    <div class="badge-row">
+      <div class="badge">
+        <div class="num">33</div>
+        <div class="label">Landmarks</div>
+      </div>
+      <div class="badge">
+        <div class="num">4x</div>
+        <div class="label">Multipliers</div>
+      </div>
+    </div>
+    <div class="badge-row">
+      <div class="badge">
+        <div class="num">350+</div>
+        <div class="label">Commits</div>
+      </div>
+      <div class="badge">
+        <div class="num">22</div>
+        <div class="label">Phases</div>
+      </div>
+    </div>
+    <div class="engines">
+      <span class="engine-pill">AI Verified</span>
+      <span class="engine-pill">Team Scoring</span>
+      <span class="engine-pill">Live Events</span>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-bar"></div>
+
+</body>
+</html>

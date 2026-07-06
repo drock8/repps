@@ -37,3 +37,15 @@ dist-ssr
 *.sw?
 .vercel
 pitch-deck-original.html
+
+# Large media / pitch assets
+*.m4v
+*.mp4
+*.mov
+repps-pitch-thumbnail.png
+
+# Tooling artifacts
+.agents/
+.playwright-mcp/
+dogfood-output/
+skills-lock.json
