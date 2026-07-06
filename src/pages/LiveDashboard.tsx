@@ -687,7 +687,7 @@ function ResultsOverlay({
                       <div className="mb-1 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={({ 1: 64, 2: 50, 3: 40 } as const)[medalPlaces[podiumIdx]]} /></div>
                       {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
                       <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
-                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{c.total}</p>
+                      <p className={`text-headline text-accent font-bold`}>{c.total}</p>
                       <p className="text-caption text-ink-muted">{c.count} {c.count === 1 ? "person" : "people"}</p>
                     </div>
                   );
@@ -709,7 +709,7 @@ function ResultsOverlay({
                       <div className="mb-1 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={({ 1: 64, 2: 50, 3: 40 } as const)[medalPlaces[podiumIdx]]} /></div>
                       {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
                       <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
-                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-blue-400 font-bold`}>{c.avg.toFixed(1)}</p>
+                      <p className={`text-headline text-blue-400 font-bold`}>{c.avg.toFixed(1)}</p>
                       <p className="text-caption text-ink-muted">{c.count} {c.count === 1 ? "person" : "people"}</p>
                     </div>
                   );
@@ -743,7 +743,7 @@ function ResultsOverlay({
                           {p.nationality_name && <p className="text-caption text-ink-muted">{p.nationality_name}</p>}
                         </>
                       )}
-                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
+                      <p className={`text-headline text-accent font-bold`}>{p.reps}</p>
                     </div>
                   );
                 })}
@@ -764,7 +764,7 @@ function ResultsOverlay({
                     {initials}
                   </div>
                   <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{t.name}</p>
-                  <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{t.total} reps</p>
+                  <p className={`text-headline text-accent font-bold`}>{t.total} reps</p>
                   <p className="text-caption text-ink-muted">{t.members.length} members</p>
                 </div>
               );
@@ -793,7 +793,7 @@ function ResultsOverlay({
                       {p.nationality_name && <p className="text-caption text-ink-muted">{p.nationality_name}</p>}
                     </>
                   )}
-                  <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
+                  <p className={`text-headline text-accent font-bold`}>{p.reps}</p>
                 </div>
               );
             })}
