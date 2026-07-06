@@ -670,7 +670,7 @@ function ResultsOverlay({
                   const isFirst = podiumIdx === 0;
                   return (
                     <div key={c.code} className={`text-center ${isFirst ? "scale-110" : ""}`}>
-                      <div className="mb-1"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      <div className="mb-1 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
                       {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
                       <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
                       <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{c.total}</p>
@@ -692,7 +692,7 @@ function ResultsOverlay({
                   const isFirst = podiumIdx === 0;
                   return (
                     <div key={c.code} className={`text-center ${isFirst ? "scale-110" : ""}`}>
-                      <div className="mb-1"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      <div className="mb-1 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
                       {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
                       <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
                       <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-blue-400 font-bold`}>{c.avg.toFixed(1)}</p>
@@ -714,7 +714,7 @@ function ResultsOverlay({
                   const isFirst = podiumIdx === 0;
                   return (
                     <div key={p.user_id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
-                      <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      <div className="mb-2 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
                       {p.avatar_url ? (
                         <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className={`${isFirst ? "w-20 h-20" : "w-14 h-14"} rounded-full object-cover mx-auto mb-2`} />
                       ) : (
@@ -723,6 +723,12 @@ function ResultsOverlay({
                         </div>
                       )}
                       <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{p.name}</p>
+                      {p.nationality_code && (
+                        <>
+                          <p className={`${isFirst ? "text-[24px]" : "text-[20px]"} leading-none mt-1`}>{flagEmoji(p.nationality_code)}</p>
+                          {p.nationality_name && <p className="text-caption text-ink-muted">{p.nationality_name}</p>}
+                        </>
+                      )}
                       <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
                     </div>
                   );
@@ -739,7 +745,7 @@ function ResultsOverlay({
               const initials = t.name.split(/[\s&]+/).filter((w: string) => w.length > 0).map((w: string) => w.charAt(0).toUpperCase()).join("").slice(0, 2);
               return (
                 <div key={t.id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
-                  <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                  <div className="mb-2 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
                   <div className={`${isFirst ? "w-20 h-20 text-headline" : "w-16 h-16 text-body-lg"} rounded-full bg-accent text-ink-inverse flex items-center justify-center font-bold mx-auto mb-2`}>
                     {initials}
                   </div>
@@ -758,7 +764,7 @@ function ResultsOverlay({
               const isFirst = podiumIdx === 0;
               return (
                 <div key={p.user_id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
-                  <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                  <div className="mb-2 flex justify-center"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
                   {p.avatar_url ? (
                     <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className={`${isFirst ? "w-20 h-20" : "w-16 h-16"} rounded-full object-cover mx-auto mb-2`} />
                   ) : (
@@ -767,7 +773,12 @@ function ResultsOverlay({
                     </div>
                   )}
                   <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{p.name}</p>
-                  {p.nationality_code && <p className={`${isFirst ? "text-[28px]" : "text-[22px]"} leading-none`}>{flagEmoji(p.nationality_code)}</p>}
+                  {p.nationality_code && (
+                    <>
+                      <p className={`${isFirst ? "text-[28px]" : "text-[22px]"} leading-none mt-1`}>{flagEmoji(p.nationality_code)}</p>
+                      {p.nationality_name && <p className="text-caption text-ink-muted">{p.nationality_name}</p>}
+                    </>
+                  )}
                   <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
                 </div>
               );
