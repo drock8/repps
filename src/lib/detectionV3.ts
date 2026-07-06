@@ -1,4 +1,3 @@
-// @ts-nocheck — WIP, remove when V3 coaching is wired up
 import type { AlignmentStatus, Landmark } from "./detectionV1";
 
 export type VerificationState =
@@ -309,7 +308,6 @@ export class DetectionEngineV3 {
   private calibrationStartTime = 0;
   private standingHeight = 0;
   private standingAnkleY = 0;
-  private standingCenterY = 0;
 
   // Smoothing
   private ratioBuffer: number[] = [];
@@ -369,7 +367,6 @@ export class DetectionEngineV3 {
   recalibrate() {
     this.standingHeight = 0;
     this.standingAnkleY = 0;
-    this.standingCenterY = 0;
     this.calibrationHeights = [];
     this.calibrationStartTime = 0;
     this.ratioBuffer = [];
@@ -565,7 +562,7 @@ export class DetectionEngineV3 {
   }
 
   // Returns null if bottom entry is valid, or a rejection reason if not
-  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, elbowAngle: number | null, hipAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
+  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, _elbowAngle: number | null, hipAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
     const t = this.thresholds;
 
     if (ratio >= t.floorRatio) return "shallow_descent";
@@ -833,7 +830,6 @@ export class DetectionEngineV3 {
 
         this.standingHeight = candidateHeight;
         this.standingAnkleY = Math.max(lm.lAnkle.y, lm.rAnkle.y);
-        this.standingCenterY = (lm.lHip.y + lm.rHip.y + lm.lShoulder.y + lm.rShoulder.y) / 4;
 
         const totalVotes = this.angleVotes.front + this.angleVotes.side;
         const frontRatio = this.angleVotes.front / totalVotes;
