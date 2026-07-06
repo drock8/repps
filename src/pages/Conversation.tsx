@@ -128,7 +128,7 @@ export default function Conversation() {
           const newMsg = payload.new as { id: string; sender_id: string; message_type: string; message_key: string | null; body: string | null; created_at: string; conversation_id: string };
           // Fetch sender info
           const { data: senderProfile } = await supabase
-            .from("profiles")
+            .from("public_profiles")
             .select("name, avatar_url")
             .eq("id", newMsg.sender_id)
             .single();

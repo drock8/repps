@@ -212,7 +212,7 @@ export default function Home() {
     }
 
     const [membersRes, settingRes, teamRes, leaderboardRes, streakRes] = await Promise.all([
-      supabase.from("profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
+      supabase.from("public_profiles").select("id, name, avatar_url").eq("team_id", profile.team_id),
       supabase.from("settings").select("value").eq("key", "team_daily_target").single(),
       supabase.from("teams").select("name, logo_url").eq("id", profile.team_id).single(),
       supabase.rpc("get_team_score_leaderboard", { p_period: "week", p_limit: 50 }),

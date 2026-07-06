@@ -138,7 +138,7 @@ export default function EventDetail() {
 
     // Fetch creator name
     const { data: creatorProfile } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("name")
       .eq("id", eventData.created_by)
       .single();
@@ -363,7 +363,7 @@ export default function EventDetail() {
     const memberEntries: IndividualEntry[] = [];
     for (const m of members) {
       const { data: profileData } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("name, avatar_url")
         .eq("id", m.user_id)
         .single();

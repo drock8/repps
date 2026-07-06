@@ -37,7 +37,7 @@ export default function ActivityFeed() {
 
   useEffect(() => {
     supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id, name, avatar_url")
       .order("created_at", { ascending: false })
       .limit(MAX_CACHE_SIZE)
@@ -72,7 +72,7 @@ export default function ActivityFeed() {
     const cached = profileCache.current.get(userId);
     if (cached) return cached;
     const { data } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("name, avatar_url")
       .eq("id", userId)
       .single();

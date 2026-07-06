@@ -159,7 +159,7 @@ export default function CompetitionJoin() {
         if (teamRow && memberRows && memberRows.length > 0) {
           const userIds = memberRows.map((m) => m.user_id);
           const { data: profiles } = await supabase
-            .from("profiles")
+            .from("public_profiles")
             .select("id, name, avatar_url")
             .in("id", userIds);
 
@@ -183,7 +183,7 @@ export default function CompetitionJoin() {
 
       if (me.team_invite_from) {
         const { data: inviter } = await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("id, name, avatar_url")
           .eq("id", me.team_invite_from)
           .single();

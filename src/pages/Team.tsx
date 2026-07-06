@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useAuth, type Profile } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import ActivityHeatmap from "../components/ActivityHeatmap";
 import WeeklyBarChart from "../components/WeeklyBarChart";
 import { generateStyledQRDataUrl } from "../lib/qrRenderer";
@@ -21,7 +21,10 @@ interface TeamData {
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
-interface MemberWithReps extends Profile {
+interface MemberWithReps {
+  id: string;
+  name: string;
+  avatar_url: string | null;
   today_count: number;
   today_base: number;
   today_daily_multiplied: number;
@@ -115,8 +118,8 @@ export default function Team() {
     setTeam(teamData);
 
     const { data: memberProfiles } = await supabase
-      .from("profiles")
-      .select("*")
+      .from("public_profiles")
+      .select("id, name, avatar_url")
       .eq("team_id", profile.team_id);
 
     const todayStart = new Date();

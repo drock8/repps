@@ -10,7 +10,7 @@ export function useOG100() {
     if (cachedIds) return;
 
     supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id")
       .order("created_at", { ascending: true })
       .limit(100)

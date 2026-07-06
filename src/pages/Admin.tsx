@@ -166,7 +166,7 @@ export default function Admin() {
   const loadStats = useCallback(async () => {
     const [reps, users, teams, events] = await Promise.all([
       supabase.from("reps").select("id", { count: "exact", head: true }),
-      supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase.from("public_profiles").select("id", { count: "exact", head: true }),
       supabase.from("teams").select("id", { count: "exact", head: true }).neq("status", "disbanded"),
       supabase.from("events").select("id", { count: "exact", head: true }).in("status", ["announced", "active"]),
     ]);

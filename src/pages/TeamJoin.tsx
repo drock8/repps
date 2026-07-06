@@ -48,7 +48,7 @@ export default function TeamJoin() {
       }
 
       const { data: memberData } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("id, name, avatar_url")
         .eq("team_id", teamData.id);
 
