@@ -1,12 +1,4 @@
-/**
- * V2 Burpee Detection Engine — enhanced with:
- * - 2-second stability guard before calibration
- * - Automatic front/side camera angle detection
- * - Expanded landmarks (wrists, knees)
- * - Joint angle calculations for side view
- * - 4-state machine: STANDING → DESCENDING → DOWN → ASCENDING
- * - minDuration guard to reject jitter
- */
+import { angleDeg, torsoAngleFromVertical, stddev } from "./detection-utils";
 
 import type { AlignmentStatus, Landmark } from "./detectionV1";
 
@@ -80,30 +72,6 @@ const MAX_STANDING_HEIGHT = 0.85;
 const MIN_VISIBILITY = 0.5;
 const ANGLE_VOTE_THRESHOLD = 0.65;
 
-function angleDeg(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
-  const ba = { x: a.x - b.x, y: a.y - b.y };
-  const bc = { x: c.x - b.x, y: c.y - b.y };
-  const dot = ba.x * bc.x + ba.y * bc.y;
-  const magBA = Math.sqrt(ba.x * ba.x + ba.y * ba.y);
-  const magBC = Math.sqrt(bc.x * bc.x + bc.y * bc.y);
-  if (magBA === 0 || magBC === 0) return 180;
-  const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
-  return Math.acos(cosAngle) * (180 / Math.PI);
-}
-
-function torsoAngleFromVertical(shoulder: { x: number; y: number }, hip: { x: number; y: number }): number {
-  const dx = shoulder.x - hip.x;
-  const dy = hip.y - shoulder.y;
-  if (dy === 0) return 90;
-  return Math.abs(Math.atan2(dx, dy)) * (180 / Math.PI);
-}
-
-function stddev(values: number[]): number {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const sq = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
-  return Math.sqrt(sq);
-}
 
 export class DetectionEngineV2 {
   private repState: RepStateV2 = "UNKNOWN";

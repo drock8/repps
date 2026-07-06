@@ -1,4 +1,5 @@
 import type { AlignmentStatus, Landmark } from "./detectionV1";
+import { angleDeg, torsoAngleFromVertical, stddev } from "./detection-utils";
 
 export type VerificationState =
   | "IDLE"
@@ -262,30 +263,6 @@ const COACHING_DRIVING_TIMEOUT = 8000;
 
 const PHASE_ORDER: CyclePhase[] = ["HINGING", "BOTTOM", "DRIVING", "RISING"];
 
-function angleDeg(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
-  const ba = { x: a.x - b.x, y: a.y - b.y };
-  const bc = { x: c.x - b.x, y: c.y - b.y };
-  const dot = ba.x * bc.x + ba.y * bc.y;
-  const magBA = Math.sqrt(ba.x * ba.x + ba.y * ba.y);
-  const magBC = Math.sqrt(bc.x * bc.x + bc.y * bc.y);
-  if (magBA === 0 || magBC === 0) return 180;
-  const cosAngle = Math.max(-1, Math.min(1, dot / (magBA * magBC)));
-  return Math.acos(cosAngle) * (180 / Math.PI);
-}
-
-function torsoAngleFromVertical(shoulder: { x: number; y: number }, hip: { x: number; y: number }): number {
-  const dx = shoulder.x - hip.x;
-  const dy = hip.y - shoulder.y;
-  if (dy === 0) return 90;
-  return Math.abs(Math.atan2(dx, dy)) * (180 / Math.PI);
-}
-
-function stddev(values: number[]): number {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const sq = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
-  return Math.sqrt(sq);
-}
 
 function isPhaseDeeper(a: CyclePhase, b: CyclePhase): boolean {
   return PHASE_ORDER.indexOf(a) > PHASE_ORDER.indexOf(b);

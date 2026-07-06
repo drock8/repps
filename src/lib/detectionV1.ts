@@ -1,7 +1,4 @@
-/**
- * V1 Burpee Detection Engine — original working implementation.
- * Uses height-ratio state machine (HIGH/LOW) with front-camera only.
- */
+import { stddev } from "./detection-utils";
 
 export type RepState = "HIGH" | "LOW" | "UNKNOWN";
 
@@ -41,13 +38,6 @@ const MIN_LOW_DWELL_MS = 150;
 const STABILITY_WINDOW_MS = 1500;
 const STABILITY_MAX_DRIFT = 0.02;
 const STABILITY_MIN_FRAMES = 15;
-
-function stddev(values: number[]): number {
-  if (values.length < 2) return 0;
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const sq = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
-  return Math.sqrt(sq);
-}
 
 export interface Landmark {
   x: number;
