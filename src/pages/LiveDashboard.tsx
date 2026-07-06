@@ -660,21 +660,21 @@ function ResultsOverlay({
       <canvas ref={confettiRef} className="fixed inset-0 z-40 pointer-events-none" />
       <div className="text-center max-w-3xl pt-14 pb-10 px-4 w-full relative z-31">
         {/* Logo + comp name */}
-        <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-[86px] mx-auto mb-3 object-contain" />
+        <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-[69px] mx-auto mb-3 object-contain" />
         <p className="text-headline text-ink-primary font-bold uppercase tracking-wide mb-6">
           {compName} — {isOlympics ? "Olympics" : teamSize > 1 ? "Teams" : "Individual"}
         </p>
 
         {/* Total reps hero */}
-        <div className="flex items-center justify-center gap-4 mb-8">
-          <p className="text-body text-ink-secondary tracking-wide">Total Repps</p>
+        <div className="flex items-center justify-center mb-12">
+          <p className="text-body text-ink-secondary tracking-wide flex-1 text-right pr-4">Total Repps</p>
           <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
-          <p className="text-headline text-ink-secondary">{participants.length} participant{participants.length !== 1 ? "s" : ""}</p>
+          <p className="text-body text-ink-secondary tracking-wide flex-1 text-left pl-4">{participants.length} Participant{participants.length !== 1 ? "s" : ""}</p>
         </div>
 
         {/* Winners section */}
         {isOlympics ? (
-          <div className="flex flex-col items-center gap-10 mb-8">
+          <div className="flex flex-col items-center gap-10 mb-12">
             <div>
               <p className="text-micro text-accent uppercase tracking-widest mb-5">Most Reps by Country</p>
               <div className="flex justify-center items-end gap-8">
@@ -751,7 +751,7 @@ function ResultsOverlay({
             </div>
           </div>
         ) : rankedTeams.length > 0 ? (
-          <div className="flex justify-center items-end gap-10 mb-8">
+          <div className="flex justify-center items-end gap-10 mb-12">
             {[1, 0, 2].map((podiumIdx) => {
               const t = rankedTeams[podiumIdx];
               if (!t) return null;
@@ -771,7 +771,7 @@ function ResultsOverlay({
             })}
           </div>
         ) : (
-          <div className="flex justify-center items-end gap-10 mb-8">
+          <div className="flex justify-center items-end gap-10 mb-12">
             {[1, 0, 2].map((podiumIdx) => {
               const p = ranked[podiumIdx];
               if (!p) return null;
@@ -801,7 +801,7 @@ function ResultsOverlay({
         )}
 
         {/* Action buttons */}
-        <div className="mt-8 flex flex-col items-center gap-3">
+        <div className="mt-12 flex flex-col items-center gap-3">
           <button
             onClick={onShowAll}
             className="py-3 px-8 rounded-pill bg-bg-surface text-ink-secondary text-body font-semibold active:scale-95 transition-transform"
