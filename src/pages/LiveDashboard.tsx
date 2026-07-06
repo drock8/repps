@@ -662,7 +662,7 @@ function ResultsOverlay({
   return (
     <div className="fixed inset-0 z-30 bg-bg-base/90 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
       <canvas ref={confettiRef} className="fixed inset-0 z-40 pointer-events-none" />
-      <div className="text-center max-w-3xl py-10 px-4 w-full relative z-31">
+      <div className="text-center max-w-3xl pt-14 pb-10 px-4 w-full relative z-31">
         {/* Logo + comp name */}
         <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-[86px] mx-auto mb-3 object-contain" />
         <p className="text-headline text-ink-primary font-bold uppercase tracking-wide mb-6">
@@ -670,8 +670,11 @@ function ResultsOverlay({
         </p>
 
         {/* Total reps hero */}
-        <p className="text-[72px] font-bold text-accent leading-none mb-1">{totalReps}</p>
-        <p className="text-headline text-ink-secondary mb-10">total reps · {participants.length} participants</p>
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <p className="text-headline text-ink-secondary uppercase tracking-wide">Total Repps</p>
+          <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
+          <p className="text-headline text-ink-secondary">{participants.length} participant{participants.length !== 1 ? "s" : ""}</p>
+        </div>
 
         {/* Winners section */}
         {isOlympics ? (
