@@ -113,9 +113,11 @@ function AdminOverlay({
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-accent text-black flex items-center justify-center shadow-lg text-headline"
+        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-accent flex items-center justify-center shadow-lg"
       >
-        ⚡
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 2L4.094 12.688a.5.5 0 0 0 .39.812H11l-1 8.5 9-11.188a.5.5 0 0 0-.39-.812H13l1-8z" />
+        </svg>
       </button>
       {open && (
         <div className="fixed bottom-24 left-6 z-50 bg-bg-elevated rounded-lg p-4 shadow-xl min-w-[240px] border border-divider">
