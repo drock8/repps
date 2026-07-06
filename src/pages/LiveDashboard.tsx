@@ -1305,7 +1305,7 @@ export default function LiveDashboard() {
   return (
     <div className="fixed inset-0 bg-bg-base text-ink-primary overflow-hidden flex flex-col select-none">
       {/* Header */}
-      <header className="h-28 flex items-center px-6 border-b border-divider flex-shrink-0">
+      <header className="h-28 flex items-center px-6 pt-2 border-b border-divider flex-shrink-0">
         <div className="flex-1 flex items-center gap-4">
           {isLive && (
             <span className="flex items-center gap-2 text-[18px] font-semibold">
