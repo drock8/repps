@@ -39,6 +39,7 @@ const DIFFICULTY_KEY = "repps_difficulty_level";
 const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> = {
   shallow_descent: { first: "All the way down!", escalated: "Chest to floor!" },
   no_plank: { first: "Kick back!", escalated: "Kick back!" },
+  hips_too_high: { first: "Drop your hips!", escalated: "Flatten your body!" },
   no_floor_contact: { first: "Touch the floor!", escalated: "Lay flat!" },
   incomplete_rise: { first: "Stand tall!", escalated: "All the way up!" },
   no_jump: { first: "Jump up!", escalated: "Feet off the ground!" },
@@ -49,6 +50,7 @@ const REJECTION_MESSAGES: Record<string, { first: string; escalated: string }> =
 
 const COACHING_MESSAGES: Record<string, string> = {
   keep_going_down: "Keep going down!",
+  drop_your_hips: "Drop your hips!",
   lower_your_chest: "Lower your chest!",
   push_up_and_stand: "Push up and stand!",
   stay_in_frame: "Stay in the frame!",
