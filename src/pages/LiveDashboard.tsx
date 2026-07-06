@@ -584,12 +584,10 @@ function ResultsOverlay({
   repMap,
   totalReps,
   teamSize,
-  eventId,
   siblingComps,
   currentCompId,
   winnerCategories,
   onNavigateComp,
-  onDismiss,
   onShowAll,
 }: {
   compName: string;
@@ -598,12 +596,10 @@ function ResultsOverlay({
   repMap: Map<string, number>;
   totalReps: number;
   teamSize: number;
-  eventId: string | null;
   siblingComps: { id: string; name: string; state: string }[];
   currentCompId: string;
   winnerCategories: string[];
   onNavigateComp: (id: string) => void;
-  onDismiss: () => void;
   onShowAll: () => void;
 }) {
   const isOlympics = winnerCategories.includes("highest_avg");
@@ -1485,18 +1481,10 @@ export default function LiveDashboard() {
           repMap={repMap}
           totalReps={totalReps}
           teamSize={comp.team_size}
-          eventId={event?.id || null}
           siblingComps={siblingComps}
           currentCompId={comp.id}
           winnerCategories={comp.winner_categories || ["overall"]}
           onNavigateComp={(id) => navigate(`/live/${id}`)}
-          onDismiss={() => {
-            if (event?.id) {
-              navigate(`/events/${event.id}`);
-            } else {
-              navigate("/");
-            }
-          }}
           onShowAll={() => setShowResultsOverlay(false)}
         />
       )}
