@@ -1313,7 +1313,7 @@ export default function LiveDashboard() {
             <Timer comp={comp} />
           </span>
         </div>
-        <div className="text-center flex-shrink-0 flex flex-col items-center">
+        <div className="text-center flex-shrink-0 flex flex-col items-center pb-2">
           <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-16 object-contain mb-0.5" />
           <p className="text-[20px] text-white font-bold truncate max-w-[500px]">
             {comp.name} — {(comp.winner_categories || []).includes("highest_avg") ? "Olympics" : comp.team_size > 1 ? "Teams" : "Individual"}
