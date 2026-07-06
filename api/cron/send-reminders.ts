@@ -11,7 +11,10 @@ const CRON_SECRET = process.env.CRON_SECRET;
 webpush.setVapidDetails("mailto:superflyasia@gmail.com", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (CRON_SECRET && req.headers.authorization !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET) {
+    return res.status(500).json({ error: "CRON_SECRET not configured" });
+  }
+  if (req.headers.authorization !== `Bearer ${CRON_SECRET}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
