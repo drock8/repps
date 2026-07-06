@@ -671,7 +671,7 @@ function ResultsOverlay({
 
         {/* Total reps hero */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          <p className="text-headline text-ink-secondary uppercase tracking-wide">Total Repps</p>
+          <p className="text-body text-ink-secondary tracking-wide">Total Repps</p>
           <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
           <p className="text-headline text-ink-secondary">{participants.length} participant{participants.length !== 1 ? "s" : ""}</p>
         </div>
@@ -817,23 +817,14 @@ function ResultsOverlay({
         {(() => {
           const others = siblingComps.filter((c) => c.id !== currentCompId);
           const next = others.find((c) => !["finished", "results"].includes(c.state));
+          if (!next) return null;
           return (
             <div className="mt-4 flex flex-col items-center gap-3">
-              {next && (
-                <button
-                  onClick={() => onNavigateComp(next.id)}
-                  className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
-                >
-                  Next: {next.name}
-                </button>
-              )}
               <button
-                onClick={onDismiss}
-                className={`py-3 px-8 rounded-pill text-body font-semibold active:scale-95 transition-transform ${
-                  next ? "bg-bg-surface text-ink-secondary" : "bg-accent text-ink-inverse"
-                }`}
+                onClick={() => onNavigateComp(next.id)}
+                className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
               >
-                {eventId ? "Back to Event" : "Done"}
+                Next: {next.name}
               </button>
             </div>
           );
