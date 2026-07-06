@@ -579,6 +579,7 @@ function MedalIcon({ place, size = 48 }: { place: 1 | 2 | 3; size?: number }) {
 // ─── Results Overlay ─────────────────────────────────────────────
 function ResultsOverlay({
   compName,
+  compDate,
   participants,
   teams,
   repMap,
@@ -591,6 +592,7 @@ function ResultsOverlay({
   onShowAll,
 }: {
   compName: string;
+  compDate: string | null;
   participants: Participant[];
   teams: CompTeam[];
   repMap: Map<string, number>;
@@ -667,8 +669,13 @@ function ResultsOverlay({
 
         {/* Total reps hero */}
         <div className="flex items-center justify-center mb-12">
-          <p className="text-body text-ink-secondary tracking-wide flex-1 text-right pr-4">Total Repps</p>
-          <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
+          <p className="text-body text-ink-secondary tracking-wide flex-1 text-right pr-4">
+            {compDate ? new Date(compDate).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" }) : ""}
+          </p>
+          <div className="text-center">
+            <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
+            <p className="text-body text-ink-secondary tracking-wide mt-1">Total Repps</p>
+          </div>
           <p className="text-body text-ink-secondary tracking-wide flex-1 text-left pl-4">{participants.length} Participant{participants.length !== 1 ? "s" : ""}</p>
         </div>
 
@@ -1476,6 +1483,7 @@ export default function LiveDashboard() {
       {isFinished && showResultsOverlay && (
         <ResultsOverlay
           compName={comp.name}
+          compDate={comp.started_at}
           participants={participants}
           teams={teams}
           repMap={repMap}
