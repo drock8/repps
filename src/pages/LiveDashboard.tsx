@@ -569,6 +569,7 @@ function MedalIcon({ place, size = 48 }: { place: 1 | 2 | 3; size?: number }) {
 
 // ─── Results Overlay ─────────────────────────────────────────────
 function ResultsOverlay({
+  compName,
   participants,
   teams,
   repMap,
@@ -582,6 +583,7 @@ function ResultsOverlay({
   onDismiss,
   onShowAll,
 }: {
+  compName: string;
   participants: Participant[];
   teams: CompTeam[];
   repMap: Map<string, number>;
@@ -652,12 +654,12 @@ function ResultsOverlay({
     <div className="fixed inset-0 z-30 bg-bg-base/90 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
       <canvas ref={confettiRef} className="fixed inset-0 z-40 pointer-events-none" />
       <div className="text-center max-w-3xl py-10 px-4 w-full relative z-31">
-        {/* Logo + title */}
-        <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-24 mx-auto mb-3 object-contain" />
-        <p className="text-micro text-accent uppercase tracking-widest mb-6">Competition Complete</p>
+        {/* Logo + comp name */}
+        <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-[86px] mx-auto mb-3 object-contain" />
+        <p className="text-headline text-ink-primary font-bold uppercase tracking-wide mb-6">{compName}</p>
 
         {/* Total reps hero */}
-        <p className="text-[96px] font-bold text-accent leading-none mb-1">{totalReps}</p>
+        <p className="text-[72px] font-bold text-accent leading-none mb-1">{totalReps}</p>
         <p className="text-headline text-ink-secondary mb-10">total reps · {participants.length} participants</p>
 
         {/* Winners section */}
@@ -1465,6 +1467,7 @@ export default function LiveDashboard() {
       {showCountdown && <CountdownOverlay onComplete={handleCountdownComplete} />}
       {isFinished && showResultsOverlay && (
         <ResultsOverlay
+          compName={comp.name}
           participants={participants}
           teams={teams}
           repMap={repMap}
