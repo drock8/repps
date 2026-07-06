@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAnimatedCounter } from "../hooks/useAnimatedCounter";
 import { flagEmoji } from "../lib/flagEmoji";
 import { generateStyledQRDataUrl } from "../lib/qrRenderer";
+import { runConfetti } from "../lib/confetti";
 
 // ─── Types ───────────────────────────────────────────────────────
 interface Participant {
@@ -530,6 +531,279 @@ function Sidebar({
   );
 }
 
+// ─── Medal Icon ─────────────────────────────────────────────────
+function MedalIcon({ place, size = 48 }: { place: 1 | 2 | 3; size?: number }) {
+  const colors = {
+    1: { fill: "#FFD600", stroke: "#BFA100", ribbon: "#E8C200", label: "#7A6400" },
+    2: { fill: "#C0C0C0", stroke: "#8E8E8E", ribbon: "#A8A8A8", label: "#5A5A5A" },
+    3: { fill: "#CD7F32", stroke: "#8B5A1E", ribbon: "#B06C28", label: "#5C3310" },
+  };
+  const c = colors[place];
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Ribbon */}
+      <path d="M17 4L24 18L31 4" stroke={c.ribbon} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
+      {/* Medal body */}
+      <circle cx="24" cy="28" r="14" fill={c.fill} stroke={c.stroke} strokeWidth="2" />
+      {/* Inner ring */}
+      <circle cx="24" cy="28" r="10" fill="none" stroke={c.stroke} strokeWidth="1" opacity="0.4" />
+      {/* Place number */}
+      <text x="24" y="33" textAnchor="middle" fill={c.label} fontWeight="800" fontSize="14" fontFamily="Inter, system-ui, sans-serif">
+        {place}
+      </text>
+    </svg>
+  );
+}
+
+// ─── Results Overlay ─────────────────────────────────────────────
+function ResultsOverlay({
+  participants,
+  teams,
+  repMap,
+  totalReps,
+  teamSize,
+  eventId,
+  siblingComps,
+  currentCompId,
+  winnerCategories,
+  onNavigateComp,
+  onDismiss,
+  onShowAll,
+}: {
+  participants: Participant[];
+  teams: CompTeam[];
+  repMap: Map<string, number>;
+  totalReps: number;
+  teamSize: number;
+  eventId: string | null;
+  siblingComps: { id: string; name: string; state: string }[];
+  currentCompId: string;
+  winnerCategories: string[];
+  onNavigateComp: (id: string) => void;
+  onDismiss: () => void;
+  onShowAll: () => void;
+}) {
+  const isOlympics = winnerCategories.includes("highest_avg");
+
+  const ranked = useMemo(() => {
+    return [...participants]
+      .map((p) => ({ ...p, reps: repMap.get(p.user_id) || 0 }))
+      .sort((a, b) => b.reps - a.reps);
+  }, [participants, repMap]);
+
+  const rankedTeams = useMemo(() => {
+    if (teamSize <= 1) return [];
+    return teams
+      .map((t) => {
+        const members = participants.filter((p) => p.competition_team_id === t.id);
+        const total = members.reduce((sum, m) => sum + (repMap.get(m.user_id) || 0), 0);
+        return { ...t, total, members };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [teams, participants, repMap, teamSize]);
+
+  const countryResults = useMemo(() => {
+    if (!isOlympics) return { byTotal: [], byAvg: [] };
+    const byCountry = new Map<string, { code: string; name: string; total: number; count: number }>();
+    for (const p of participants) {
+      const code = p.nationality_code || "XX";
+      const name = p.nationality_name || "Unknown";
+      const reps = repMap.get(p.user_id) || 0;
+      const entry = byCountry.get(code) || { code, name, total: 0, count: 0 };
+      entry.total += reps;
+      entry.count += 1;
+      byCountry.set(code, entry);
+    }
+    const all = [...byCountry.values()].map((c) => ({ ...c, avg: c.count > 0 ? c.total / c.count : 0 }));
+    return {
+      byTotal: [...all].sort((a, b) => b.total - a.total),
+      byAvg: [...all].sort((a, b) => b.avg - a.avg),
+    };
+  }, [participants, repMap, isOlympics]);
+
+  const medalPlaces = [1, 2, 3] as const;
+
+  const confettiRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = confettiRef.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
+    const cancel = runConfetti(canvas, () => {}, "#FFD600");
+    return cancel;
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-30 bg-bg-base/90 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
+      <canvas ref={confettiRef} className="fixed inset-0 z-40 pointer-events-none" />
+      <div className="text-center max-w-3xl py-10 px-4 w-full relative z-31">
+        {/* Logo + title */}
+        <img src="/repps-logo.png" alt="REPPS" className="h-12 mx-auto mb-3 object-contain" />
+        <p className="text-micro text-accent uppercase tracking-widest mb-6">Competition Complete</p>
+
+        {/* Total reps hero */}
+        <p className="text-[96px] font-bold text-accent leading-none mb-1">{totalReps}</p>
+        <p className="text-headline text-ink-secondary mb-10">total reps · {participants.length} participants</p>
+
+        {/* Winners section */}
+        {isOlympics ? (
+          <div className="flex flex-col items-center gap-10 mb-8">
+            <div>
+              <p className="text-micro text-accent uppercase tracking-widest mb-5">Most Reps by Country</p>
+              <div className="flex justify-center items-end gap-8">
+                {[1, 0, 2].map((podiumIdx) => {
+                  const c = countryResults.byTotal[podiumIdx];
+                  if (!c) return null;
+                  const isFirst = podiumIdx === 0;
+                  return (
+                    <div key={c.code} className={`text-center ${isFirst ? "scale-110" : ""}`}>
+                      <div className="mb-1"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
+                      <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
+                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{c.total}</p>
+                      <p className="text-caption text-ink-muted">{c.count} {c.count === 1 ? "person" : "people"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="w-32 border-t border-divider" />
+
+            <div>
+              <p className="text-micro text-blue-400 uppercase tracking-widest mb-5">Highest Average by Country</p>
+              <div className="flex justify-center items-end gap-8">
+                {[1, 0, 2].map((podiumIdx) => {
+                  const c = countryResults.byAvg[podiumIdx];
+                  if (!c) return null;
+                  const isFirst = podiumIdx === 0;
+                  return (
+                    <div key={c.code} className={`text-center ${isFirst ? "scale-110" : ""}`}>
+                      <div className="mb-1"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      {c.code !== "XX" && <p className={`${isFirst ? "text-[48px]" : "text-[36px]"} leading-none mb-2`}>{flagEmoji(c.code)}</p>}
+                      <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{c.name}</p>
+                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-blue-400 font-bold`}>{c.avg.toFixed(1)}</p>
+                      <p className="text-caption text-ink-muted">{c.count} {c.count === 1 ? "person" : "people"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="w-32 border-t border-divider" />
+
+            <div>
+              <p className="text-micro text-ink-muted uppercase tracking-widest mb-5">Top Individuals</p>
+              <div className="flex justify-center items-end gap-8">
+                {[1, 0, 2].map((podiumIdx) => {
+                  const p = ranked[podiumIdx];
+                  if (!p) return null;
+                  const isFirst = podiumIdx === 0;
+                  return (
+                    <div key={p.user_id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
+                      <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className={`${isFirst ? "w-20 h-20" : "w-14 h-14"} rounded-full object-cover mx-auto mb-2`} />
+                      ) : (
+                        <div className={`${isFirst ? "w-20 h-20 text-headline" : "w-14 h-14 text-body-lg"} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center font-bold mx-auto mb-2`}>
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{p.name}</p>
+                      <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : rankedTeams.length > 0 ? (
+          <div className="flex justify-center items-end gap-10 mb-8">
+            {[1, 0, 2].map((podiumIdx) => {
+              const t = rankedTeams[podiumIdx];
+              if (!t) return null;
+              const isFirst = podiumIdx === 0;
+              const initials = t.name.split(/[\s&]+/).filter((w: string) => w.length > 0).map((w: string) => w.charAt(0).toUpperCase()).join("").slice(0, 2);
+              return (
+                <div key={t.id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
+                  <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                  <div className={`${isFirst ? "w-20 h-20 text-headline" : "w-16 h-16 text-body-lg"} rounded-full bg-accent text-ink-inverse flex items-center justify-center font-bold mx-auto mb-2`}>
+                    {initials}
+                  </div>
+                  <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{t.name}</p>
+                  <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{t.total} reps</p>
+                  <p className="text-caption text-ink-muted">{t.members.length} members</p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex justify-center items-end gap-10 mb-8">
+            {[1, 0, 2].map((podiumIdx) => {
+              const p = ranked[podiumIdx];
+              if (!p) return null;
+              const isFirst = podiumIdx === 0;
+              return (
+                <div key={p.user_id} className={`text-center ${isFirst ? "scale-110" : ""}`}>
+                  <div className="mb-2"><MedalIcon place={medalPlaces[podiumIdx]} size={isFirst ? 56 : 44} /></div>
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt="" referrerPolicy="no-referrer" className={`${isFirst ? "w-20 h-20" : "w-16 h-16"} rounded-full object-cover mx-auto mb-2`} />
+                  ) : (
+                    <div className={`${isFirst ? "w-20 h-20 text-headline" : "w-16 h-16 text-body-lg"} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center font-bold mx-auto mb-2`}>
+                      {p.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <p className={`${isFirst ? "text-body-lg" : "text-body"} text-ink-primary font-semibold`}>{p.name}</p>
+                  {p.nationality_code && <p className={`${isFirst ? "text-[28px]" : "text-[22px]"} leading-none`}>{flagEmoji(p.nationality_code)}</p>}
+                  <p className={`${isFirst ? "text-display-sm" : "text-headline"} text-accent font-bold`}>{p.reps}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <button
+            onClick={onShowAll}
+            className="py-3 px-8 rounded-pill bg-bg-surface text-ink-secondary text-body font-semibold active:scale-95 transition-transform"
+          >
+            View All Results
+          </button>
+        </div>
+
+        {(() => {
+          const others = siblingComps.filter((c) => c.id !== currentCompId);
+          const next = others.find((c) => !["finished", "results"].includes(c.state));
+          return (
+            <div className="mt-4 flex flex-col items-center gap-3">
+              {next && (
+                <button
+                  onClick={() => onNavigateComp(next.id)}
+                  className="py-3 px-8 rounded-pill bg-accent text-ink-inverse text-body font-semibold active:scale-95 transition-transform"
+                >
+                  Next: {next.name}
+                </button>
+              )}
+              <button
+                onClick={onDismiss}
+                className={`py-3 px-8 rounded-pill text-body font-semibold active:scale-95 transition-transform ${
+                  next ? "bg-bg-surface text-ink-secondary" : "bg-accent text-ink-inverse"
+                }`}
+              >
+                {eventId ? "Back to Event" : "Done"}
+              </button>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ──────────────────────────────────────────────
 export default function LiveDashboard() {
   const { competitionId } = useParams<{ competitionId: string }>();
@@ -546,8 +820,10 @@ export default function LiveDashboard() {
   const [showCountdown, setShowCountdown] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [siblingComps, setSiblingComps] = useState<{ id: string; name: string; state: string }[]>([]);
+  const [showResultsOverlay, setShowResultsOverlay] = useState(true);
   const repMapRef = useRef(repMap);
   repMapRef.current = repMap;
+  const hasAutoShownResults = useRef(false);
 
   const isOrganizer = profile && event && profile.id === event.created_by;
   const isParticipant = profile && participants.some((p) => p.user_id === profile.id);
@@ -577,6 +853,11 @@ export default function LiveDashboard() {
 
     if (data.competition.state === "countdown") {
       setShowCountdown(true);
+    }
+
+    if ((data.competition.state === "finished" || data.competition.state === "results") && !hasAutoShownResults.current) {
+      hasAutoShownResults.current = true;
+      setShowResultsOverlay(true);
     }
 
     if (data.event?.id) {
@@ -658,6 +939,7 @@ export default function LiveDashboard() {
               : prev
           );
           if (newState.state === "countdown") setShowCountdown(true);
+          if (newState.state === "finished" || newState.state === "results") setShowResultsOverlay(true);
         }
       )
       .subscribe();
@@ -983,16 +1265,8 @@ export default function LiveDashboard() {
   return (
     <div className="fixed inset-0 bg-bg-base text-ink-primary overflow-hidden flex flex-col select-none">
       {/* Header */}
-      <header className="h-16 flex items-center px-6 border-b border-divider flex-shrink-0">
-        <div className="flex-1">
-          <h1 className="text-[28px] font-bold truncate">{comp.name}</h1>
-        </div>
-        <div className="text-center flex-1">
-          <span className="text-[48px] font-bold text-accent leading-none tabular-nums">
-            {animatedTotal}
-          </span>
-        </div>
-        <div className="flex-1 flex items-center justify-end gap-4">
+      <header className="h-20 flex items-center px-6 border-b border-divider flex-shrink-0">
+        <div className="flex-1 flex items-center gap-4">
           {isLive && (
             <span className="flex items-center gap-2 text-[18px] font-semibold">
               <span className="w-3 h-3 rounded-full bg-error animate-pulse" />
@@ -1004,9 +1278,29 @@ export default function LiveDashboard() {
               COMPLETE
             </span>
           )}
+          <span className="text-[48px] font-bold text-accent leading-none tabular-nums">
+            {animatedTotal}
+          </span>
           <span className="text-[40px]">
             <Timer comp={comp} />
           </span>
+        </div>
+        <div className="text-center flex-shrink-0 flex flex-col items-center">
+          <img src="/repps-logo.png" alt="REPPS" className="h-8 object-contain mb-0.5" />
+          <p className="text-[13px] text-ink-secondary font-medium truncate max-w-[300px]">{comp.name}</p>
+        </div>
+        <div className="flex-1 flex items-center justify-end gap-4">
+          {isFinished && (
+            <button
+              onClick={() => setShowResultsOverlay(!showResultsOverlay)}
+              className="py-2 px-5 rounded-pill bg-accent/15 text-accent text-caption font-semibold active:scale-95 transition-transform"
+            >
+              {showResultsOverlay ? "View Board" : "Show Winners"}
+            </button>
+          )}
+          <p className="text-[15px] text-ink-muted">
+            {participants.length} participant{participants.length !== 1 ? "s" : ""}
+          </p>
         </div>
       </header>
 
@@ -1132,11 +1426,6 @@ export default function LiveDashboard() {
             </div>
           )}
 
-          {(isLive || isFinished) && (
-            <p className="text-center text-ink-secondary text-body mt-6">
-              {participants.length} participant{participants.length !== 1 ? "s" : ""}
-            </p>
-          )}
         </div>
 
         {(isLive || isFinished) && (
@@ -1151,6 +1440,28 @@ export default function LiveDashboard() {
       </div>
 
       {showCountdown && <CountdownOverlay onComplete={handleCountdownComplete} />}
+      {isFinished && showResultsOverlay && (
+        <ResultsOverlay
+          participants={participants}
+          teams={teams}
+          repMap={repMap}
+          totalReps={totalReps}
+          teamSize={comp.team_size}
+          eventId={event?.id || null}
+          siblingComps={siblingComps}
+          currentCompId={comp.id}
+          winnerCategories={comp.winner_categories || ["overall"]}
+          onNavigateComp={(id) => navigate(`/live/${id}`)}
+          onDismiss={() => {
+            if (event?.id) {
+              navigate(`/events/${event.id}`);
+            } else {
+              navigate("/");
+            }
+          }}
+          onShowAll={() => setShowResultsOverlay(false)}
+        />
+      )}
       {isOrganizer && (
         <AdminOverlay
           comp={comp}
