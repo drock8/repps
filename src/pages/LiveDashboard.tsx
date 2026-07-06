@@ -641,7 +641,7 @@ function ResultsOverlay({
       <canvas ref={confettiRef} className="fixed inset-0 z-40 pointer-events-none" />
       <div className="text-center max-w-3xl py-10 px-4 w-full relative z-31">
         {/* Logo + title */}
-        <img src="/repps-logo.png" alt="REPPS" className="h-12 mx-auto mb-3 object-contain" />
+        <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-24 mx-auto mb-3 object-contain" />
         <p className="text-micro text-accent uppercase tracking-widest mb-6">Competition Complete</p>
 
         {/* Total reps hero */}
@@ -1286,8 +1286,8 @@ export default function LiveDashboard() {
           </span>
         </div>
         <div className="text-center flex-shrink-0 flex flex-col items-center">
-          <img src="/repps-logo.png" alt="REPPS" className="h-8 object-contain mb-0.5" />
-          <p className="text-[13px] text-ink-secondary font-medium truncate max-w-[300px]">{comp.name}</p>
+          <img src="/Repps-Yellow-Logo.png" alt="REPPS" className="h-16 object-contain mb-0.5" />
+          <p className="text-[20px] text-white font-bold truncate max-w-[400px]">{comp.name}</p>
         </div>
         <div className="flex-1 flex items-center justify-end gap-4">
           {isFinished && (
