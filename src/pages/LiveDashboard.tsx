@@ -303,19 +303,27 @@ function ParticipantCard({
   reps,
   rank,
   live,
+  compact = false,
 }: {
   p: Participant;
   reps: number;
   rank: number | null;
   live: boolean;
+  compact?: boolean;
 }) {
   const flag = p.nationality_code ? flagEmoji(p.nationality_code) : "";
   const displayReps = useAnimatedCounter(reps);
 
+  const avatarSize = compact ? "w-10 h-10" : "w-14 h-14";
+  const nameSize = compact ? "text-[14px]" : "text-[18px]";
+  const repsSize = compact ? "text-[22px]" : "text-[28px]";
+  const cardMin = compact ? "min-w-[120px]" : "min-w-[160px]";
+  const padding = compact ? "p-3" : "p-4";
+
   return (
-    <div className="bg-bg-surface rounded-lg p-4 flex flex-col items-center gap-2 min-w-[160px] relative">
+    <div className={`bg-bg-surface rounded-lg ${padding} flex flex-col items-center gap-1.5 ${cardMin} relative`}>
       {rank !== null && rank <= 3 && live && (
-        <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-accent text-ink-inverse text-caption font-bold flex items-center justify-center">
+        <div className={`absolute -top-2 -right-2 ${compact ? "w-6 h-6 text-micro" : "w-7 h-7 text-caption"} rounded-full bg-accent text-ink-inverse font-bold flex items-center justify-center`}>
           {rank}
         </div>
       )}
@@ -324,23 +332,23 @@ function ParticipantCard({
           src={p.avatar_url}
           alt=""
           referrerPolicy="no-referrer"
-          className="w-14 h-14 rounded-full object-cover"
+          className={`${avatarSize} rounded-full object-cover`}
         />
       ) : (
-        <div className="w-14 h-14 rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center text-headline font-bold">
+        <div className={`${avatarSize} rounded-full bg-avatar-bg text-avatar-text flex items-center justify-center ${compact ? "text-body" : "text-headline"} font-bold`}>
           {p.name.charAt(0).toUpperCase()}
         </div>
       )}
       <div className="text-center">
-        <p className="text-[18px] font-semibold text-ink-primary truncate max-w-[140px]">
+        <p className={`${nameSize} font-semibold text-ink-primary truncate ${compact ? "max-w-[110px]" : "max-w-[140px]"}`}>
           {p.name}
         </p>
         {p.nationality_name && (
-          <p className="text-[13px] text-ink-muted">{flag ? `${flag} ` : ""}{p.nationality_name}</p>
+          <p className={`${compact ? "text-[11px]" : "text-[13px]"} text-ink-muted`}>{flag ? `${flag} ` : ""}{p.nationality_name}</p>
         )}
       </div>
       {live ? (
-        <p className="text-[28px] font-bold text-accent leading-tight">{displayReps}</p>
+        <p className={`${repsSize} font-bold text-accent leading-tight`}>{displayReps}</p>
       ) : (
         <p
           className={`text-[13px] font-semibold px-3 py-1 rounded-full ${
@@ -1095,6 +1103,10 @@ export default function LiveDashboard() {
     [ranked]
   );
 
+  const sortedParticipants = useMemo(() => {
+    return [...participants].sort((a, b) => a.name.localeCompare(b.name));
+  }, [participants]);
+
   const animatedTotal = useAnimatedCounter(totalReps);
 
   if (loading || !comp) {
@@ -1418,14 +1430,15 @@ export default function LiveDashboard() {
               })()}
             </div>
           ) : (
-            <div className="flex gap-4 flex-wrap justify-center">
-              {participants.map((p) => (
+            <div className="flex gap-3 flex-wrap justify-center">
+              {sortedParticipants.map((p) => (
                 <ParticipantCard
                   key={p.user_id}
                   p={p}
                   reps={repMap.get(p.user_id) || 0}
                   rank={rankOf(p.user_id)}
                   live={isLive || isFinished}
+                  compact={sortedParticipants.length > 20}
                 />
               ))}
             </div>
