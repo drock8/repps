@@ -56,6 +56,7 @@ function AdminOverlay({
   onNavigateComp,
   onRename,
   onDelete,
+  onBackToEvent,
 }: {
   comp: CompState;
   siblingComps: { id: string; name: string; state: string }[];
@@ -63,6 +64,7 @@ function AdminOverlay({
   onNavigateComp: (id: string) => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onBackToEvent: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -111,7 +113,7 @@ function AdminOverlay({
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-accent text-ink-inverse flex items-center justify-center shadow-lg text-headline"
+        className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full bg-accent text-black flex items-center justify-center shadow-lg text-headline"
       >
         ⚡
       </button>
@@ -213,6 +215,14 @@ function AdminOverlay({
               </div>
             </>
           )}
+
+          <div className="border-t border-divider my-2" />
+          <button
+            onClick={onBackToEvent}
+            className="w-full py-2.5 px-3 rounded-md bg-bg-surface text-ink-secondary text-caption font-semibold text-left"
+          >
+            ← Back to Event
+          </button>
         </div>
       )}
     </>
@@ -1486,6 +1496,10 @@ export default function LiveDashboard() {
               if (eventId) navigate(`/events/${eventId}`);
               else navigate("/");
             }
+          }}
+          onBackToEvent={() => {
+            if (event?.id) navigate(`/events/${event.id}`);
+            else navigate("/");
           }}
         />
       )}
