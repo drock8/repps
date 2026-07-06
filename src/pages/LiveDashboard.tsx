@@ -668,15 +668,15 @@ function ResultsOverlay({
         </p>
 
         {/* Total reps hero */}
-        <div className="flex items-center justify-center mb-12">
-          <p className="text-body text-ink-secondary tracking-wide flex-1 text-right pr-4">
-            {compDate ? new Date(compDate).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" }) : ""}
-          </p>
-          <div className="text-center">
+        <div className="mb-12">
+          <div className="flex items-center justify-center">
+            <p className="text-body text-ink-secondary tracking-wide flex-1 text-right pr-4">
+              {compDate ? new Date(compDate).toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" }) : ""}
+            </p>
             <p className="text-[58px] font-bold text-accent leading-none">{totalReps}</p>
-            <p className="text-body text-ink-secondary tracking-wide mt-1">Total Repps</p>
+            <p className="text-body text-ink-secondary tracking-wide flex-1 text-left pl-4">{participants.length} Participant{participants.length !== 1 ? "s" : ""}</p>
           </div>
-          <p className="text-body text-ink-secondary tracking-wide flex-1 text-left pl-4">{participants.length} Participant{participants.length !== 1 ? "s" : ""}</p>
+          <p className="text-body text-ink-secondary tracking-wide mt-1">Total Repps</p>
         </div>
 
         {/* Winners section */}
