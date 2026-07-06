@@ -24,24 +24,6 @@ function makeStandingLandmarks(): Landmark[] {
   return lm;
 }
 
-function makeDownLandmarks(): Landmark[] {
-  const lm: Landmark[] = new Array(33).fill(null).map(() => makeLandmark(0.5, 0.5));
-  lm[0] = makeLandmark(0.30, 0.70);         // nose (down near floor)
-  lm[11] = makeLandmark(0.35, 0.72);        // lShoulder
-  lm[12] = makeLandmark(0.45, 0.72);        // rShoulder
-  lm[13] = makeLandmark(0.30, 0.75);        // lElbow
-  lm[14] = makeLandmark(0.50, 0.75);        // rElbow
-  lm[15] = makeLandmark(0.25, 0.78);        // lWrist
-  lm[16] = makeLandmark(0.55, 0.78);        // rWrist
-  lm[23] = makeLandmark(0.55, 0.73);        // lHip (flat plank)
-  lm[24] = makeLandmark(0.60, 0.73);        // rHip
-  lm[25] = makeLandmark(0.70, 0.80);        // lKnee
-  lm[26] = makeLandmark(0.75, 0.80);        // rKnee
-  lm[27] = makeLandmark(0.80, 0.90);        // lAnkle
-  lm[28] = makeLandmark(0.85, 0.90);        // rAnkle
-  return lm;
-}
-
 describe("DetectionEngineV3", () => {
   let engine: DetectionEngineV3;
 
