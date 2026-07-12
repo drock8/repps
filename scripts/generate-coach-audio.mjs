@@ -46,10 +46,6 @@ const CLIPS = [
   { file: "lets-go", text: "Let's go!" },
   { file: "on-fire", text: "On fire!" },
 
-  // Hip pike rejection cues
-  { file: "drop-your-hips", text: "Drop your hips!" },
-  { file: "flatten-your-body", text: "Flatten your body!" },
-
   // Forward-drift rejection cues
   { file: "drop-in-place", text: "Drop in place!" },
   { file: "drop-straight-down", text: "Drop straight down!" },
