@@ -15,7 +15,6 @@ export type CyclePhase = "HINGING" | "BOTTOM" | "DRIVING" | "RISING";
 export type RejectionReason =
   | "shallow_descent"
   | "no_plank"
-  | "hips_too_high"
   | "no_floor_contact"
   | "forward_drift"
   | "incomplete_rise"
@@ -27,7 +26,6 @@ export type RejectionReason =
 
 export type CoachingCue =
   | "keep_going_down"
-  | "drop_your_hips"
   | "lower_your_chest"
   | "push_up_and_stand"
   | "stay_in_frame";
@@ -80,7 +78,6 @@ interface V3Thresholds {
   hipExtension: number;
   kneeExtension: number;
   plankTorsoAngle: number;
-  plankHipAngle: number;
 }
 
 interface ThresholdSet {
@@ -104,7 +101,6 @@ const CASUAL_THRESHOLDS: ThresholdSet = {
     hipExtension: 155,
     kneeExtension: 150,
     plankTorsoAngle: 0,
-    plankHipAngle: 0,
   },
   side: {
     floorRatio: 0.50,
@@ -121,7 +117,6 @@ const CASUAL_THRESHOLDS: ThresholdSet = {
     hipExtension: 155,
     kneeExtension: 150,
     plankTorsoAngle: 0,
-    plankHipAngle: 0,
   },
 };
 
@@ -141,7 +136,6 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     hipExtension: 145,
     kneeExtension: 140,
     plankTorsoAngle: 35,
-    plankHipAngle: 140,
   },
   side: {
     floorRatio: 0.48,
@@ -158,7 +152,6 @@ const STANDARD_THRESHOLDS: ThresholdSet = {
     hipExtension: 145,
     kneeExtension: 140,
     plankTorsoAngle: 35,
-    plankHipAngle: 140,
   },
 };
 
@@ -178,7 +171,6 @@ const ATHLETE_THRESHOLDS: ThresholdSet = {
     hipExtension: 160,
     kneeExtension: 160,
     plankTorsoAngle: 60,
-    plankHipAngle: 145,
   },
   side: {
     floorRatio: 0.32,
@@ -195,7 +187,6 @@ const ATHLETE_THRESHOLDS: ThresholdSet = {
     hipExtension: 160,
     kneeExtension: 160,
     plankTorsoAngle: 60,
-    plankHipAngle: 145,
   },
 };
 
@@ -215,7 +206,6 @@ const ELITE_THRESHOLDS: ThresholdSet = {
     hipExtension: 165,
     kneeExtension: 165,
     plankTorsoAngle: 60,
-    plankHipAngle: 150,
   },
   side: {
     floorRatio: 0.28,
@@ -232,7 +222,6 @@ const ELITE_THRESHOLDS: ThresholdSet = {
     hipExtension: 165,
     kneeExtension: 165,
     plankTorsoAngle: 60,
-    plankHipAngle: 150,
   },
 };
 
@@ -539,15 +528,10 @@ export class DetectionEngineV3 {
   }
 
   // Returns null if bottom entry is valid, or a rejection reason if not
-  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, _elbowAngle: number | null, hipAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
+  private checkBottomEntry(ratio: number, noseAnkleRatio: number, torsoAngle: number | null, _elbowAngle: number | null, landmarks: Landmark[]): RejectionReason | null {
     const t = this.thresholds;
 
     if (ratio >= t.floorRatio) return "shallow_descent";
-
-    // Hip pike check (catches downward dog): shoulder-hip-knee must be nearly straight
-    if (t.plankHipAngle > 0 && hipAngle !== null && hipAngle < t.plankHipAngle) {
-      return "hips_too_high";
-    }
 
     if (this.cameraAngle === "side") {
       const sideCheck = torsoAngle !== null && torsoAngle > t.plankTorsoAngle;
@@ -884,7 +868,7 @@ export class DetectionEngineV3 {
       }
 
       case "HINGING": {
-        const bottomReject = this.checkBottomEntry(rawR, angles.noseAnkleRatio, angles.torsoAngle, angles.elbowAngle, angles.hipAngle, landmarks);
+        const bottomReject = this.checkBottomEntry(rawR, angles.noseAnkleRatio, angles.torsoAngle, angles.elbowAngle, landmarks);
         if (bottomReject === null) {
           this.state = "BOTTOM";
           this.bottomEnteredTime = now;
@@ -901,8 +885,6 @@ export class DetectionEngineV3 {
           this.state = "READY";
           this.resetCycle();
           stateChanged = true;
-        } else if (t.plankHipAngle > 0 && angles.hipAngle !== null && angles.hipAngle < t.plankHipAngle && r < 0.60) {
-          coachingCue = "drop_your_hips";
         } else if ((now - this.hingingEnteredTime) > COACHING_HINGING_TIMEOUT) {
           coachingCue = "keep_going_down";
         }

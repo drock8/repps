@@ -5,7 +5,6 @@ const REJECTION_CLIPS: Record<string, { primary: string; escalated: string | nul
   no_jump: { primary: "jump-up", escalated: "feet-off", final: null },
   no_tuck: { primary: "knees-up", escalated: "drive-those-knees", final: null },
   no_plank: { primary: "kick-back", escalated: null, final: null },
-  hips_too_high: { primary: "drop-your-hips", escalated: "flatten-your-body", final: null },
   forward_drift: { primary: "drop-in-place", escalated: "drop-straight-down", final: "hands-to-feet" },
   too_slow: { primary: "keep-moving", escalated: null, final: null },
   lost_tracking: { primary: "step-back-in", escalated: null, final: null },
@@ -13,7 +12,6 @@ const REJECTION_CLIPS: Record<string, { primary: string; escalated: string | nul
 
 const COACHING_CLIPS: Record<string, string> = {
   keep_going_down: "keep-going",
-  drop_your_hips: "drop-your-hips",
   push_up_and_stand: "push-up",
   lower_your_chest: "get-up",
 };
