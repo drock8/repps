@@ -27,11 +27,13 @@ const PRIORITY_COACHING = 3;
 const PRIORITY_ENCOURAGEMENT = 4;
 
 const REJECTION_COOLDOWN_MS = 1500;
+const COACHING_COOLDOWN_MS = 3000;
 
 const audioCache = new Map<string, HTMLAudioElement>();
 let currentAudio: HTMLAudioElement | null = null;
 let currentPriority = 0;
 let lastRejectionTime = 0;
+let lastCoachingTime = 0;
 
 function clipPath(name: string): string {
   return `/audio/coach/${name}.mp3`;
@@ -113,6 +115,10 @@ export function playRejectionCue(reason: string, consecutiveCount: number): void
 }
 
 export function playCoachingCue(cue: string): void {
+  const now = Date.now();
+  if (now - lastCoachingTime < COACHING_COOLDOWN_MS) return;
+  lastCoachingTime = now;
+
   const clipName = COACHING_CLIPS[cue];
   if (!clipName) return;
   playClip(clipName, PRIORITY_COACHING);
@@ -139,4 +145,5 @@ export function stopCoachAudio(): void {
   }
   currentPriority = 0;
   lastRejectionTime = 0;
+  lastCoachingTime = 0;
 }

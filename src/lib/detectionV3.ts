@@ -296,6 +296,10 @@ export class DetectionEngineV3 {
   // Lost tracking
   private lastGoodTrackingTime = 0;
 
+  // Coaching cooldown — prevent same cue from firing repeatedly
+  private lastCoachingCue: CoachingCue | null = null;
+  private lastCoachingCueTime = 0;
+
   // Output per frame
   private lastRejection: RejectionReason | null = null;
 
@@ -356,6 +360,18 @@ export class DetectionEngineV3 {
     this.airStartTime = 0;
     this.bottomMinRatio = 1;
     this.lastRejection = null;
+    this.lastCoachingCue = null;
+    this.lastCoachingCueTime = 0;
+  }
+
+  private emitCoachingCue(cue: CoachingCue, now: number): CoachingCue | null {
+    const COACHING_COOLDOWN_MS = 4000;
+    if (cue === this.lastCoachingCue && (now - this.lastCoachingCueTime) < COACHING_COOLDOWN_MS) {
+      return null;
+    }
+    this.lastCoachingCue = cue;
+    this.lastCoachingCueTime = now;
+    return cue;
   }
 
   private extractLandmarks(landmarks: Landmark[]) {
@@ -886,7 +902,7 @@ export class DetectionEngineV3 {
           this.resetCycle();
           stateChanged = true;
         } else if ((now - this.hingingEnteredTime) > COACHING_HINGING_TIMEOUT) {
-          coachingCue = "keep_going_down";
+          coachingCue = this.emitCoachingCue("keep_going_down", now);
         }
         break;
       }
@@ -907,8 +923,8 @@ export class DetectionEngineV3 {
           this.state = "READY";
           this.resetCycle();
           stateChanged = true;
-        } else if (dwellTime > COACHING_BOTTOM_TIMEOUT && dwellTime < t.minFloorDwell + COACHING_BOTTOM_TIMEOUT) {
-          coachingCue = "lower_your_chest";
+        } else if (dwellTime > COACHING_BOTTOM_TIMEOUT) {
+          coachingCue = this.emitCoachingCue("lower_your_chest", now);
         }
         break;
       }
@@ -931,7 +947,7 @@ export class DetectionEngineV3 {
           this.resetCycle();
           stateChanged = true;
         } else if ((now - this.drivingEnteredTime) > COACHING_DRIVING_TIMEOUT) {
-          coachingCue = "push_up_and_stand";
+          coachingCue = this.emitCoachingCue("push_up_and_stand", now);
         }
         break;
       }
